@@ -26,6 +26,7 @@ Living record of what exists, what changed, and what is left. Newest entries at 
 
 ## Work log
 ### 2026-10-03
+- **Legal pages:** the client's website already has the Terms of Use (rhythmandflow.co.za/terms-of-use/) and Privacy Policy (rhythmandflow.co.za/privacy-policy/). The app now links to them from the sign-up screen and Settings, says where they can be found, and the API's draft pages were replaced by redirects to them.
 - **Real push notifications built (Feature 3B):** the API stores each phone's Firebase token (`DeviceToken` table, max 5 per person, removed on log out and on account deletion) and pushes every notification through Firebase Cloud Messaging (data-only messages, same notification id as the in-app copy so nothing shows twice). Off automatically when no key is configured. The app registers after sign-in, builds without `google-services.json` so CI still works. 12 new backend tests (run in CI). **Not yet proven end to end:** real delivery can only be tried once the API runs on Azure with `Firebase__ServiceAccountJson` set.
 - **App icon, accessibility first pass and 17 Android unit tests done (Features 8-10).**
 - 2026-10-03 **New private repo with a fresh history:** the project moved to `samirm91011/RhythmAndFlow` (private) as a single clean starting commit; branches `main`, `develop`, `feature/app-features`. The earlier repo `rythmflowdev` is retired (delete or keep private once the pipeline works here). Secrets and variables must be re-added on the new repo (`docs/GITHUB-SETUP.md`). The campus repo comes last.

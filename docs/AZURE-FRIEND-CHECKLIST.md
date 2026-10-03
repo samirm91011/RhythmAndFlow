@@ -30,7 +30,7 @@ Presentation: **Wednesday 7 October 2026.** Please aim to finish "Do now" by **S
 ## E. First deploy and check (Part 6) — only when Samir says "go"
 - [ ] **E1.** GitHub → **Actions → Deploy → Run workflow** (branch `main`).
 - [ ] **E2.** When green, open `https://<app name>.azurewebsites.net/health`. Expect `{"status":"ok", …}`.
-- [ ] **E3.** Also open `/docs` (API documentation), `/terms` and `/privacy` (draft legal pages). They should all load.
+- [ ] **E3.** Also open `/docs` (API documentation) - it should load. `/terms` and `/privacy` should jump to the Rhythm & Flow website pages (rhythmandflow.co.za/terms-of-use and /privacy-policy).
 - [ ] **E4.** If anything is red or blank: screenshot the failed step or page (without secrets in view) and send it to Samir.
 
 ## F. Later changes you may be asked to do
@@ -46,4 +46,4 @@ Presentation: **Wednesday 7 October 2026.** Please aim to finish "Do now" by **S
 | 3 Oct | The repository is now **private** and has a new name, `RhythmAndFlow`. | Use the new address. You need to be a collaborator (Samir has added you). |
 | 3 Oct | New app setting `Firebase__ServiceAccountJson`. | Add it (A5/B1). |
 | 3 Oct | New database table for push notification phones. | Nothing to do on a first deploy. A reset is only needed if you already deployed an older version. |
-| 3 Oct | Draft `/terms` and `/privacy` pages and account deletion/data export in the API. | Check E3 after deploying. |
+| 3 Oct | Account deletion/data export added to the API, and `/terms` and `/privacy` now redirect to the client's website pages. | Check E3 after deploying. Optional settings `Legal__TermsUrl` and `Legal__PrivacyUrl` exist but are not needed. |

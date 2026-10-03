@@ -193,8 +193,7 @@ fun SettingsScreen(session: SessionViewModel, onBack: () -> Unit, onNavigate: (S
     var exportError by remember { mutableStateOf<String?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
-    fun openPage(path: String) {
-        val url = com.rhythmandflow.app.BuildConfig.API_BASE_URL.trimEnd('/') + path
+    fun openPage(url: String) {
         try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
         catch (_: Exception) { dialog = "Can't open the page" to "No web browser was found on this phone." }
     }
@@ -206,11 +205,11 @@ fun SettingsScreen(session: SessionViewModel, onBack: () -> Unit, onNavigate: (S
             NavRow(Icons.Default.CreditCard, "Subscription", "Plan and billing") { onNavigate("subscription") }
             NavRow(Icons.Default.Notifications, "Notifications", "Your updates and alerts") { onNavigate("notifications") }
             ReminderSwitchRow()
-            NavRow(Icons.Default.Lock, "Privacy Policy", "How we look after your data") { openPage("/privacy") }
+            NavRow(Icons.Default.Lock, "Privacy Policy", "Read it on rhythmandflow.co.za/privacy-policy") { openPage(LegalLinks.PRIVACY) }
+            NavRow(Icons.Default.Policy, "Terms of Use", "Read it on rhythmandflow.co.za/terms-of-use") { openPage(LegalLinks.TERMS) }
             NavRow(Icons.Default.Help, "Help & Support", "Get answers and contact us") {
                 dialog = "Help & Support" to "Visit rhythmandflow.co.za to get in touch with the Rhythm & Flow team."
             }
-            NavRow(Icons.Default.Policy, "Terms of Use", "Read our terms") { openPage("/terms") }
             NavRow(Icons.Default.Download, if (exporting) "Preparing your data..." else "Download my data", "Get a copy of everything we hold about you") {
                 if (!exporting) {
                     exporting = true

@@ -48,6 +48,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.rhythmandflow.app.R
+import com.rhythmandflow.app.ui.components.LegalNotice
 import com.rhythmandflow.app.ui.components.PrimaryButton
 import com.rhythmandflow.app.ui.components.RfTextField
 import com.rhythmandflow.app.ui.components.SecondaryButton
@@ -153,6 +154,8 @@ fun SignUpScreen(session: SessionViewModel, onBack: () -> Unit, onLogin: () -> U
         RfTextField(password, { password = it }, "Password", Icons.Default.Lock, isPassword = true, error = if (submitted) passErr else null)
         VSpace(8)
         serverError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium); VSpace(8) }
+        LegalNotice(Modifier.fillMaxWidth())
+        VSpace(12)
         PrimaryButton("Sign Up", loading = busy, onClick = {
             submitted = true
             if (listOf(nameErr, userErr, emailErr, passErr).all { it == null }) {
