@@ -85,15 +85,21 @@ fun AppRoot(session: SessionViewModel, pendingRoute: String? = null, onRouteHand
     val scope = rememberCoroutineScope()
     val notify: (String) -> Unit = { msg -> scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(msg) } }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, containerColor = Color.White) { _ ->
-        when (state) {
-            SessionState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Image(painterResource(R.drawable.rf_logo_black), "Rhythm & Flow", Modifier.size(140.dp))
+    // This frame only hosts the snackbar; each screen below handles the system bars itself, so no insets are applied here.
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) }, containerColor = Color.White,
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+    ) { frame ->
+        Box(Modifier.fillMaxSize().padding(frame)) {
+            when (state) {
+                SessionState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Image(painterResource(R.drawable.rf_logo_black), "Rhythm & Flow", Modifier.size(140.dp))
+                }
+                SessionState.SignedOut -> Box(Modifier.fillMaxSize().background(Brand.Canvas), contentAlignment = Alignment.TopCenter) {
+                    Box(Modifier.widthIn(max = 560.dp).fillMaxHeight().background(Color.White)) { AuthGraph(session, notify) }
+                }
+                is SessionState.SignedIn -> MainGraph(session, notify, pendingRoute, onRouteHandled)
             }
-            SessionState.SignedOut -> Box(Modifier.fillMaxSize().background(Brand.Canvas), contentAlignment = Alignment.TopCenter) {
-                Box(Modifier.widthIn(max = 560.dp).fillMaxHeight().background(Color.White)) { AuthGraph(session, notify) }
-            }
-            is SessionState.SignedIn -> MainGraph(session, notify, pendingRoute, onRouteHandled)
         }
     }
 }
