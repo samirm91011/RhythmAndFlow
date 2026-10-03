@@ -1,7 +1,19 @@
 package com.rhythmandflow.app.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
@@ -150,6 +162,22 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
     }
 }
 
+/** A field that shows the chosen value and opens a picker when tapped, so nothing has to be typed in a fixed format. */
+@Composable
+private fun PickerField(value: String, label: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier.clearAndSetSemantics {
+            contentDescription = "$label: ${value.ifBlank { "not chosen" }}"
+            role = Role.Button
+            onClick("Choose $label") { onClick(); true }
+        },
+    ) {
+        RfTextField(value, {}, label, icon = icon)
+        Box(Modifier.matchParentSize().clickable(onClick = onClick))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit) {
     val vm = appViewModel(key = "admin") { AdminViewModel(it) }
@@ -160,6 +188,8 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit) {
     var location by remember { mutableStateOf("") }
     var date by remember { mutableStateOf("") }
     var time by remember { mutableStateOf("") }
+    var showDate by remember { mutableStateOf(false) }
+    var showTime by remember { mutableStateOf(false) }
     var minutes by remember { mutableStateOf("60") }
     var capacity by remember { mutableStateOf("20") }
     var cancel by remember { mutableStateOf<Int?>(null) }
@@ -172,8 +202,35 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit) {
             RfTextField(coach, { coach = it }, "Coach")
             RfTextField(location, { location = it }, "Location (studio or online)")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.weight(1f)) { RfTextField(date, { date = it }, "Date (yyyy-mm-dd)") }
-                Box(Modifier.weight(1f)) { RfTextField(time, { time = it }, "Start (HH:mm)") }
+                val dateShown = runCatching { LocalDate.parse(date).format(DateTimeFormatter.ofPattern("EEE d MMM yyyy")) }.getOrDefault("")
+                PickerField(dateShown, "Date", Icons.Default.CalendarMonth, Modifier.weight(1f)) { showDate = true }
+                PickerField(time, "Start time", Icons.Default.Schedule, Modifier.weight(1f)) { showTime = true }
+            }
+            if (showDate) {
+                val today = LocalDate.now().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                val picker = rememberDatePickerState(
+                    initialSelectedDateMillis = runCatching { LocalDate.parse(date).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }.getOrDefault(today),
+                    selectableDates = object : SelectableDates { override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis >= today },
+                )
+                DatePickerDialog(
+                    onDismissRequest = { showDate = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            picker.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString() }
+                            showDate = false
+                        }) { Text("OK") }
+                    },
+                    dismissButton = { TextButton(onClick = { showDate = false }) { Text("Cancel") } },
+                ) { DatePicker(picker) }
+            }
+            if (showTime) {
+                val picker = rememberTimePickerState(initialHour = time.substringBefore(':').toIntOrNull() ?: 9, initialMinute = time.substringAfter(':', "").toIntOrNull() ?: 0, is24Hour = true)
+                AlertDialog(
+                    onDismissRequest = { showTime = false },
+                    text = { TimePicker(picker) },
+                    confirmButton = { TextButton(onClick = { time = "%02d:%02d".format(picker.hour, picker.minute); showTime = false }) { Text("OK") } },
+                    dismissButton = { TextButton(onClick = { showTime = false }) { Text("Cancel") } },
+                )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.weight(1f)) { RfTextField(minutes, { minutes = it.filter(Char::isDigit) }, "Minutes", keyboardType = KeyboardType.Number) }

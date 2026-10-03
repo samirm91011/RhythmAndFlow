@@ -61,6 +61,13 @@ private val RhythmColors = lightColorScheme(
     surface = Brand.White,
     onSurface = Brand.Ink,
     surfaceVariant = Brand.Surface,
+    // Dialogs, pickers and menus use these; without them Material falls back to a lavender tint that is not a brand colour.
+    surfaceContainerLowest = Brand.White,
+    surfaceContainerLow = Brand.Canvas,
+    surfaceContainer = Brand.Surface,
+    surfaceContainerHigh = Brand.White,
+    surfaceContainerHighest = Brand.Surface,
+    surfaceTint = Color.Transparent,
     onSurfaceVariant = Brand.Muted,
     outline = Brand.LightGrey,
     error = Brand.Error,
