@@ -261,10 +261,15 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
     }
 }
 
+/**
+ * Switches to a tab. Switching from one tab to another keeps each tab's own history. Leaving a flow (payment, a finished
+ * practice, a booking list) starts the tab fresh, so screens like "You're subscribed!" are not brought back later.
+ */
 private fun NavHostController.goTab(route: String) {
+    val fromTab = currentDestination?.route in tabs.map { it.route }
     navigate(route) {
-        popUpTo("home") { saveState = true }
+        popUpTo("home") { saveState = fromTab }
         launchSingleTop = true
-        restoreState = true
+        restoreState = fromTab
     }
 }
