@@ -46,11 +46,11 @@ class SessionViewModel(private val c: AppContainer) : ViewModel() {
     val subscriptions: StateFlow<List<Subscription>> = _subs.asStateFlow()
 
     init {
-        viewModelScope.launch { repo.unauthorized.collect { signOut() } }
+        viewModelScope.launch { repo.unauthorized.collect { finishSignOut() } }
         viewModelScope.launch {
             if (!repo.hasToken) { _state.value = SessionState.SignedOut; return@launch }
             when (val r = repo.me()) {
-                is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value); refreshSubscriptions(); com.rhythmandflow.app.notifications.NotificationSync.start(c.app) }
+                is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value); onSignedIn() }
                 // A network failure should not log the user out; only an auth failure does (handled via `unauthorized`).
                 is Outcome.Fail -> _state.value = SessionState.SignedOut
             }
@@ -59,13 +59,13 @@ class SessionViewModel(private val c: AppContainer) : ViewModel() {
 
     suspend fun login(identifier: String, password: String): String? =
         when (val r = repo.login(identifier.trim(), password)) {
-            is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value.user); refreshSubscriptions(); com.rhythmandflow.app.notifications.NotificationSync.start(c.app); null }
+            is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value.user); onSignedIn(); null }
             is Outcome.Fail -> r.message
         }
 
     suspend fun register(name: String, username: String, email: String, password: String): String? =
         when (val r = repo.register(name.trim(), username.trim(), email.trim(), password)) {
-            is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value.user); refreshSubscriptions(); null }
+            is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value.user); onSignedIn(); null }
             is Outcome.Fail -> r.message
         }
 
@@ -95,7 +95,22 @@ class SessionViewModel(private val c: AppContainer) : ViewModel() {
             is Outcome.Fail -> r.message
         }
 
+    /** Things to start once someone is signed in: their plans, the notification sync, and push for this phone. */
+    private fun onSignedIn() {
+        refreshSubscriptions()
+        com.rhythmandflow.app.notifications.NotificationSync.start(c.app)
+        com.rhythmandflow.app.notifications.PushRegistration.sync(c.app)
+    }
+
+    /** Tells the server first (while the login still works) so this phone stops receiving this person's pushes, then signs out. */
     fun signOut() {
+        viewModelScope.launch {
+            kotlinx.coroutines.withTimeoutOrNull(2500) { com.rhythmandflow.app.notifications.PushRegistration.unregister(c.app) }
+            finishSignOut()
+        }
+    }
+
+    private fun finishSignOut() {
         repo.signOut()
         com.rhythmandflow.app.notifications.NotificationSync.stop(c.app)
         com.rhythmandflow.app.notifications.ReminderScheduler.cancelAll(c.app, c.localPrefs)

@@ -178,6 +178,17 @@ public class AppNotification
     public DateTime? ReadAt { get; set; }
 }
 
+/// <summary>A phone that can receive push notifications for a user (a Firebase registration token).</summary>
+public class DeviceToken
+{
+    public int Id { get; set; }
+    public Guid UserId { get; set; }
+    public string Token { get; set; } = "";
+    public string Platform { get; set; } = "ANDROID";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime LastSeen { get; set; } = DateTime.UtcNow;
+}
+
 /// <summary>A de-duplicated error report from the API or the app, for administrators to review.</summary>
 public class ErrorLog
 {

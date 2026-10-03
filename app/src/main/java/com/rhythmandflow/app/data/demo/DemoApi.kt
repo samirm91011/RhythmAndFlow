@@ -107,6 +107,8 @@ class DemoApi : Api {
         return AuthResponse("demo-token", user)
     }
 
+    override suspend fun registerDeviceToken(body: DeviceTokenRequest): MessageResponse = MessageResponse("Registered.")
+    override suspend fun removeDeviceToken(body: DeviceTokenRequest): MessageResponse = MessageResponse("Removed.")
     override suspend fun exportData(): okhttp3.ResponseBody {
         pause()
         val json = """{"exportedAt":"demo","profile":{"fullName":"${user.fullName}","email":"${user.email}"},"note":"Demo data only."}"""

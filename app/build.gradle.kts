@@ -4,6 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Push notifications need app/google-services.json from the Firebase console. That file is a private setting and is never
+// committed, so builds without it (CI, a fresh checkout, demo mode) still work: push is simply switched off.
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
+
 android {
     namespace = "com.rhythmandflow.app"
     compileSdk = 36
@@ -72,6 +76,10 @@ dependencies {
 
     // Background work (notification sync, class reminders)
     implementation("androidx.work:work-runtime-ktx:2.10.2")
+
+    // Push notifications (Firebase Cloud Messaging)
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-messaging")
 
     // Video playback
     implementation("androidx.media3:media3-exoplayer:1.7.1")

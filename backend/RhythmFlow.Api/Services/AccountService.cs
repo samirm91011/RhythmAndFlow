@@ -72,6 +72,7 @@ public class AccountService(AppDbContext db, SubscriptionService subs)
         db.Bookings.RemoveRange(db.Bookings.Where(b => b.UserId == userId));
         db.Notifications.RemoveRange(db.Notifications.Where(n => n.UserId == userId));
         db.PasswordResets.RemoveRange(db.PasswordResets.Where(r => r.UserId == userId));
+        db.DeviceTokens.RemoveRange(db.DeviceTokens.Where(t => t.UserId == userId));
         foreach (var log in await db.ErrorLogs.Where(l => l.UserId == userId).ToListAsync())
         {
             log.UserId = null;

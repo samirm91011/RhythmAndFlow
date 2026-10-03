@@ -172,6 +172,7 @@ public class AdminController(AppDbContext db, NotificationService notifications)
         notifications.Stage(affected.Select(b => b.UserId), "CLASS", "Class cancelled",
             $"Sorry, {c.Name} on {c.StartTime:ddd d MMM} has been cancelled.", "classes");
         await db.SaveChangesAsync();
+        await notifications.PushStagedAsync();
         return NoContent();
     }
 

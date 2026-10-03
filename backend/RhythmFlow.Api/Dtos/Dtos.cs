@@ -97,6 +97,7 @@ public record ChangePasswordRequest(
 // ---- Notifications ----
 public record NotificationDto(int Id, string Kind, string Title, string Body, string? Route, DateTime CreatedAt, bool Read);
 public record MarkReadRequest(List<int>? Ids);
+public record DeviceTokenRequest([Required, StringLength(512, MinimumLength = 20)] string Token);
 
 // ---- Error reporting ----
 public record ErrorReportRequest(

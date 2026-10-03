@@ -73,6 +73,7 @@ Open the App Service → **Settings → Environment variables** (older portals: 
 | `Smtp__Password` | the Gmail app password (same file) |
 | `Smtp__FromAddress` | the Gmail address |
 | `Admin__AlertEmails__0` | the Gmail address (error alerts go here) |
+| `Firebase__ServiceAccountJson` | the **entire contents** of `firebase-service-account.json` pasted as one value (Samir sends this privately, never by chat or e-mail in the clear). Needed for push notifications; without it the app still works but notifications arrive about every 15 minutes instead of instantly |
 | `Seed__Users__0__FullName` | `Rhythm Admin` |
 | `Seed__Users__0__Username` | `admin` |
 | `Seed__Users__0__Email` | `admin@rhythmandflow.test` |

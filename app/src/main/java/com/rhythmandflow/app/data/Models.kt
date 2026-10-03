@@ -22,6 +22,7 @@ data class ResetPasswordRequest(val email: String, val code: String, val newPass
 data class ChangePasswordRequest(val currentPassword: String, val newPassword: String)
 data class MessageResponse(val message: String?)
 data class DeleteAccountRequest(val password: String)
+data class DeviceTokenRequest(val token: String)
 
 data class Plan(
     val id: Int,
