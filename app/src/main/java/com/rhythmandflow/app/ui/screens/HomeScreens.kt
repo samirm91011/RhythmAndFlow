@@ -189,8 +189,10 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
 
 @Composable
 private fun MoodGrid(selected: String?, onSelect: (String) -> Unit) {
+    // With very large text, three tiles across would break words in the middle, so use two.
+    val columns = if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) 2 else 3
     Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        moods.chunked(3).forEach { row ->
+        moods.chunked(columns).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { m ->
                     val isSel = selected == m.label
@@ -209,7 +211,7 @@ private fun MoodGrid(selected: String?, onSelect: (String) -> Unit) {
                         Text(m.label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
                     }
                 }
-                repeat(3 - row.size) { Box(Modifier.weight(1f)) }
+                repeat(columns - row.size) { Box(Modifier.weight(1f)) }
             }
         }
     }

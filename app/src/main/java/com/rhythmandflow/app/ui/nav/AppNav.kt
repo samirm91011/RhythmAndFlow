@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.rhythmandflow.app.ui.components.CappedFontScale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.widthIn
@@ -151,7 +152,7 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
                             selected = route == t.route,
                             onClick = { nav.goTab(t.route) },
                             icon = { Icon(t.icon, t.label) },
-                            label = { Text(t.label) },
+                            label = { CappedFontScale { Text(t.label, maxLines = 1, softWrap = false) } },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = Brand.TealDeep, selectedTextColor = Brand.TealDeep,
                                 indicatorColor = Brand.TealSoft, unselectedIconColor = Brand.Muted, unselectedTextColor = Brand.Muted,
@@ -171,7 +172,7 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
                         selected = route == t.route,
                         onClick = { nav.goTab(t.route) },
                         icon = { Icon(t.icon, t.label) },
-                        label = { Text(t.label) },
+                        label = { CappedFontScale { Text(t.label, maxLines = 1, softWrap = false) } },
                         colors = NavigationRailItemDefaults.colors(
                             selectedIconColor = Brand.TealDeep, selectedTextColor = Brand.TealDeep,
                             indicatorColor = Brand.TealSoft, unselectedIconColor = Brand.Muted, unselectedTextColor = Brand.Muted,

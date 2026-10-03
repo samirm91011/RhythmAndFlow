@@ -294,6 +294,18 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier, action: String? = 
     }
 }
 
+/**
+ * Caps text scaling for small fixed-size controls (such as bottom-bar labels) so words never break in the middle.
+ * Everything else in the app still follows the person's text-size setting in full.
+ */
+@Composable
+fun CappedFontScale(max: Float = 1.3f, content: @Composable () -> Unit) {
+    val d = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(d.density, minOf(d.fontScale, max)),
+    ) { content() }
+}
+
 /** Scrollable page with standard side padding. */
 @Composable
 fun PageColumn(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
