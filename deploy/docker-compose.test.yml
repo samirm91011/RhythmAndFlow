@@ -1,0 +1,43 @@
+# Throw-away stack used by the "Stack test" GitHub workflow: the real API image + a real PostgreSQL,
+# no HTTPS, development mode (so the payment simulator exists). The passwords below are CI-only dummies.
+name: rftest
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: rhythmflow
+      POSTGRES_USER: rfadmin
+      POSTGRES_PASSWORD: ci-only-password
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=40", "-c", "work_mem=4MB", "-c", "maintenance_work_mem=32MB"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rfadmin -d rhythmflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    image: rhythmflow-api:test
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Database__Provider: Postgres
+      ConnectionStrings__Default: Host=db;Port=5432;Database=rhythmflow;Username=rfadmin;Password=ci-only-password;SSL Mode=Disable
+      Jwt__Key: ci-only-jwt-key-ci-only-jwt-key-ci-only-jwt-key-123456
+      Media__SigningKey: ci-only-media-key-ci-only-media-key-ci-only-media-123456
+      PayFast__Sandbox: "true"
+      PayFast__MerchantId: "10000100"
+      PayFast__MerchantKey: "46f0cd694581a"
+      PayFast__PublicBaseUrl: http://localhost:8080
+      Seed__Users__0__FullName: CI Admin
+      Seed__Users__0__Username: ciadmin
+      Seed__Users__0__Email: ciadmin@example.com
+      Seed__Users__0__Password: CiAdmin-Password-1!
+      Seed__Users__0__Role: ADMIN
+      DOTNET_GCHeapHardLimit: "0x20000000"
+      DOTNET_GCConserveMemory: "5"
+      DOTNET_TieredPGO: "0"

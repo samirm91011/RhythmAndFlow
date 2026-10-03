@@ -1,0 +1,272 @@
+package com.rhythmandflow.app.ui.screens
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import com.rhythmandflow.app.data.ClassUpsert
+import com.rhythmandflow.app.data.LessonUpsert
+import com.rhythmandflow.app.data.Plan
+import com.rhythmandflow.app.data.PlanUpsert
+import com.rhythmandflow.app.ui.components.*
+import com.rhythmandflow.app.ui.theme.Brand
+import com.rhythmandflow.app.ui.viewmodel.AdminViewModel
+import com.rhythmandflow.app.ui.viewmodel.appViewModel
+import java.time.Instant
+import kotlinx.coroutines.launch
+
+/** Administrator tools. The server enforces the ADMIN role on every call; these screens are only a convenience. */
+@Composable
+fun AdminHomeScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
+    val vm = appViewModel(key = "admin") { AdminViewModel(it) }
+    val state by vm.state.collectAsState()
+    Column(Modifier.fillMaxSize()) {
+        ScreenHeader("Admin tools", "Manage Rhythm & Flow.", onBack = onBack)
+        when {
+            state.loading -> LoadingBox()
+            state.error != null -> ErrorBox(state.error!!, onRetry = { vm.load() })
+            else -> Column(Modifier.vScroll().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                state.summary?.let { s ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Stat("${s.users}", "customers", Modifier.weight(1f))
+                        Stat("${s.activeSubscriptions}", "active plans", Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Stat("${s.upcomingClasses}", "upcoming classes", Modifier.weight(1f))
+                        Stat("${s.activeBookings}", "bookings", Modifier.weight(1f))
+                    }
+                    Stat(formatRand(s.monthlyRecurringRevenue), "monthly recurring revenue", Modifier.fillMaxWidth())
+                }
+                AdminLink("Error log", if ((state.summary?.openErrors ?: 0) > 0) "${state.summary?.openErrors} open problem(s) to review" else "Nothing open") { onNavigate("admin/errors") }
+                AdminLink("Lessons & videos", "Add or remove lessons") { onNavigate("admin/lessons") }
+                AdminLink("Classes", "Schedule and cancel classes") { onNavigate("admin/classes") }
+                AdminLink("Subscription plans", "Edit names and prices") { onNavigate("admin/plans") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Stat(value: String, label: String, modifier: Modifier) {
+    SoftCard(modifier) {
+        Column(Modifier.fillMaxWidth()) {
+            Text(value, style = MaterialTheme.typography.headlineSmall, color = Brand.TealDeep)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
+        }
+    }
+}
+
+@Composable
+private fun AdminLink(title: String, sub: String, onClick: () -> Unit) {
+    SoftCard(Modifier.fillMaxWidth(), onClick = onClick) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(sub, style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Brand.Muted)
+        }
+    }
+}
+
+@Composable
+fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
+    val vm = appViewModel(key = "admin") { AdminViewModel(it) }
+    val state by vm.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    var delete by remember { mutableStateOf<Int?>(null) }
+
+    val programmes = state.lessons.map { it.programmeId to it.programmeName }.distinct()
+    var title by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("Yoga") }
+    var seconds by remember { mutableStateOf("") }
+    var url by remember { mutableStateOf("") }
+    var preview by remember { mutableStateOf(false) }
+    var programmeId by remember { mutableStateOf<Int?>(null) }
+    val chosenProgramme = programmeId ?: programmes.firstOrNull()?.first
+
+    Column(Modifier.fillMaxSize()) {
+        ScreenHeader("Lessons & videos", onBack = onBack)
+        Column(Modifier.vScroll().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Add a lesson", style = MaterialTheme.typography.titleLarge)
+            Text("Programme", style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
+            programmes.chunked(2).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { (id, name) -> SelectChip(name, chosenProgramme == id, onClick = { programmeId = id }) }
+                }
+            }
+            RfTextField(title, { title = it }, "Title")
+            RfTextField(description, { description = it }, "Description", singleLine = false, minLines = 2)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Yoga", "Barre", "Dance", "Stretch", "Meditation").chunked(3).first().forEach { c -> SelectChip(c, category == c, { category = c }) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Stretch", "Meditation").forEach { c -> SelectChip(c, category == c, { category = c }) }
+            }
+            RfTextField(seconds, { seconds = it.filter(Char::isDigit) }, "Length in seconds", keyboardType = KeyboardType.Number)
+            RfTextField(url, { url = it }, "Video address (https://…)", keyboardType = KeyboardType.Uri)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(checked = preview, onCheckedChange = { preview = it }, colors = SwitchDefaults.colors(checkedTrackColor = Brand.TealDeep))
+                HSpace(10); Text("Free preview (no subscription needed)")
+            }
+            PrimaryButton("Add lesson", enabled = title.isNotBlank() && seconds.isNotBlank() && url.startsWith("http") && chosenProgramme != null, onClick = {
+                scope.launch {
+                    val err = vm.createLesson(
+                        LessonUpsert(chosenProgramme!!, title.trim(), description.trim(), category, "All levels", seconds.toInt().coerceAtLeast(1), "Remote", url.trim(), preview),
+                    )
+                    if (err == null) { title = ""; description = ""; seconds = ""; url = ""; preview = false }
+                    notify(err ?: "Lesson added.")
+                }
+            })
+            VSpace(8)
+            Text("Existing lessons", style = MaterialTheme.typography.titleLarge)
+            state.lessons.forEach { l ->
+                SoftCard(Modifier.fillMaxWidth()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(l.title, style = MaterialTheme.typography.titleSmall)
+                            Text("${l.programmeName} · ${l.category} · ${l.durationLabel}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                        }
+                        IconButton(onClick = { delete = l.id }) { Icon(Icons.Default.Delete, "Delete lesson", tint = Brand.Error) }
+                    }
+                }
+            }
+        }
+    }
+    delete?.let { id ->
+        AlertDialog(
+            onDismissRequest = { delete = null },
+            title = { Text("Delete this lesson?") }, text = { Text("Customers will no longer be able to watch it, and their progress on it is removed.") },
+            confirmButton = { TextButton(onClick = { delete = null; scope.launch { notify(vm.deleteLesson(id) ?: "Lesson deleted.") } }) { Text("Delete", color = Brand.Error) } },
+            dismissButton = { TextButton(onClick = { delete = null }) { Text("Keep it") } },
+        )
+    }
+}
+
+@Composable
+fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit) {
+    val vm = appViewModel(key = "admin") { AdminViewModel(it) }
+    val state by vm.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    var name by remember { mutableStateOf("") }
+    var coach by remember { mutableStateOf("Deni") }
+    var location by remember { mutableStateOf("") }
+    var date by remember { mutableStateOf("") }
+    var time by remember { mutableStateOf("") }
+    var minutes by remember { mutableStateOf("60") }
+    var capacity by remember { mutableStateOf("20") }
+    var cancel by remember { mutableStateOf<Int?>(null) }
+
+    Column(Modifier.fillMaxSize()) {
+        ScreenHeader("Classes", onBack = onBack)
+        Column(Modifier.vScroll().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Schedule a class", style = MaterialTheme.typography.titleLarge)
+            RfTextField(name, { name = it }, "Class name")
+            RfTextField(coach, { coach = it }, "Coach")
+            RfTextField(location, { location = it }, "Location (studio or online)")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.weight(1f)) { RfTextField(date, { date = it }, "Date (yyyy-mm-dd)") }
+                Box(Modifier.weight(1f)) { RfTextField(time, { time = it }, "Start (HH:mm)") }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.weight(1f)) { RfTextField(minutes, { minutes = it.filter(Char::isDigit) }, "Minutes", keyboardType = KeyboardType.Number) }
+                Box(Modifier.weight(1f)) { RfTextField(capacity, { capacity = it.filter(Char::isDigit) }, "Capacity", keyboardType = KeyboardType.Number) }
+            }
+            PrimaryButton("Add class", enabled = name.isNotBlank() && location.isNotBlank() && date.isNotBlank() && time.isNotBlank(), onClick = {
+                val start = localToUtcIso(date, time)
+                val mins = minutes.toIntOrNull() ?: 0
+                val cap = capacity.toIntOrNull() ?: 0
+                when {
+                    start == null -> notify("Check the date (yyyy-mm-dd) and time (HH:mm).")
+                    mins < 5 || cap < 1 -> notify("Enter the class length and capacity.")
+                    else -> scope.launch {
+                        val end = Instant.parse(start).plusSeconds(mins * 60L).toString()
+                        val err = vm.createClass(ClassUpsert(name.trim(), "All levels welcome.", coach.trim(), location.trim(), start, end, cap))
+                        if (err == null) { name = ""; date = ""; time = "" }
+                        notify(err ?: "Class scheduled.")
+                    }
+                }
+            })
+            VSpace(8)
+            Text("Scheduled classes", style = MaterialTheme.typography.titleLarge)
+            state.classes.forEach { c ->
+                SoftCard(Modifier.fillMaxWidth()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(c.name, style = MaterialTheme.typography.titleSmall)
+                            Text("${formatDayTime(c.startTime)} · ${c.capacity - c.spotsLeft}/${c.capacity} booked", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                        }
+                        if (c.status == "SCHEDULED") TextButton(onClick = { cancel = c.id }) { Text("Cancel", color = Brand.Error) }
+                        else InfoPill("Cancelled", color = Brand.LightGrey, textColor = Brand.Muted)
+                    }
+                }
+            }
+        }
+    }
+    cancel?.let { id ->
+        AlertDialog(
+            onDismissRequest = { cancel = null },
+            title = { Text("Cancel this class?") }, text = { Text("Everyone who booked will lose their reservation.") },
+            confirmButton = { TextButton(onClick = { cancel = null; scope.launch { notify(vm.cancelClass(id) ?: "Class cancelled.") } }) { Text("Cancel class", color = Brand.Error) } },
+            dismissButton = { TextButton(onClick = { cancel = null }) { Text("Keep it") } },
+        )
+    }
+}
+
+@Composable
+fun AdminPlansScreen(onBack: () -> Unit, notify: (String) -> Unit) {
+    val vm = appViewModel(key = "admin") { AdminViewModel(it) }
+    val state by vm.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    var editing by remember { mutableStateOf<Plan?>(null) }
+
+    Column(Modifier.fillMaxSize()) {
+        ScreenHeader("Subscription plans", onBack = onBack)
+        Column(Modifier.vScroll().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            state.plans.forEach { p ->
+                SoftCard(Modifier.fillMaxWidth(), onClick = { editing = p }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(p.name, style = MaterialTheme.typography.titleMedium)
+                            Text("${formatRand(p.price)} / month · access level ${p.tier}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                        }
+                        Text("Edit", color = Brand.TealDeep)
+                    }
+                }
+            }
+        }
+    }
+    editing?.let { p ->
+        var name by remember(p.id) { mutableStateOf(p.name) }
+        var price by remember(p.id) { mutableStateOf(p.price.toInt().toString()) }
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text("Edit plan") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    RfTextField(name, { name = it }, "Name")
+                    RfTextField(price, { price = it.filter(Char::isDigit) }, "Price per month (R)", keyboardType = KeyboardType.Number)
+                    Text("Changing a price only affects new subscribers. Existing PayFast subscriptions keep their amount.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val amount = price.toDoubleOrNull()
+                    editing = null
+                    if (amount == null || amount < 1 || name.isBlank()) notify("Enter a name and a price.")
+                    else scope.launch {
+                        notify(vm.updatePlan(p.id, PlanUpsert(name.trim(), p.description, amount, p.tier, p.features.joinToString("|"), "ACTIVE")) ?: "Plan updated.")
+                    }
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text("Cancel") } },
+        )
+    }
+}

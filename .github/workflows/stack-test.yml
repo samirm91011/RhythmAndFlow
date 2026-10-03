@@ -1,0 +1,147 @@
+name: Stack test
+
+# Builds the real API container, starts it with a real PostgreSQL (the same container stack that runs on a Linux server,
+# runs the full feature smoke test, then load-tests it and measures memory.
+# It also proves the API works on PostgreSQL (the database Azure uses) and shows how much memory a server needs.
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, "feature/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: stack-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stack:
+    name: Container stack, smoke test, load test and memory
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      COMPOSE: docker compose -f deploy/docker-compose.test.yml
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the API image
+        run: docker build -t rhythmflow-api:test -f backend/Dockerfile backend
+
+      - name: Start API and PostgreSQL
+        run: $COMPOSE up -d
+
+      - name: Wait for the API to answer /health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/health >/dev/null; then echo "API is up after about $((i*2)) seconds"; exit 0; fi
+            sleep 2
+          done
+          $COMPOSE logs --tail=120 api
+          exit 1
+
+      - name: Measure idle memory
+        run: |
+          sleep 15
+          docker stats --no-stream --format '{{.Name}}|{{.MemUsage}}|{{.CPUPerc}}' | tee idle.txt
+
+      - name: Smoke test (every feature, end to end)
+        env:
+          ADMIN_EMAIL: ciadmin@example.com
+          ADMIN_PASSWORD: CiAdmin-Password-1!
+          RESET_CODE_CMD: docker compose -f deploy/docker-compose.test.yml logs --no-log-prefix api | grep -o 'reset code is [0-9]\{6\}' | tail -1 | grep -o '[0-9]\{6\}'
+        run: bash deploy/smoke-test.sh http://localhost:8080 --dev 2>&1 | tee smoke.txt; exit ${PIPESTATUS[0]}
+
+      - name: Load test and memory under load
+        run: |
+          sudo apt-get install -y apache2-utils >/dev/null
+          TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' \
+                  -d '{"identifier":"ciadmin@example.com","password":"CiAdmin-Password-1!"}' | jq -r .token)
+          # sample memory once a second while the load runs
+          ( while true; do docker stats --no-stream --format '{{.Name}}|{{.MemUsage}}' >> samples.txt; sleep 1; done ) &
+          SAMPLER=$!
+          ab -q -k -n 6000 -c 30 http://localhost:8080/api/plans > ab_plans.txt
+          ab -q -k -n 3000 -c 20 -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/lessons > ab_lessons.txt
+          ab -q -k -n 3000 -c 20 -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/classes > ab_classes.txt
+          kill $SAMPLER || true
+          docker stats --no-stream --format '{{.Name}}|{{.MemUsage}}|{{.CPUPerc}}' | tee after.txt
+
+      - name: Write the sizing summary
+        if: always()
+        run: |
+          to_mib() { awk -v s="$1" 'BEGIN{ split(s,a," "); v=a[1]; u=a[1]; gsub(/[0-9.]/,"",u); gsub(/[A-Za-z]/,"",v);
+                       if (u=="GiB") v*=1024; else if (u=="KiB") v/=1024; else if (u=="B") v/=1048576; printf "%.0f", v }'; }
+          peak() { # container-name-substring -> peak MiB seen while loaded
+            grep "$1" samples.txt 2>/dev/null | cut -d'|' -f2 | cut -d'/' -f1 | while read -r m; do to_mib "$m"; echo; done | sort -n | tail -1; }
+          idle() { grep "$1" idle.txt 2>/dev/null | cut -d'|' -f2 | cut -d'/' -f1 | head -1 | while read -r m; do to_mib "$m"; done; }
+          rps()  { grep 'Requests per second' "$1" 2>/dev/null | awk '{print $4}'; }
+          p95()  { grep -E '^ *95%' "$1" 2>/dev/null | awk '{print $2}'; }
+          failed(){ grep 'Failed requests' "$1" 2>/dev/null | awk '{print $3}'; }
+
+          API_IDLE=$(idle api); DB_IDLE=$(idle db); API_PEAK=$(peak api); DB_PEAK=$(peak db)
+          : "${API_IDLE:=0}" "${DB_IDLE:=0}" "${API_PEAK:=0}" "${DB_PEAK:=0}"
+          CADDY=30      # Caddy (HTTPS) is not part of the CI stack; it normally uses 20-40 MiB
+          OS=450        # Ubuntu + Docker engine + SSH + the pipeline's own pulls
+          TOTAL=$((API_PEAK + DB_PEAK + CADDY + OS))
+
+          {
+            echo "## Sizing result"
+            echo
+            echo "| Container | Idle memory | Peak under load |"
+            echo "|---|---|---|"
+            echo "| API (ASP.NET Core) | ${API_IDLE} MiB | ${API_PEAK} MiB |"
+            echo "| PostgreSQL | ${DB_IDLE} MiB | ${DB_PEAK} MiB |"
+            echo "| Caddy (HTTPS, estimate) | - | ${CADDY} MiB |"
+            echo "| Operating system + Docker (estimate) | - | ${OS} MiB |"
+            echo "| **Estimated total** | | **${TOTAL} MiB** |"
+            echo
+            echo "| Fits | 1 GB server (1024 MiB) | 2 GB server (2048 MiB) |"
+            echo "|---|---|---|"
+            echo "| Headroom | $((1024 - TOTAL)) MiB | $((2048 - TOTAL)) MiB |"
+            echo
+            if [ "$TOTAL" -lt 800 ]; then V="**Verdict: a 1 GB server would just about work, but 2 GB is the safe choice.**"; else V="**Verdict: take the 2 GB server (1 GB is too small).**"; fi
+            echo "$V"
+            echo
+            echo "## Load test (runner has 4 CPUs; the xneelo 1-CPU server will be slower)"
+            echo
+            echo "| Endpoint | Requests/second | 95th percentile (ms) | Failed |"
+            echo "|---|---|---|---|"
+            echo "| GET /api/plans (30 users) | $(rps ab_plans.txt) | $(p95 ab_plans.txt) | $(failed ab_plans.txt) |"
+            echo "| GET /api/lessons (20 users, logged in) | $(rps ab_lessons.txt) | $(p95 ab_lessons.txt) | $(failed ab_lessons.txt) |"
+            echo "| GET /api/classes (20 users, logged in) | $(rps ab_classes.txt) | $(p95 ab_classes.txt) | $(failed ab_classes.txt) |"
+            echo
+            echo "## Smoke test"
+            echo '```'
+            tail -n 90 smoke.txt 2>/dev/null
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # The same key numbers as public annotations (readable on the run page without opening the log).
+          if [ "$TOTAL" -lt 800 ]; then VP="1 GB would just about work but 2 GB is the safe choice"; else VP="2 GB server needed (1 GB too small)"; fi
+          echo "::notice title=Memory sizing::API idle ${API_IDLE} MiB / peak ${API_PEAK} MiB | PostgreSQL idle ${DB_IDLE} MiB / peak ${DB_PEAK} MiB | estimated whole server ${TOTAL} MiB | ${VP}"
+          echo "::notice title=Load test::plans $(rps ab_plans.txt) req/s p95 $(p95 ab_plans.txt) ms failed $(failed ab_plans.txt) | lessons $(rps ab_lessons.txt) req/s p95 $(p95 ab_lessons.txt) ms failed $(failed ab_lessons.txt) | classes $(rps ab_classes.txt) req/s p95 $(p95 ab_classes.txt) ms failed $(failed ab_classes.txt)"
+          echo "::notice title=Smoke test::$(grep '^Result:' smoke.txt 2>/dev/null || echo 'no result line')"
+
+      - name: API log on failure
+        if: failure()
+        run: |
+          $COMPOSE logs --tail=200 api
+          # also show the most telling lines as annotations (visible without opening the log)
+          $COMPOSE logs --no-log-prefix api | grep -E "fail:|Unhandled|Exception|error" | tail -8 | while IFS= read -r line; do
+            echo "::warning title=API log::${line:0:400}"
+          done
+
+      - name: Upload raw results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stack-test-results
+          path: |
+            smoke.txt
+            idle.txt
+            after.txt
+            samples.txt
+            ab_*.txt
+
+      - name: Stop the stack
+        if: always()
+        run: $COMPOSE down -v

@@ -1,0 +1,73 @@
+# Render "Blueprint": describes the hosted API and its database so they can be created in one go.
+# Render dashboard -> New -> Blueprint -> pick this repository. Values marked sync:false are typed in once by the
+# repository owner in the Render dashboard; they are never stored in git.
+services:
+  - type: web
+    name: rhythmflow-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    autoDeploy: false          # deployments are started by the GitHub Actions "Deploy" workflow
+    envVars:
+      - key: Database__Provider
+        value: Postgres
+      - key: ConnectionStrings__Default
+        fromDatabase:
+          name: rhythmflow-db
+          property: connectionString
+      - key: Jwt__Key
+        generateValue: true
+      - key: Media__SigningKey
+        generateValue: true
+      - key: PayFast__Sandbox
+        value: "true"
+      - key: PayFast__ValidateWithServer
+        value: "true"
+      - key: PayFast__MerchantId
+        sync: false
+      - key: PayFast__MerchantKey
+        sync: false
+      - key: PayFast__Passphrase
+        sync: false
+      - key: PayFast__PublicBaseUrl      # https://<service name>.onrender.com  (set after the first deploy)
+        sync: false
+      - key: Email__Provider             # free Render plans block SMTP, so email goes through Brevo's web API
+        value: Brevo
+      - key: Brevo__ApiKey
+        sync: false
+      - key: Brevo__SenderEmail
+        sync: false
+      - key: Brevo__SenderName
+        value: Rhythm & Flow
+      - key: Admin__AlertEmails__0
+        sync: false
+      - key: Seed__Users__0__FullName
+        value: Rhythm Admin
+      - key: Seed__Users__0__Username
+        value: admin
+      - key: Seed__Users__0__Email
+        value: admin@rhythmandflow.test
+      - key: Seed__Users__0__Password
+        sync: false
+      - key: Seed__Users__0__Role
+        value: ADMIN
+      - key: Seed__Users__1__FullName
+        value: Alex Demo
+      - key: Seed__Users__1__Username
+        value: alex
+      - key: Seed__Users__1__Email
+        value: alex@rhythmandflow.test
+      - key: Seed__Users__1__Password
+        sync: false
+      - key: Seed__Users__1__Role
+        value: CUSTOMER
+
+databases:
+  - name: rhythmflow-db
+    plan: free
+    region: frankfurt
+    databaseName: rhythmflow
+    user: rfadmin

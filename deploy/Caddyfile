@@ -1,0 +1,9 @@
+# Caddy gets and renews a free HTTPS certificate automatically for API_DOMAIN (set in .env).
+# API_DOMAIN can be a real domain (api.example.co.za) or an IP-based name such as 41-0-0-1.sslip.io.
+{$API_DOMAIN} {
+	encode zstd gzip
+	# flush_interval -1 sends video bytes straight through instead of buffering them.
+	reverse_proxy api:8080 {
+		flush_interval -1
+	}
+}
