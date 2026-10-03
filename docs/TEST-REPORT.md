@@ -24,6 +24,7 @@ Checked on a phone-size screen at normal text size unless noted.
 | Classes: book, "Booked" state, My bookings, cancel booking (with confirmation) | pass |
 | Subscribe (opens PayFast in the browser) and return: "You're subscribed!" | pass (a bug where the You tab brought this screen back was found and fixed) |
 | Subscription screen and cancel flow (confirmation, PayFast message, access kept until period end) | pass |
+| Programmes row on Move, programme detail (description, which plan includes it, lessons), My progress screen, admin Programmes (add, edit, hide) | pass |
 | Journal tabs, Affirmations, Explore (back arrow added), Notifications (bell, unread, mark read) | pass |
 | You, Settings, Edit profile, Change password | pass |
 | Settings: Privacy Policy and Terms of Use (open the client's website pages), Download my data (share sheet), Delete my account (wrong password refused); sign-up screen shows the Terms/Privacy notice with links | pass (link target pages themselves not opened: emulator has no route to the internet) |

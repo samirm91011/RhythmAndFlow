@@ -86,6 +86,7 @@ builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<PasswordResetService>();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<UserAdminService>();
+builder.Services.AddScoped<ProgrammeAdminService>();
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient("video", c => c.Timeout = TimeSpan.FromMinutes(30));
 builder.Services.AddControllers();

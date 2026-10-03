@@ -211,7 +211,12 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
 
             // ---- Tabs ----
             composable("home") { HomeScreen(session, onNavigate = go, notify = notify) }
-            composable("move") { MoveScreen(onLesson = { nav.navigate("lesson/$it") }) }
+            composable("move") { MoveScreen(onLesson = { nav.navigate("lesson/$it") }, onProgramme = { nav.navigate("programme/$it") }) }
+            composable("programme/{id}", listOf(navArgument("id") { type = NavType.IntType })) { e ->
+                ProgrammeScreen(e.arguments!!.getInt("id"), onBack = back, onLesson = { nav.navigate("lesson/$it") }, onPlans = { nav.navigate("plans") })
+            }
+            composable("progress") { ProgressScreen(onBack = back, onLesson = { nav.navigate("lesson/$it") }) }
+            composable("admin/programmes") { AdminProgrammesScreen(onBack = back, notify = notify) }
             composable("classes") { ClassesScreen(onBookings = { nav.navigate("bookings") }, notify = notify) }
             composable("journal") { JournalScreen(onLesson = { nav.navigate("lesson/$it") }, notify = notify) }
             composable("you") { YouScreen(session, onNavigate = go, onLesson = { nav.navigate("lesson/$it") }) }

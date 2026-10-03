@@ -113,6 +113,14 @@ public record ErrorLogDto(
 
 public record DeleteAccountRequest([Required] string Password);
 
+// ---- Programme administration (FR-22) ----
+public record ProgrammeUpsert(
+    [Required, StringLength(100)] string Name,
+    [StringLength(500)] string? Description,
+    [Range(1, 10)] int MinTier,
+    bool Active = true);
+public record AdminProgrammeDto(int Id, string Name, string Description, int MinTier, bool Active, int LessonCount);
+
 // ---- Payments and user administration ----
 public record PaymentDto(int Id, string PlanName, decimal Amount, string Status, DateTime Date, string Receipt);
 public record AdminUserDto(Guid Id, string FullName, string Username, string Email, string Role, string Status, DateTime CreatedAt, string? Plan);

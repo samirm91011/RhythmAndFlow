@@ -173,9 +173,9 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
         VSpace(20)
         state.summary?.let { s ->
             Row(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatCard("${s.sessionsThisMonth}", "sessions this month", Modifier.weight(1f))
-                StatCard("${s.minutesWatched}", "minutes moved", Modifier.weight(1f))
-                StatCard("${s.completedLessons}", "completed", Modifier.weight(1f))
+                StatCard("${s.sessionsThisMonth}", "sessions this month", Modifier.weight(1f), onClick = { onNavigate("progress") })
+                StatCard("${s.minutesWatched}", "minutes moved", Modifier.weight(1f), onClick = { onNavigate("progress") })
+                StatCard("${s.completedLessons}", "completed", Modifier.weight(1f), onClick = { onNavigate("progress") })
             }
             VSpace(20)
         }
@@ -239,8 +239,8 @@ private fun MoodGrid(selected: String?, onSelect: (String) -> Unit) {
 }
 
 @Composable
-private fun StatCard(value: String, label: String, modifier: Modifier = Modifier) {
-    SoftCard(modifier) {
+private fun StatCard(value: String, label: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+    SoftCard(modifier, onClick = onClick) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(value, style = MaterialTheme.typography.headlineSmall, color = Brand.TealDeep)
             Text(label, style = MaterialTheme.typography.labelSmall, color = Brand.Muted, textAlign = TextAlign.Center)

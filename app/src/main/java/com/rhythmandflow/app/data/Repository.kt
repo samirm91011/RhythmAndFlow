@@ -101,8 +101,12 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     suspend fun simulatePayment(id: Int) = callUnit { api.simulatePayment(id) }
 
     // ---- Content ----
-    suspend fun lessons(category: String? = null, query: String? = null) =
-        call { api.lessons(category?.takeIf { it != "All" }, query?.takeIf { it.isNotBlank() }) }
+    suspend fun lessons(category: String? = null, query: String? = null, programmeId: Int? = null) =
+        call { api.lessons(category?.takeIf { it != "All" }, query?.takeIf { it.isNotBlank() }, programmeId) }
+    suspend fun programmes() = call { api.programmes() }
+    suspend fun adminProgrammes() = call { api.adminProgrammes() }
+    suspend fun adminCreateProgramme(p: ProgrammeUpsert) = call { api.adminCreateProgramme(p) }
+    suspend fun adminUpdateProgramme(id: Int, p: ProgrammeUpsert) = callUnit { api.adminUpdateProgramme(id, p) }
     suspend fun lesson(id: Int) = call { api.lesson(id) }
     suspend fun playback(id: Int) = call { api.playback(id) }
     suspend fun updateProgress(lessonId: Int, seconds: Int) = call { api.updateProgress(ProgressUpdate(lessonId, seconds)) }

@@ -26,6 +26,8 @@ data class DeviceTokenRequest(val token: String)
 data class PaymentItem(val id: Int, val planName: String, val amount: Double, val status: String, val date: String, val receipt: String)
 data class AdminUser(val id: String, val fullName: String, val username: String, val email: String, val role: String, val status: String, val createdAt: String, val plan: String?)
 data class SetUserStatusRequest(val status: String)
+data class AdminProgramme(val id: Int, val name: String, val description: String, val minTier: Int, val active: Boolean, val lessonCount: Int)
+data class ProgrammeUpsert(val name: String, val description: String?, val minTier: Int, val active: Boolean)
 
 data class Plan(
     val id: Int,

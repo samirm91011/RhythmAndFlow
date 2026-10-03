@@ -26,6 +26,7 @@ Living record of what exists, what changed, and what is left. Newest entries at 
 
 ## Work log
 ### 2026-10-04
+- **Checked against the Task 1 document (4 Oct):** every FR/BR/NFR traced in `docs/REQUIREMENTS-TRACE.md`. Three gaps found and closed: **programme browsing and detail (FR-03/04)**, **admin programme management (FR-22)**, and a **My progress screen (FR-13)**. No database changes; server tests and smoke checks added.
 - **Payment history and receipts** (`GET /api/subscriptions/payments`, receipt numbers RF-000123, app screen reached from My subscription).
 - **Plan switching rule:** checkout is refused while a plan is still renewing (it would create two PayFast agreements and charge twice); the app explains: cancel first, then choose a new plan. Server tests added.
 - **Admin customers screen:** search, switch an account off or on (signs the person out everywhere; your own account and the only administrator are protected). About 18 more server tests; no database changes.

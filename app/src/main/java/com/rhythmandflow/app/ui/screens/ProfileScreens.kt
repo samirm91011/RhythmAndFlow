@@ -81,11 +81,12 @@ fun YouScreen(session: SessionViewModel, onNavigate: (String) -> Unit, onLesson:
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Brand.Muted)
                         }
                     }
-                    SoftCard(Modifier.fillMaxWidth()) {
+                    SoftCard(Modifier.fillMaxWidth(), onClick = { onNavigate("progress") }) {
                         Column(Modifier.fillMaxWidth()) {
                             Text("Your Journey", style = MaterialTheme.typography.titleLarge)
                             val n = summary.summary?.sessionsThisMonth ?: 0
                             Text("You've shown up for yourself $n ${if (n == 1) "time" else "times"} this month.", color = Brand.Muted)
+                            Text("See my progress", color = Brand.TealDeep, style = MaterialTheme.typography.labelLarge)
                         }
                     }
                     NavRow(Icons.Default.CreditCard, if (activeSub != null) "${activeSub.planName} plan" else "Choose a plan",

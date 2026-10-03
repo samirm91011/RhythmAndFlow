@@ -165,11 +165,37 @@ class DemoApi : Api {
     override suspend fun simulatePayment(id: Int): Response<Unit> { pause(); sub?.let { activate(plans.first { p -> p.id == it.planId }) }; return ok() }
 
     // ---- content
-    override suspend fun programmes(): List<Programme> = lessonsData.groupBy { it.prog }.map { (id, ls) ->
-        Programme(id, ls.first().progName, "", ls.first().minTier, tier < ls.first().minTier, ls.size) }
-    override suspend fun lessons(category: String?, query: String?): List<Lesson> {
+    private val demoProgrammes = mutableListOf(
+        AdminProgramme(1, "Move & Release", "Gentle practices to release tension and feel lighter.", 1, true, 2),
+        AdminProgramme(2, "Dance with Joy", "Feel-good dance movement for every level.", 1, true, 2),
+        AdminProgramme(3, "Mindful Mobility", "Stretch, restore and move well for life.", 2, true, 2),
+        AdminProgramme(4, "Full Body Flow Masterclass", "Longer, deeper flows with Deni.", 3, true, 2),
+    )
+    override suspend fun programmes(): List<Programme> {
         pause()
-        return lessonsData.filter { (category == null || it.cat == category) && (query.isNullOrBlank() || it.title.contains(query, true) || it.desc.contains(query, true)) }.map(::lessonDto)
+        return demoProgrammes.filter { it.active }.map { p -> Programme(p.id, p.name, p.description, p.minTier, user.role != "ADMIN" && tier < p.minTier, lessonsData.count { it.prog == p.id }) }
+    }
+    override suspend fun adminProgrammes(): List<AdminProgramme> { pause(); return demoProgrammes.map { p -> p.copy(lessonCount = lessonsData.count { it.prog == p.id }) } }
+    override suspend fun adminCreateProgramme(body: ProgrammeUpsert): Int {
+        pause()
+        if (demoProgrammes.any { it.name.equals(body.name.trim(), true) }) fail(400, "There is already a programme with that name.")
+        val id = demoProgrammes.maxOf { it.id } + 1
+        demoProgrammes.add(AdminProgramme(id, body.name.trim(), body.description.orEmpty(), body.minTier, body.active, 0))
+        return id
+    }
+    override suspend fun adminUpdateProgramme(id: Int, body: ProgrammeUpsert): Response<Unit> {
+        pause()
+        if (demoProgrammes.any { it.id != id && it.name.equals(body.name.trim(), true) }) fail(400, "There is already a programme with that name.")
+        demoProgrammes.replaceAll { if (it.id == id) it.copy(name = body.name.trim(), description = body.description.orEmpty(), minTier = body.minTier, active = body.active) else it }
+        return ok()
+    }
+    override suspend fun lessons(category: String?, query: String?, programmeId: Int?): List<Lesson> {
+        pause()
+        val hidden = demoProgrammes.filter { !it.active }.map { it.id }
+        return lessonsData.filter {
+            it.prog !in hidden && (programmeId == null || it.prog == programmeId) && (category == null || it.cat == category) &&
+                (query.isNullOrBlank() || it.title.contains(query, true) || it.desc.contains(query, true))
+        }.map(::lessonDto)
     }
     override suspend fun lesson(id: Int): Lesson { pause(); return lessonDto(lessonsData.first { it.id == id }) }
     override suspend fun playback(id: Int): Playback {

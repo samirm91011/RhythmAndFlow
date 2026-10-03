@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -115,15 +117,27 @@ private fun categoryColors(category: String): List<Color> = when (category) {
 }
 
 @Composable
-fun MoveScreen(onLesson: (Int) -> Unit) {
+fun MoveScreen(onLesson: (Int) -> Unit, onProgramme: (Int) -> Unit) {
     val vm = appViewModel { MoveViewModel(it) }
     val lessons by vm.lessons.collectAsState()
+    val programmes by vm.programmes.collectAsState()
     val category by vm.category.collectAsState()
     val query by vm.query.collectAsState()
     OnResume { vm.load() }
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Move", "Practices to help you feel good.")
+        if (programmes.isNotEmpty()) {
+            Text("Programmes", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp))
+            VSpace(6)
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                programmes.forEach { p -> ProgrammeCard(p, onClick = { onProgramme(p.id) }) }
+            }
+            VSpace(12)
+        }
         Column(Modifier.padding(horizontal = 20.dp)) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 categories.forEach { c -> SelectChip(c, category == c, onClick = { vm.setCategory(c) }) }
@@ -140,6 +154,20 @@ fun MoveScreen(onLesson: (Int) -> Unit) {
             else -> LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(data, key = { it.id }) { l -> LessonRow(l, onClick = { onLesson(l.id) }) }
             }
+        }
+    }
+}
+
+/** A programme as a small tappable card in the row above the practices (FR-03). */
+@Composable
+private fun ProgrammeCard(p: com.rhythmandflow.app.data.Programme, onClick: () -> Unit) {
+    SoftCard(Modifier.width(168.dp), onClick = onClick, background = if (p.locked) Brand.Surface else Brand.TealSoft) {
+        Column(Modifier.fillMaxWidth().heightIn(min = 74.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Row(verticalAlignment = Alignment.Top) {
+                Text(p.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), maxLines = 2)
+                if (p.locked) Icon(Icons.Default.Lock, "Locked", tint = Brand.Muted, modifier = Modifier.size(16.dp))
+            }
+            Text("${p.lessonCount} ${if (p.lessonCount == 1) "practice" else "practices"}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
         }
     }
 }

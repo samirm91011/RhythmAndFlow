@@ -137,6 +137,8 @@ class MoveViewModel(private val c: AppContainer) : ViewModel() {
     var category = MutableStateFlow("All"); private set
     var query = MutableStateFlow(""); private set
     private var job: Job? = null
+    private val _programmes = MutableStateFlow<List<Programme>>(emptyList())
+    val programmes: StateFlow<List<Programme>> = _programmes.asStateFlow()
 
     init { load() }
 
@@ -147,6 +149,7 @@ class MoveViewModel(private val c: AppContainer) : ViewModel() {
         job?.cancel()
         job = viewModelScope.launch {
             if (debounce) delay(350)
+            else (repo.programmes() as? Outcome.Ok)?.let { _programmes.value = it.value }
             _lessons.update { it.copy(loading = it.data == null, error = null) }
             when (val r = repo.lessons(category.value, query.value)) {
                 is Outcome.Ok -> _lessons.value = Load(false, null, r.value)
@@ -446,6 +449,93 @@ class NotificationsViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch { repo.markRead(null) }
     }
 }
+/** One fitness programme: what it is, who it is included for, and its lessons (FR-03, FR-04). */
+data class ProgrammeState(
+    val loading: Boolean = true, val error: String? = null,
+    val programme: Programme? = null, val lessons: List<Lesson> = emptyList(),
+    /** The cheapest plan that includes this programme, e.g. "Rhythm". */
+    val planName: String? = null,
+)
+
+class ProgrammeViewModel(private val c: AppContainer, val programmeId: Int) : ViewModel() {
+    private val repo = c.repository
+    private val _state = MutableStateFlow(ProgrammeState())
+    val state: StateFlow<ProgrammeState> = _state.asStateFlow()
+
+    init { load() }
+
+    fun load() {
+        viewModelScope.launch {
+            val programmes = repo.programmes()
+            val lessons = repo.lessons(programmeId = programmeId)
+            val plans = (repo.plans() as? Outcome.Ok)?.value.orEmpty()
+            val programme = (programmes as? Outcome.Ok)?.value?.firstOrNull { it.id == programmeId }
+            _state.value = when {
+                programme == null -> ProgrammeState(false, (programmes as? Outcome.Fail)?.message ?: "We couldn't find that programme.")
+                else -> ProgrammeState(
+                    loading = false, programme = programme,
+                    lessons = (lessons as? Outcome.Ok)?.value.orEmpty(),
+                    planName = plans.filter { it.tier >= programme.minTier }.minByOrNull { it.tier }?.name,
+                )
+            }
+        }
+    }
+}
+
+/** The person's workout progress (FR-13): totals, practices in progress and finished ones. */
+data class ProgressScreenState(
+    val loading: Boolean = true, val error: String? = null,
+    val summary: ProgressSummary? = null, val lessons: List<Lesson> = emptyList(),
+)
+
+class ProgressViewModel(private val c: AppContainer) : ViewModel() {
+    private val repo = c.repository
+    private val _state = MutableStateFlow(ProgressScreenState())
+    val state: StateFlow<ProgressScreenState> = _state.asStateFlow()
+
+    init { load() }
+
+    fun load() {
+        viewModelScope.launch {
+            val summary = repo.progressSummary()
+            val lessons = repo.lessons()
+            _state.value = ProgressScreenState(
+                loading = false,
+                error = (lessons as? Outcome.Fail)?.message,
+                summary = (summary as? Outcome.Ok)?.value,
+                lessons = (lessons as? Outcome.Ok)?.value.orEmpty(),
+            )
+        }
+    }
+}
+
+class AdminProgrammesViewModel(private val c: AppContainer) : ViewModel() {
+    private val repo = c.repository
+    private val _items = MutableStateFlow(Load<List<AdminProgramme>>())
+    val items: StateFlow<Load<List<AdminProgramme>>> = _items.asStateFlow()
+
+    init { load() }
+
+    fun load() {
+        viewModelScope.launch {
+            when (val r = repo.adminProgrammes()) {
+                is Outcome.Ok -> _items.value = Load(false, null, r.value)
+                is Outcome.Fail -> _items.value = Load(false, r.message, _items.value.data)
+            }
+        }
+    }
+
+    suspend fun create(p: ProgrammeUpsert): String? = when (val r = repo.adminCreateProgramme(p)) {
+        is Outcome.Ok -> { load(); null }
+        is Outcome.Fail -> r.message
+    }
+
+    suspend fun update(id: Int, p: ProgrammeUpsert): String? = when (val r = repo.adminUpdateProgramme(id, p)) {
+        is Outcome.Ok -> { load(); null }
+        is Outcome.Fail -> r.message
+    }
+}
+
 class PaymentsViewModel(private val c: AppContainer) : ViewModel() {
     private val repo = c.repository
     private val _items = MutableStateFlow(Load<List<PaymentItem>>())

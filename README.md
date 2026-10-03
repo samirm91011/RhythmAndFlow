@@ -9,14 +9,14 @@ INSY7315 (WIL) – Group 11. Task 2: Code & Implementation.
 ## What it does
 **Customers**
 - Sign up, log in, forgot / change password (6-digit emailed code), delete their account, download their data
-- Browse the **Move** library, play videos (subscription-checked, signed expiring links, screen capture blocked), pick up where they left off
+- Browse **programmes** and the **Move** library, see which plan includes what, play videos (subscription-checked, signed expiring links, screen capture blocked), see their progress, pick up where they left off
 - **Subscribe and cancel** with PayFast (sandbox now), payment history with receipt numbers
 - **Book and cancel classes**, reminders one hour before, notifications in the app, on the phone and by push (Firebase)
 - Mood check-ins, journal, affirmations, explore pages
 - Phone and tablet layouts, large-text support, screen-reader labels
 
 **Administrators**
-- Dashboard, customers (search, switch accounts off/on), lessons and videos, classes (date/time pickers), plans
+- Dashboard, customers (search, switch accounts off/on), programmes, lessons and videos, classes (date/time pickers), plans
 - **Error log**: every app crash, API error and playback failure is recorded, de-duplicated, shown in the app and e-mailed
 
 ## How it fits together
@@ -35,14 +35,15 @@ Hosting: Azure App Service (API) + Azure Database for PostgreSQL. Deployment is 
 |---|---|
 | `app/` | Android app (Compose, Navigation, Retrofit, Media3, WorkManager, Firebase Messaging) |
 | `backend/RhythmFlow.Api/` | the API (controllers, services, EF Core model, PayFast and e-mail integrations) |
-| `backend/RhythmFlow.Api.Tests/` | xUnit tests (86) and the app's JUnit tests (17) |
-| `deploy/` | Docker Compose stack, server scripts, end-to-end `smoke-test.sh` (about 85 checks), `azure/setup-azure.sh` |
+| `backend/RhythmFlow.Api.Tests/` | xUnit tests (94) and the app's JUnit tests (17) |
+| `deploy/` | Docker Compose stack, server scripts, end-to-end `smoke-test.sh` (about 97 checks), `azure/setup-azure.sh` |
 | `.github/workflows/` | `ci.yml` (build + tests + lint), `stack-test.yml` (real container + PostgreSQL), `deploy.yml` (Azure) |
 | `docs/` | project log, requirements checklist, test report, Azure and GitHub guides, go-live and reminders lists |
 
 ## Documentation
 | File | For |
 |---|---|
+| `docs/REQUIREMENTS-TRACE.md` | every Task 1 requirement (FR, BR, NFR) mapped to the code and the evidence |
 | `docs/RUBRIC-CHECKLIST.md` | the module rubric with the current status of every criterion |
 | `docs/TEST-REPORT.md` | what was tested, how, and the results |
 | `docs/AZURE-SETUP.md`, `docs/AZURE-FRIEND-CHECKLIST.md` | creating the hosting, step by step |
@@ -70,7 +71,7 @@ Push notifications need `app/google-services.json` (from the Firebase console) a
 
 ## Testing and pipelines
 - `dotnet test backend/RhythmFlow.sln` – API unit tests; `gradlew :app:testDebugUnitTest` – app unit tests; `gradlew :app:lintDebug` – Android lint.
-- `deploy/smoke-test.sh <base-url>` – drives a running API through the whole customer and admin journey (about 85 checks).
+- `deploy/smoke-test.sh <base-url>` – drives a running API through the whole customer and admin journey (about 97 checks).
 - GitHub Actions run all of this on every push and pull request; merging to `main` deploys to Azure and runs the smoke test against the live address.
 - Branches: `main` (release) ← `develop` ← `feature/*`, merged by pull request.
 
