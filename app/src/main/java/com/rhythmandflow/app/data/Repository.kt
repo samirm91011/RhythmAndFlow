@@ -68,23 +68,7 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
         errors.report("${e.javaClass.simpleName}: ${e.message}", Log.getStackTraceString(e), null, false)
         Outcome.Fail("Something went wrong. Please try again.")
     }
-    private fun errorMessage(body: String?, code: Int): String {
-        if (!body.isNullOrBlank()) {
-            try {
-                val obj = JsonParser.parseString(body).asJsonObject
-                obj.get("error")?.takeIf { !it.isJsonNull }?.asString?.let { return it }
-                // ASP.NET validation problem details: {"errors":{"Password":["..."]}}
-                obj.getAsJsonObject("errors")?.entrySet()?.firstOrNull()?.value?.asJsonArray?.firstOrNull()?.asString?.let { return it }
-            } catch (_: Exception) { }
-        }
-        return when (code) {
-            401 -> "Please sign in again."
-            403 -> "You don't have access to that."
-            404 -> "We couldn't find that."
-            429 -> "Too many attempts. Please wait a moment."
-            else -> "Something went wrong (error $code)."
-        }
-    }
+    private fun errorMessage(body: String?, code: Int): String = friendlyErrorMessage(body, code)
 
     // ---- Auth ----
     suspend fun login(identifier: String, password: String) = call { api.login(LoginRequest(identifier, password)) }

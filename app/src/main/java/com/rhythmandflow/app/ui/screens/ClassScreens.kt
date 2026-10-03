@@ -66,7 +66,7 @@ private fun ClassCard(c: ClassItem, busy: Boolean, onBook: () -> Unit) {
                 when {
                     c.bookedByMe -> InfoPill("Booked")
                     c.spotsLeft == 0 -> InfoPill("Full", color = Brand.LightGrey, textColor = Brand.Muted)
-                    c.spotsLeft <= 5 -> InfoPill("${c.spotsLeft} spots left", color = Brand.TangerineSoft, textColor = Brand.Tangerine)
+                    c.spotsLeft <= 5 -> InfoPill("${c.spotsLeft} spots left", color = Brand.TangerineSoft, textColor = Brand.TangerineDeep)
                     else -> InfoPill("${c.spotsLeft} spots")
                 }
             }

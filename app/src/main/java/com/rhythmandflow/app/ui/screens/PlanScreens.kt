@@ -84,7 +84,7 @@ private fun PlanCard(plan: Plan, popular: Boolean, isCurrent: Boolean, busy: Boo
         Column(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(plan.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                if (popular) InfoPill("Most popular", color = Brand.Tangerine, textColor = androidx.compose.ui.graphics.Color.White)
+                if (popular) InfoPill("Most popular", color = Brand.TangerineDeep, textColor = androidx.compose.ui.graphics.Color.White)
             }
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(formatRand(plan.price), style = MaterialTheme.typography.headlineLarge)

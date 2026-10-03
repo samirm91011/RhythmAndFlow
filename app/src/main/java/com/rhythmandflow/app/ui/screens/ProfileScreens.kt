@@ -232,8 +232,8 @@ fun SettingsScreen(session: SessionViewModel, onBack: () -> Unit, onNavigate: (S
             VSpace(8)
             OutlinedButton(
                 onClick = onSignOut, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(28.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Brand.Tangerine),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Brand.Tangerine),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Brand.TangerineDeep),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Brand.TangerineDeep),
             ) {
                 Icon(Icons.AutoMirrored.Filled.Logout, null); HSpace(8); Text("Log Out")
             }

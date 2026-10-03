@@ -32,6 +32,8 @@ object Brand {
     val TealMist = Color(0xFFF0F7F5)
     val Tangerine = Color(0xFFE3633D)
     val TangerineSoft = Color(0xFFFCE9E2)
+    /** Darker tangerine for small text and for buttons with white text, so they meet the 4.5:1 contrast guideline. */
+    val TangerineDeep = Color(0xFFB5421E)
     val LightGrey = Color(0xFFDADADA)
     val Black = Color(0xFF000000)
     val Ink = Color(0xFF1B1B1B)

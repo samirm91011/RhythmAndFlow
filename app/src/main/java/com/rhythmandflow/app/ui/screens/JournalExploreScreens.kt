@@ -136,7 +136,7 @@ private fun JournalListTab(entries: List<JournalEntry>?, loading: Boolean, error
                         Column(Modifier.weight(1f)) {
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 InfoPill(e.kind.lowercase().replaceFirstChar { it.uppercase() })
-                                if (e.mood.isNotBlank()) InfoPill(e.mood, color = Brand.TangerineSoft, textColor = Brand.Tangerine)
+                                if (e.mood.isNotBlank()) InfoPill(e.mood, color = Brand.TangerineSoft, textColor = Brand.TangerineDeep)
                             }
                             if (e.text.isNotBlank()) { VSpace(6); Text(e.text) }
                             VSpace(4)

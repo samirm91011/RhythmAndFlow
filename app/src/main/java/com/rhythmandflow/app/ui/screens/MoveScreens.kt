@@ -161,7 +161,7 @@ fun LessonRow(l: Lesson, onClick: () -> Unit) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     InfoPill(l.durationLabel)
                     InfoPill(l.category, color = Brand.Surface, textColor = Brand.Muted)
-                    if (l.isPreview) InfoPill("Preview", color = Brand.TangerineSoft, textColor = Brand.Tangerine)
+                    if (l.isPreview) InfoPill("Preview", color = Brand.TangerineSoft, textColor = Brand.TangerineDeep)
                 }
                 if (l.completionPercentage > 0) {
                     VSpace(8)

@@ -3,6 +3,7 @@ package com.rhythmandflow.app.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.shadow
@@ -83,7 +84,7 @@ fun PrimaryButton(
 
 @Composable
 fun AccentButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) =
-    GradientButton(text, onClick, modifier, enabled, false, listOf(Color(0xFFEE7B58), Brand.Tangerine), Brand.Tangerine)
+    GradientButton(text, onClick, modifier, enabled, false, listOf(Color(0xFFC9502B), Brand.TangerineDeep), Brand.TangerineDeep)
 
 /** Pill button with a soft gradient and glow that dips slightly when pressed. Grows taller with large text sizes. */
 @Composable
@@ -188,7 +189,7 @@ fun ScreenHeader(
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
         }
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.headlineMedium)
+            Text(title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
             if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
         }
         action?.invoke()
@@ -288,7 +289,7 @@ fun InfoPill(text: String, modifier: Modifier = Modifier, color: Color = Brand.T
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier, action: String? = null, onAction: (() -> Unit)? = null) {
     Row(modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+        Text(text, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).semantics { heading() })
         if (action != null && onAction != null) TextButton(onClick = onAction) { Text(action, color = Brand.TealDeep) }
     }
 }
