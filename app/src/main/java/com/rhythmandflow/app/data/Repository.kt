@@ -84,6 +84,9 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
         .also { if (it is Outcome.Ok) tokens.token = it.value.token }
     suspend fun registerDeviceToken(token: String) = call { api.registerDeviceToken(DeviceTokenRequest(token)) }
     suspend fun removeDeviceToken(token: String) = call { api.removeDeviceToken(DeviceTokenRequest(token)) }
+    suspend fun payments() = call { api.payments() }
+    suspend fun adminUsers(search: String?) = call { api.adminUsers(search?.takeIf { it.isNotBlank() }) }
+    suspend fun adminSetUserStatus(id: String, status: String) = callUnit { api.adminSetUserStatus(id, SetUserStatusRequest(status)) }
     suspend fun exportData() = call { api.exportData().use { it.string() } }
     suspend fun deleteAccount(password: String) = call { api.deleteAccount(DeleteAccountRequest(password)) }
     suspend fun me() = call { api.me() }

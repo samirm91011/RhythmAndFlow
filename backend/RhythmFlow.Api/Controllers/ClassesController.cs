@@ -69,8 +69,20 @@ public class JournalController(AppDbContext db) : ApiController
 /// <summary>Administrator functions. Every action requires the ADMIN role (BR-15, FR-22).</summary>
 [ApiController, Authorize(Roles = Roles.Admin)]
 [Route("api/admin")]
-public class AdminController(AppDbContext db, NotificationService notifications) : ApiController
+public class AdminController(AppDbContext db, NotificationService notifications, UserAdminService users) : ApiController
 {
+    // ---- Customers ----
+    [HttpGet("users")]
+    public Task<List<AdminUserDto>> Users([FromQuery] string? search) => users.ListAsync(search);
+
+    [HttpPost("users/{id:guid}/status")]
+    public async Task<IActionResult> SetUserStatus(Guid id, SetUserStatusRequest req)
+    {
+        var (ok, notFound, error) = await users.SetStatusAsync(UserId, id, req.Status);
+        if (notFound) return NotFound();
+        return ok ? NoContent() : BadRequest(new { error });
+    }
+
     [HttpGet("summary")]
     public async Task<AdminSummaryDto> Summary()
     {

@@ -27,7 +27,8 @@ Checked on a phone-size screen at normal text size unless noted.
 | Journal tabs, Affirmations, Explore (back arrow added), Notifications (bell, unread, mark read) | pass |
 | You, Settings, Edit profile, Change password | pass |
 | Settings: Privacy Policy and Terms of Use (open the client's website pages), Download my data (share sheet), Delete my account (wrong password refused); sign-up screen shows the Terms/Privacy notice with links | pass (link target pages themselves not opened: emulator has no route to the internet) |
-| Admin: dashboard, error log, lessons, classes, plans | pass |
+| Admin: dashboard, error log, customers (search, switch off/on with confirmation), lessons, classes (date and time pickers), plans | pass |
+| Subscription: payment history with receipt numbers; plan switching rule (cancel first, then choose a new plan) explained on screen | pass |
 | Log out | pass |
 
 ### Layout and accessibility

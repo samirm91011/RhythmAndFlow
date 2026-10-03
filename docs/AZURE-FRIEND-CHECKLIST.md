@@ -13,6 +13,14 @@ Presentation: **Wednesday 7 October 2026.** Please aim to finish "Do now" by **S
   - If ".NET 10" is not offered, or no region allows the database or the web app: stop and tell Samir. Do not pick an older .NET.
 - [ ] **A5. Settings** (Part 4): add every environment variable in the table, **including the newer one** `Firebase__ServiceAccountJson` (see B1). Leave a value out only if Samir says to.
 
+## A+. Optional fast path: one script instead of A2-A5 (about 10 minutes)
+Instead of clicking through the portal, you can create the resource group, database, web app and every setting with one script in **Azure Cloud Shell**. It has not been tried on a real subscription yet, so if it stops with an error, send the message to Samir and use A2-A5 instead.
+- [ ] Samir sends you two files privately: `rf-azure-secrets.env` (and `firebase-service-account.json` if he has it).
+- [ ] portal.azure.com -> Cloud Shell icon (>_) -> **Bash**.
+- [ ] Use the **Upload** button to upload `setup-azure.sh` (from the repository folder `deploy/azure`), `rf-azure-secrets.env` and the Firebase file.
+- [ ] Run: `SUFFIX=g11 bash setup-azure.sh` (put a short lowercase word of your choice instead of g11; add `LOCATION=westeurope` in front if your region is restricted).
+- [ ] It prints the web address and writes `rf-publish-profile.xml`. Send Samir the address and the contents of that file privately, then delete the file (`rm rf-publish-profile.xml`).
+
 ## B. Things Samir sends you privately (wait for his message)
 - [ ] **B1. `Firebase__ServiceAccountJson`**: the whole contents of the Firebase key file, pasted into one setting value. Needed for instant push notifications. Without it the app still works.
 - [ ] **B2. PayFast and Gmail values** for Part 4 (from Samir's private settings file).

@@ -20,6 +20,9 @@ interface Api {
     @POST("api/auth/change-password") suspend fun changePassword(@Body body: ChangePasswordRequest): AuthResponse
     @POST("api/notifications/device-token") suspend fun registerDeviceToken(@Body body: DeviceTokenRequest): MessageResponse
     @POST("api/notifications/device-token/remove") suspend fun removeDeviceToken(@Body body: DeviceTokenRequest): MessageResponse
+    @GET("api/subscriptions/payments") suspend fun payments(): List<PaymentItem>
+    @GET("api/admin/users") suspend fun adminUsers(@Query("search") search: String? = null): List<AdminUser>
+    @POST("api/admin/users/{id}/status") suspend fun adminSetUserStatus(@Path("id") id: String, @Body body: SetUserStatusRequest): Response<Unit>
     @GET("api/account/export") suspend fun exportData(): okhttp3.ResponseBody
     @POST("api/account/delete") suspend fun deleteAccount(@Body body: DeleteAccountRequest): MessageResponse
 

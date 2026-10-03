@@ -23,6 +23,9 @@ data class ChangePasswordRequest(val currentPassword: String, val newPassword: S
 data class MessageResponse(val message: String?)
 data class DeleteAccountRequest(val password: String)
 data class DeviceTokenRequest(val token: String)
+data class PaymentItem(val id: Int, val planName: String, val amount: Double, val status: String, val date: String, val receipt: String)
+data class AdminUser(val id: String, val fullName: String, val username: String, val email: String, val role: String, val status: String, val createdAt: String, val plan: String?)
+data class SetUserStatusRequest(val status: String)
 
 data class Plan(
     val id: Int,

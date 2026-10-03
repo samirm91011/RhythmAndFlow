@@ -14,6 +14,10 @@ public class SubscriptionsController(SubscriptionService subs) : ApiController
     [HttpGet]
     public Task<List<SubscriptionDto>> Mine() => subs.MineAsync(UserId);
 
+    /// <summary>Payment history with receipt numbers.</summary>
+    [HttpGet("payments")]
+    public Task<List<PaymentDto>> Payments() => subs.PaymentsAsync(UserId);
+
     /// <summary>Creates a pending subscription and returns the hosted PayFast checkout link (FR-05, FR-06).</summary>
     [HttpPost("checkout")]
     public async Task<ActionResult<CheckoutResponse>> Checkout(CheckoutRequest req)

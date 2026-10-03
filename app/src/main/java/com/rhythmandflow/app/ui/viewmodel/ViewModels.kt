@@ -439,6 +439,54 @@ class NotificationsViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch { repo.markRead(null) }
     }
 }
+class PaymentsViewModel(private val c: AppContainer) : ViewModel() {
+    private val repo = c.repository
+    private val _items = MutableStateFlow(Load<List<PaymentItem>>())
+    val items: StateFlow<Load<List<PaymentItem>>> = _items.asStateFlow()
+
+    init { load() }
+
+    fun load() {
+        viewModelScope.launch {
+            when (val r = repo.payments()) {
+                is Outcome.Ok -> _items.value = Load(false, null, r.value)
+                is Outcome.Fail -> _items.value = Load(false, r.message, _items.value.data)
+            }
+        }
+    }
+}
+
+class AdminUsersViewModel(private val c: AppContainer) : ViewModel() {
+    private val repo = c.repository
+    private val _items = MutableStateFlow(Load<List<AdminUser>>())
+    val items: StateFlow<Load<List<AdminUser>>> = _items.asStateFlow()
+    val query = MutableStateFlow("")
+    private var searchJob: Job? = null
+
+    init { load() }
+
+    /** Waits a moment after the last keystroke so the server is not asked on every letter. */
+    fun search(q: String) {
+        query.value = q
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch { delay(350); load() }
+    }
+
+    fun load() {
+        viewModelScope.launch {
+            when (val r = repo.adminUsers(query.value)) {
+                is Outcome.Ok -> _items.value = Load(false, null, r.value)
+                is Outcome.Fail -> _items.value = Load(false, r.message, _items.value.data)
+            }
+        }
+    }
+
+    suspend fun setStatus(id: String, status: String): String? = when (val r = repo.adminSetUserStatus(id, status)) {
+        is Outcome.Ok -> { load(); null }
+        is Outcome.Fail -> r.message
+    }
+}
+
 class AdminErrorsViewModel(private val c: AppContainer) : ViewModel() {
     private val repo = c.repository
     private val _items = MutableStateFlow(Load<List<ErrorLogItem>>())

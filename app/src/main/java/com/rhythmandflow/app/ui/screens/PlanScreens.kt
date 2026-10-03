@@ -175,7 +175,7 @@ fun PaymentScreen(subId: Int, session: SessionViewModel, onDone: () -> Unit, onB
 }
 
 @Composable
-fun SubscriptionScreen(session: SessionViewModel, onBack: () -> Unit, onPlans: () -> Unit, notify: (String) -> Unit) {
+fun SubscriptionScreen(session: SessionViewModel, onBack: () -> Unit, onPlans: () -> Unit, onPayments: () -> Unit, notify: (String) -> Unit) {
     val vm = appViewModel(key = "plans") { PlansViewModel(it) }
     val subs by vm.subscriptions.collectAsState()
     val scope = rememberCoroutineScope()
@@ -210,7 +210,17 @@ fun SubscriptionScreen(session: SessionViewModel, onBack: () -> Unit, onPlans: (
                     }
                 }
             }
-            if (visible.isNotEmpty()) { SecondaryButton("Change plan", onClick = onPlans) }
+            val renewing = visible.firstOrNull { it.status == "ACTIVE" }
+            if (renewing != null) {
+                // Two plans at once would mean being charged twice, so switching means cancelling first.
+                Text(
+                    "To switch plans, cancel this one first. You keep access until ${formatDate(renewing.endDate)}, and can then choose a new plan.",
+                    color = Brand.Muted, style = MaterialTheme.typography.bodyMedium,
+                )
+            } else if (visible.isNotEmpty()) {
+                PrimaryButton("Choose a new plan", onClick = onPlans)
+            }
+            if (visible.isNotEmpty()) { SecondaryButton("Payment history", onClick = onPayments) }
         }
     }
 

@@ -202,7 +202,7 @@ fun SettingsScreen(session: SessionViewModel, onBack: () -> Unit, onNavigate: (S
         Column(Modifier.vScroll().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             NavRow(Icons.Default.Person, "Account", "Personal information") { onNavigate("edit_profile") }
             NavRow(Icons.Default.Lock, "Password", "Change your password") { onNavigate("change_password") }
-            NavRow(Icons.Default.CreditCard, "Subscription", "Plan and billing") { onNavigate("subscription") }
+            NavRow(Icons.Default.CreditCard, "Subscription", "Plan, billing and receipts") { onNavigate("subscription") }
             NavRow(Icons.Default.Notifications, "Notifications", "Your updates and alerts") { onNavigate("notifications") }
             ReminderSwitchRow()
             NavRow(Icons.Default.Lock, "Privacy Policy", "Read it on rhythmandflow.co.za/privacy-policy") { openPage(LegalLinks.PRIVACY) }

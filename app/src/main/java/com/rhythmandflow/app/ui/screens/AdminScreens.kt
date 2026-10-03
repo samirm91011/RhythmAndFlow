@@ -56,6 +56,7 @@ fun AdminHomeScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
                     Stat(formatRand(s.monthlyRecurringRevenue), "monthly recurring revenue", Modifier.fillMaxWidth())
                 }
                 AdminLink("Error log", if ((state.summary?.openErrors ?: 0) > 0) "${state.summary?.openErrors} open problem(s) to review" else "Nothing open") { onNavigate("admin/errors") }
+                AdminLink("Customers", "Find people and switch accounts off") { onNavigate("admin/users") }
                 AdminLink("Lessons & videos", "Add or remove lessons") { onNavigate("admin/lessons") }
                 AdminLink("Classes", "Schedule and cancel classes") { onNavigate("admin/classes") }
                 AdminLink("Subscription plans", "Edit names and prices") { onNavigate("admin/plans") }

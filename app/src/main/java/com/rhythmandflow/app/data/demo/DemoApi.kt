@@ -109,6 +109,29 @@ class DemoApi : Api {
 
     override suspend fun registerDeviceToken(body: DeviceTokenRequest): MessageResponse = MessageResponse("Registered.")
     override suspend fun removeDeviceToken(body: DeviceTokenRequest): MessageResponse = MessageResponse("Removed.")
+    override suspend fun payments(): List<PaymentItem> {
+        pause()
+        val s = sub?.takeIf { it.status == "ACTIVE" } ?: return emptyList()
+        return listOf(
+            PaymentItem(3, s.planName, s.price, "COMPLETE", ago(0), "RF-000003"),
+            PaymentItem(2, s.planName, s.price, "COMPLETE", ago(60L * 24 * 30), "RF-000002"),
+            PaymentItem(1, s.planName, s.price, "FAILED", ago(60L * 24 * 45), "RF-000001"),
+        )
+    }
+    private val demoUsers = mutableListOf(
+        AdminUser("u1", "Alex Demo", "alex", "alex@rhythmandflow.test", "CUSTOMER", "ACTIVE", ago(60L * 24 * 20), "Flow"),
+        AdminUser("u2", "Thandi Mokoena", "thandi", "thandi@example.com", "CUSTOMER", "ACTIVE", ago(60L * 24 * 9), "Rhythm"),
+        AdminUser("u3", "Sam Naidoo", "sam", "sam@example.com", "CUSTOMER", "ACTIVE", ago(60L * 24 * 3), null),
+        AdminUser("u4", "Rhythm Admin", "admin", "admin@rhythmandflow.test", "ADMIN", "ACTIVE", ago(60L * 24 * 60), null),
+    )
+    override suspend fun adminUsers(search: String?): List<AdminUser> {
+        pause()
+        val q = search?.trim()?.lowercase().orEmpty()
+        return demoUsers.filter { q.isEmpty() || it.fullName.lowercase().contains(q) || it.email.lowercase().contains(q) || it.username.lowercase().contains(q) }
+    }
+    override suspend fun adminSetUserStatus(id: String, body: SetUserStatusRequest): Response<Unit> {
+        pause(); demoUsers.replaceAll { if (it.id == id) it.copy(status = body.status) else it }; return ok()
+    }
     override suspend fun exportData(): okhttp3.ResponseBody {
         pause()
         val json = """{"exportedAt":"demo","profile":{"fullName":"${user.fullName}","email":"${user.email}"},"note":"Demo data only."}"""

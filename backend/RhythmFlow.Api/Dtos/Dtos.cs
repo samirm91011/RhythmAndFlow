@@ -113,5 +113,10 @@ public record ErrorLogDto(
 
 public record DeleteAccountRequest([Required] string Password);
 
+// ---- Payments and user administration ----
+public record PaymentDto(int Id, string PlanName, decimal Amount, string Status, DateTime Date, string Receipt);
+public record AdminUserDto(Guid Id, string FullName, string Username, string Email, string Role, string Status, DateTime CreatedAt, string? Plan);
+public record SetUserStatusRequest([Required, RegularExpression("^(ACTIVE|DISABLED)$")] string Status);
+
 public record CancelResultDto(string Message, bool CancelledWithPayFast);
 

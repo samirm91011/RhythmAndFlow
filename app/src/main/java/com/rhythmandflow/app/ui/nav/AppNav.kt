@@ -246,7 +246,9 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
                     onDone = { nav.goTab("home") }, onBack = back, notify = notify,
                 )
             }
-            composable("subscription") { SubscriptionScreen(session, onBack = back, onPlans = { nav.navigate("plans") }, notify = notify) }
+            composable("payments") { PaymentHistoryScreen(onBack = back) }
+            composable("admin/users") { AdminUsersScreen(onBack = back, notify = notify) }
+            composable("subscription") { SubscriptionScreen(session, onBack = back, onPlans = { nav.navigate("plans") }, onPayments = { nav.navigate("payments") }, notify = notify) }
             composable("bookings") { BookingsScreen(onBack = back, onBrowse = { nav.goTab("classes") }, notify = notify) }
 
             // ---- Profile ----
