@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Help
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
@@ -228,6 +229,15 @@ fun SettingsScreen(session: SessionViewModel, onBack: () -> Unit, onNavigate: (S
                 }
             }
             NavRow(Icons.Default.DeleteForever, "Delete my account", "Erase your account and personal data") { deleting = true }
+            NavRow(Icons.Default.Info, "About", "Version and credits") {
+                dialog = "Rhythm & Flow" to (
+                    "Version ${com.rhythmandflow.app.BuildConfig.VERSION_NAME}" +
+                        (if (com.rhythmandflow.app.BuildConfig.DEMO_MODE) " (demo data)" else "") +
+                        "\n\nHeadings use Cormorant Garamond and text uses Open Sans, both under the SIL Open Font Licence 1.1." +
+                        "\n\nBuilt with Kotlin, Jetpack Compose, Retrofit, OkHttp, Media3 (ExoPlayer), WorkManager and Firebase Cloud Messaging, all under their open-source licences." +
+                        "\n\nQuestions? Visit rhythmandflow.co.za."
+                    )
+            }
             VSpace(8)
             OutlinedButton(
                 onClick = onSignOut, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(28.dp),

@@ -100,6 +100,15 @@ fun AppRoot(session: SessionViewModel, pendingRoute: String? = null, onRouteHand
                 }
                 is SessionState.SignedIn -> MainGraph(session, notify, pendingRoute, onRouteHandled)
             }
+            // Demo builds run on made-up data and must never be mistaken for the real thing.
+            if (com.rhythmandflow.app.BuildConfig.DEMO_MODE) {
+                Text(
+                    "Demo data", color = Color.White, style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 92.dp)
+                        .background(Brand.Ink.copy(alpha = 0.55f), androidx.compose.foundation.shape.RoundedCornerShape(50))
+                        .padding(horizontal = 10.dp, vertical = 3.dp),
+                )
+            }
         }
     }
 }

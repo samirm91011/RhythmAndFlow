@@ -149,6 +149,8 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.EnsureCreatedAsync();
     await SeedData.RunAsync(db, cfg);
+    // Placeholder timetable stays populated until the studio adds its own classes (set to false at launch to be sure).
+    if (cfg.GetValue("Seed:KeepSampleClassesUpcoming", true)) await SeedData.EnsureUpcomingClassesAsync(db);
 }
 
 app.UseMiddleware<ErrorHandlingMiddleware>();

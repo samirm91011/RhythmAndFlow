@@ -277,7 +277,7 @@ fun PlayerScreen(lessonId: Int, onBack: () -> Unit, onFinished: () -> Unit, onPl
     // Block screenshots and screen recording while a lesson is on screen (helps stop customers sharing paid videos).
     DisposableEffect(Unit) {
         val window = context.findActivity()?.window
-        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        if (!com.rhythmandflow.app.BuildConfig.ALLOW_SCREEN_CAPTURE) window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
     }
 

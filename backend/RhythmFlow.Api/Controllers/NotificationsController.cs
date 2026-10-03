@@ -16,7 +16,7 @@ namespace RhythmFlow.Api.Controllers;
 public class NotificationsController(AppDbContext db, NotificationService notifications) : ApiController
 {
     /// <summary>Registers this phone for push notifications (called after sign-in and whenever Firebase issues a new token).</summary>
-    [HttpPost("device-token"), EnableRateLimiting("auth")]
+    [HttpPost("device-token")]
     public async Task<IActionResult> RegisterDevice(DeviceTokenRequest req)
     {
         await notifications.RegisterTokenAsync(UserId, req.Token.Trim());
@@ -24,7 +24,7 @@ public class NotificationsController(AppDbContext db, NotificationService notifi
     }
 
     /// <summary>Stops push notifications to this phone (called on log out).</summary>
-    [HttpPost("device-token/remove"), EnableRateLimiting("auth")]
+    [HttpPost("device-token/remove")]
     public async Task<IActionResult> RemoveDevice(DeviceTokenRequest req)
     {
         await notifications.RemoveTokenAsync(UserId, req.Token.Trim());

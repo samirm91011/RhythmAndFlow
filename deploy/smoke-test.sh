@@ -38,6 +38,7 @@ field() { jq -r "$1" "$BODY" 2>/dev/null; }
 
 STAMP="$(date +%s)"
 EMAIL="smoke$STAMP@example.com"; USERN="smoke$STAMP"; PASSWORD="Smoke-Test-$STAMP!"
+CURPW="$PASSWORD"      # the customer's current password (changes if the reset check runs)
 
 echo "== Service =="
 eq "health endpoint answers 200" 200 "$(call GET /health)"
@@ -91,11 +92,27 @@ eq "checkout creates a PayFast link" 200 "$(call POST /api/subscriptions/checkou
 SUB_ID="$(field '.subscriptionId')"
 has "link points at PayFast" "payfast.co.za" "$(field '.paymentUrl')"
 
+echo "== Payment history, push registration, legal links, data export =="
+eq "payment history answers 200" 200 "$(call GET /api/subscriptions/payments "$TOKEN")"
+eq "a new customer has no payments yet" 0 "$(field 'length')"
+eq "a phone can be registered for push" 200 "$(call POST /api/notifications/device-token "$TOKEN" "{\"token\":\"smoke-device-token-$STAMP-0123456789\"}")"
+eq "a too-short push token is refused" 400 "$(call POST /api/notifications/device-token "$TOKEN" '{"token":"short"}')"
+eq "the phone can be removed again" 200 "$(call POST /api/notifications/device-token/remove "$TOKEN" "{\"token\":\"smoke-device-token-$STAMP-0123456789\"}")"
+eq "/terms sends people to the website" 302 "$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "$BASE/terms" 2>/dev/null || echo 000)"
+has "/privacy points at rhythmandflow.co.za" "rhythmandflow.co.za" "$(curl -sS -m 20 -o /dev/null -D - "$BASE/privacy" 2>/dev/null | grep -i '^location:')"
+eq "a customer can download their data" 200 "$(call GET /api/account/export "$TOKEN")"
+has "the export contains their profile" "$EMAIL" "$(cat "$BODY")"
+
 if [ "$DEV" = 1 ]; then
   echo "== Payment, progress, notifications, cancel (test stack only) =="
   eq "simulated payment is accepted" 204 "$(call POST "/api/dev/simulate-payment/$SUB_ID" "$TOKEN")"
   call GET /api/subscriptions "$TOKEN" >/dev/null
   eq "subscription is now ACTIVE" ACTIVE "$(field '.[0].status')"
+  eq "a second plan is refused while one is renewing" 400 "$(call POST /api/subscriptions/checkout "$TOKEN" '{"planId":3}')"
+  has "the refusal says to cancel first" "cancel it first" "$(cat "$BODY")"
+  call GET /api/subscriptions/payments "$TOKEN" >/dev/null
+  ge "the payment shows in the history" 1 "$(jq 'length' "$BODY")"
+  has "the payment has a receipt number" "RF-" "$(cat "$BODY")"
   call GET /api/lessons "$TOKEN" >/dev/null
   eq "no lessons are locked for a tier-2 plan except the top tier" 2 "$(jq '[.[] | select(.locked)] | length' "$BODY")"
   eq "a locked lesson now plays" 200 "$(call GET "/api/lessons/$LOCKED_ID/playback" "$TOKEN")"
@@ -137,6 +154,7 @@ if [ -n "${RESET_CODE_CMD:-}" ]; then
   eq "the old login token no longer works" 401 "$(call GET /api/auth/me "$TOKEN")"
   eq "the new password works" 200 "$(call POST /api/auth/login '' "{\"identifier\":\"$USERN\",\"password\":\"New-Password-$STAMP!\"}")"
   TOKEN="$(field '.token')"
+  CURPW="New-Password-$STAMP!"
 fi
 
 echo "== Error reporting =="
@@ -158,7 +176,23 @@ if [ -n "${ADMIN_EMAIL:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
   ge "the reported errors are listed" 1 "$(field 'length')"
   call GET /api/notifications "$ATOKEN" >/dev/null
   ge "admin received error notifications" 1 "$(jq 'length' "$BODY")"
+  eq "admin can search customers" 200 "$(call GET "/api/admin/users?search=$USERN" "$ATOKEN")"
+  SMOKE_ID="$(field '.[0].id')"
+  eq "the new customer is found" "$USERN" "$(field '.[0].username')"
+  eq "a customer cannot list customers" 403 "$(call GET /api/admin/users "$TOKEN")"
+  eq "admin can switch the customer off" 204 "$(call POST "/api/admin/users/$SMOKE_ID/status" "$ATOKEN" '{"status":"DISABLED"}')"
+  eq "a switched-off customer cannot log in" 401 "$(call POST /api/auth/login '' "{\"identifier\":\"$USERN\",\"password\":\"$CURPW\"}")"
+  eq "and their old login token stops working" 401 "$(call GET /api/auth/me "$TOKEN")"
+  eq "admin can switch them back on" 204 "$(call POST "/api/admin/users/$SMOKE_ID/status" "$ATOKEN" '{"status":"ACTIVE"}')"
+  eq "they can log in again" 200 "$(call POST /api/auth/login '' "{\"identifier\":\"$USERN\",\"password\":\"$CURPW\"}")"
+  TOKEN="$(field '.token')"
 fi
+
+echo "== Account deletion (the throw-away smoke customer removes itself) =="
+eq "deleting with the wrong password is refused" 400 "$(call POST /api/account/delete "$TOKEN" '{"password":"definitely-wrong"}')"
+eq "deleting the account works" 200 "$(call POST /api/account/delete "$TOKEN" "{\"password\":\"$CURPW\"}")"
+eq "the deleted account cannot log in" 401 "$(call POST /api/auth/login '' "{\"identifier\":\"$USERN\",\"password\":\"$CURPW\"}")"
+eq "the old login token stops working" 401 "$(call GET /api/auth/me "$TOKEN")"
 
 echo
 echo "Result: $PASS passed, $FAIL failed"
