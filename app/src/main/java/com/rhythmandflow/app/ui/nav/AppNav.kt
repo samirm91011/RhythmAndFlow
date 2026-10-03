@@ -224,7 +224,7 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
             }
 
             // ---- Explore / shop ----
-            composable("explore") { ExploreScreen(onArticle = { nav.navigate("article/${android.net.Uri.encode(it)}") }, onShop = { nav.navigate("shop") }) }
+            composable("explore") { ExploreScreen(onBack = back, onArticle = { nav.navigate("article/${android.net.Uri.encode(it)}") }, onShop = { nav.navigate("shop") }) }
             composable("article/{title}", listOf(navArgument("title") { type = NavType.StringType })) { e ->
                 ArticleScreen(e.arguments!!.getString("title") ?: "", onBack = back, notify = notify)
             }

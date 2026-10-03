@@ -65,6 +65,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -234,7 +235,7 @@ fun LessonDetailScreen(lessonId: Int, onBack: () -> Unit, onBegin: () -> Unit, o
                     Text("What you'll need", style = MaterialTheme.typography.titleLarge)
                     VSpace(8)
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        listOf("Yoga mat", "Water", "Open space").forEach { SoftCard(Modifier.weight(1f)) { Text(it, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) } }
+                        listOf("Yoga mat", "Water", "Open space").forEach { SoftCard(Modifier.weight(1f), background = Brand.TealMist) { Text(it, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) } }
                     }
                     VSpace(16)
                     PrimaryButton(if (lesson.watchTimeSeconds > 0 && lesson.completionPercentage < 95) "Resume Practice" else "Begin Practice", onClick = onBegin)
@@ -281,9 +282,13 @@ fun PlayerScreen(lessonId: Int, onBack: () -> Unit, onFinished: () -> Unit, onPl
     }
 
     val player = remember { ExoPlayer.Builder(context).build() }
+    var playbackFailed by remember { mutableStateOf(false) }
+    var playbackErrorCode by remember { mutableStateOf("") }
+    var retries by remember { mutableStateOf(0) }
 
-    LaunchedEffect(state.url) {
+    LaunchedEffect(state.url, retries) {
         val url = state.url ?: return@LaunchedEffect
+        playbackFailed = false
         player.setMediaItem(MediaItem.fromUri(url))
         player.prepare()
         if (state.resumeMs > 0) player.seekTo(state.resumeMs)
@@ -300,6 +305,13 @@ fun PlayerScreen(lessonId: Int, onBack: () -> Unit, onFinished: () -> Unit, onPl
 
     DisposableEffect(player) {
         val listener = object : Player.Listener {
+            override fun onPlayerError(error: PlaybackException) {
+                playbackFailed = true
+                playbackErrorCode = error.errorCodeName
+                // Let the team know (de-duplicated), so a broken video link or server problem shows up in the admin error log.
+                (context.applicationContext as? com.rhythmandflow.app.RhythmApplication)?.container?.errorReporter
+                    ?.report("Video playback failed: ${error.errorCodeName}", "lesson $lessonId: ${error.cause}", "player/$lessonId", false)
+            }
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) {
                     vm.report(((player.duration.coerceAtLeast(0)) / 1000).toInt() + 1, force = true)
@@ -330,6 +342,20 @@ fun PlayerScreen(lessonId: Int, onBack: () -> Unit, onFinished: () -> Unit, onPl
                 factory = { ctx -> PlayerView(ctx).apply { this.player = player; useController = true } },
                 modifier = Modifier.fillMaxSize(),
             )
+        }
+        if (playbackFailed && !state.loading && state.error == null) {
+            Column(
+                Modifier.fillMaxSize().background(Color.Black).padding(24.dp),
+                verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("This video couldn't be played. Check your internet connection and try again.", color = Color.White, textAlign = TextAlign.Center)
+                if (com.rhythmandflow.app.BuildConfig.DEBUG && playbackErrorCode.isNotBlank()) {
+                    VSpace(8)
+                    Text("($playbackErrorCode)", color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.bodySmall)
+                }
+                VSpace(16)
+                SecondaryButton("Try again", onClick = { retries++ })
+            }
         }
         IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(8.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
