@@ -23,7 +23,7 @@ Samir: read this before every demo and before launch. This list is kept up to da
 | 16 | Google Play Developer account | none | Client or team pays ~$25 once, only if publishing to Play Store | Play Console |
 
 | 17 | Gmail **app password** was typed in chat on 2026-10-02 | Treat as exposed | After the presentation: revoke it (Google Account → Security → App passwords) and create a new one for the client's mailbox | `appsettings.Local.json` + Azure settings |
-| 18 | GitHub repo | `samirm91011/rythmflowdev` (Samir's personal account) | Client's/organisation's repo or transfer ownership; remove any group-member access no longer needed | GitHub |
+| 18 | GitHub repo | `samirm91011/RhythmAndFlow` (Samir's personal account) | Client's/organisation's repo or transfer ownership; remove any group-member access no longer needed | GitHub |
 | 19 | Azure resources | **Azure for Students** subscription (team member's account, US$100 credit), resource group `rg-rhythmflow`. Student credit stops when used up/expired and the account is tied to one student | Client-owned paid subscription (or move to the client's chosen host); delete `rg-rhythmflow` after the presentation if not needed | Azure portal |
 | 20 | Seeded **placeholder** content (3 plans, 4 programmes, 8 lessons with public test clips, 6 classes) is created automatically on first start in *every* environment | Placeholders | Replace via Admin tools, then remove the sample seeding in `Data/SeedData.cs` before the client's real launch | `SeedData.cs` |
 | 21 | Hosted demo users `admin@rhythmandflow.test` / `alex@rhythmandflow.test` | Test accounts | Delete; create the client's real admin only | Azure settings `Seed__Users__*` |
@@ -40,7 +40,7 @@ Samir: read this before every demo and before launch. This list is kept up to da
 | 31 | The server's `/opt/rhythmflow/.env` holds every live secret | Team values | Client's values; keep file mode 600; never copy it into chat/email | Server |
 | 32 | Live smoke test creates a throw-away `smoke…@example.com` customer on each deploy | Harmless demo clutter | Remove the smoke step (or add cleanup) before the real launch; delete those accounts | `deploy.yml` / database |
 
-| 33 | **Code lives in Samir's personal private repo** `samirm91011/rythmflowdev` for now. The lecturer will provide a **campus repo** to use for submission | Personal private repo | Move to the campus repo: add it as a second remote (`git remote add campus <url>`), push all branches (`git push campus --all`), then **re-create the GitHub Actions secrets/variables and branch rules there** (secrets do NOT travel with the code), re-check the workflows run, and update `AZURE_API_URL`/`VPS_*` settings. Decide which repo is the submission and say so in the presentation | GitHub |
+| 33 | **Code lives in Samir's personal private repo** `samirm91011/RhythmAndFlow` for now. The lecturer will provide a **campus repo** to use for submission | Personal private repo | Move to the campus repo: add it as a second remote (`git remote add campus <url>`), push all branches (`git push campus --all`), then **re-create the GitHub Actions secrets/variables and branch rules there** (secrets do NOT travel with the code), re-check the workflows run, and update `AZURE_API_URL`/`VPS_*` settings. Decide which repo is the submission and say so in the presentation | GitHub |
 
 ## B. Before every demo
 - API reachable (hosted: open `/health`); database reset to demo data; PayFast sandbox login works; email sending works.
@@ -51,7 +51,7 @@ Samir: read this before every demo and before launch. This list is kept up to da
 ## C. Open decisions / waiting on someone
 - **Presentation: Wednesday 7 October 2026** (confirmed).
 - Azure: group member to follow `docs/AZURE-SETUP.md` and report back. (Samir)
-- GitHub: repo `samirm91011/rythmflowdev` given; code is pushed to GitHub only when Samir says "go". Repo owner must also add the secrets/variables and branch rules (`docs/GITHUB-SETUP.md`). (Samir)
+- GitHub: repo `samirm91011/RhythmAndFlow` given; code is pushed to GitHub only when Samir says "go". Repo owner must also add the secrets/variables and branch rules (`docs/GITHUB-SETUP.md`). (Samir)
 - Client answers: videos, pricing, classes, legal text, fonts, her PayFast account.
 | 34 | **Terms of Use and Privacy Policy are drafts** (served at `/terms` and `/privacy`, text in `LegalController`) with placeholders for the business name and e-mail | Draft text | Client (or a legal adviser) reviews and approves the wording; fill in the business name and contact e-mail | Before launch |
 | 35 | Heading font is Cormorant Garamond, a stand-in for the brand's Amaris (files not supplied) | Stand-in | Add the Amaris font file to `app/src/main/res/font/` and change `HeadingFont` in `Theme.kt` | Before launch |

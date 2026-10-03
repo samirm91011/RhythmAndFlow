@@ -1,6 +1,6 @@
 # GitHub workflow (rubric §9.4.4)
 
-Repository: https://github.com/samirm91011/rythmflowdev
+Repository: https://github.com/samirm91011/RhythmAndFlow
 
 ## Branches
 | Branch | Purpose |

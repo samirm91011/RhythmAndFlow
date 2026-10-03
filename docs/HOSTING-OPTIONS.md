@@ -19,7 +19,7 @@ Facts (from Render's docs, checked 2026-10-02):
 - Needs: a Render account (sign in with GitHub) and a free Brevo account.
 
 ### Render setup (repository owner, ~25 minutes)
-1. Sign up at https://render.com with GitHub and allow access to `samirm91011/rythmflowdev`.
+1. Sign up at https://render.com with GitHub and allow access to `samirm91011/RhythmAndFlow`.
 2. **New → Blueprint**, pick the repository, branch `main`. Render reads `render.yaml` and proposes `rhythmflow-api` (web, Docker) + `rhythmflow-db` (PostgreSQL). Region: Frankfurt (closest on offer).
 3. When asked for the values marked *sync: false*, type them in the Render page (never in chat):
    - PayFast: `PayFast__MerchantId`, `PayFast__MerchantKey`, `PayFast__Passphrase` (from your private `appsettings.Local.json`)

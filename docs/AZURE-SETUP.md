@@ -92,7 +92,7 @@ Tick *"Deployment slot setting"* on none of them. Mark the secret ones as normal
 
 ## Part 5 – Let GitHub deploy to this app
 1. In the App Service **Overview**, click **Download publish profile**. A file `…PublishSettings` downloads. Open it in Notepad and copy **all** the text.
-2. Go to the GitHub repository **https://github.com/samirm91011/rythmflowdev** (you need to be added as a collaborator by Samir, with *Write* or *Admin* access, or Samir does this step).
+2. Go to the GitHub repository **https://github.com/samirm91011/RhythmAndFlow** (you need to be added as a collaborator by Samir, with *Write* or *Admin* access, or Samir does this step).
 3. **Settings → Secrets and variables → Actions → Secrets → New repository secret**
    - Name: `AZURE_WEBAPP_PUBLISH_PROFILE`  Value: paste the text you copied. Save.
 4. Same page → **Variables** tab → **New repository variable**, add three:
