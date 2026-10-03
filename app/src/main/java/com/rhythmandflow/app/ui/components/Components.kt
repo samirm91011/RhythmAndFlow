@@ -3,6 +3,8 @@ package com.rhythmandflow.app.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.geometry.Offset
@@ -148,8 +150,15 @@ fun RfTextField(
     singleLine: Boolean = true,
     minLines: Int = 1,
     error: String? = null,
+    /** Keyboard action key. Next moves on to the following field; Done, Go and Search call [onImeAction] (or just close the keyboard). */
+    imeAction: ImeAction = if (singleLine) ImeAction.Next else ImeAction.Default,
+    onImeAction: (() -> Unit)? = null,
+    /** Tells password managers what this field is, so they can fill it in. */
+    autofill: androidx.compose.ui.autofill.ContentType? = null,
 ) {
     var visible by remember { mutableStateOf(false) }
+    val focus = androidx.compose.ui.platform.LocalFocusManager.current
+    val submit = { if (onImeAction != null) onImeAction() else focus.clearFocus() }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -163,12 +172,16 @@ fun RfTextField(
             }
         } else null,
         visualTransformation = if (isPassword && !visible) PasswordVisualTransformation() else VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(keyboardType = if (isPassword) KeyboardType.Password else keyboardType),
+        keyboardOptions = KeyboardOptions(keyboardType = if (isPassword) KeyboardType.Password else keyboardType, imeAction = imeAction),
+        keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+            onNext = { focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Next) },
+            onDone = { submit() }, onGo = { submit() }, onSearch = { submit() }, onSend = { submit() },
+        ),
         singleLine = singleLine,
         minLines = minLines,
         isError = error != null,
         supportingText = error?.let { { Text(it) } },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().let { m -> if (autofill != null) m.semantics { contentType = autofill } else m },
         shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Brand.TealDeep, unfocusedBorderColor = Brand.LightGrey,

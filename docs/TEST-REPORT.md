@@ -37,7 +37,10 @@ Checked on a phone-size screen at normal text size unless noted.
 | Tablet size (about 1600 x 2560): side navigation rail, centred readable column | pass on Home and Classes; other screens use the same layout |
 | Maximum text size (2x): bottom bar labels and mood tiles broke mid-word | **fixed**; Move, Journal and Classes reflow without clipping (tab rows scroll) |
 | Screen-reader labels, headings, 4.5:1 text contrast on orange text and buttons | reviewed and corrected in code |
-| TalkBack (screen reader) walkthrough, keyboard navigation of forms | **not yet done** |
+| Automated accessibility audit of the main screens (every tappable element has a screen-reader label; none smaller than 48dp) | pass on Home, Move, Classes, Journal, You, Settings, Plans, Notifications |
+| Keyboard: Next moves between fields, Go/Done submits or closes the keyboard, password-manager hints on sign-in and sign-up | pass on the sign-in form; applied to the other forms |
+| Live TalkBack (spoken) walkthrough | **not yet done** - to do on a real phone |
+| Cold start, debug build on the emulator | about 4.4 seconds (median of 5). Not representative: debug build on a slow emulator. **To be measured on a real phone** |
 
 ## 3. Not testable until the hosted API exists (Azure)
 - Real PayFast sandbox payment with the confirmation (ITN) call-back

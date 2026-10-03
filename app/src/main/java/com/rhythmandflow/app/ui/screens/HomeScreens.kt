@@ -144,6 +144,27 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
             }
         }
 
+        state.resume?.let { l ->
+            VSpace(20)
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                SoftCard(onClick = { onNavigate("lesson/${l.id}") }, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth()) {
+                        InfoPill("Continue where you left off")
+                        VSpace(8)
+                        Text(l.title, style = MaterialTheme.typography.titleLarge)
+                        val left = ((l.durationSeconds - l.watchTimeSeconds).coerceAtLeast(0) + 59) / 60
+                        Text("${l.completionPercentage.toInt()}% done · about $left min left", color = Brand.Muted, style = MaterialTheme.typography.bodyMedium)
+                        VSpace(10)
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { (l.completionPercentage / 100.0).toFloat() },
+                            modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                            color = Brand.TealDeep, trackColor = Brand.TealSoft,
+                        )
+                    }
+                }
+            }
+        }
+
         VSpace(20)
         SectionTitle("Your Rhythm Today", action = "See All", onAction = { onNavigate("rhythm") })
         VSpace(8)

@@ -25,6 +25,12 @@ Living record of what exists, what changed, and what is left. Newest entries at 
 - Earlier: cloud-neutral backend (SQLite locally, PostgreSQL by config); videos are placeholder public clips; plans R99/R199/R299 are placeholders; Shop is a "coming soon" screen.
 
 ## Work log
+### 2026-10-04
+- **Payment history and receipts** (`GET /api/subscriptions/payments`, receipt numbers RF-000123, app screen reached from My subscription).
+- **Plan switching rule:** checkout is refused while a plan is still renewing (it would create two PayFast agreements and charge twice); the app explains: cancel first, then choose a new plan. Server tests added.
+- **Admin customers screen:** search, switch an account off or on (signs the person out everywhere; your own account and the only administrator are protected). About 18 more server tests; no database changes.
+- **Azure fast path:** `deploy/azure/setup-azure.sh` creates the resource group, database, web app and all settings from Azure Cloud Shell (not yet run on a real subscription). The secrets hand-over file is prepared in the git-ignored `private/` folder.
+
 ### 2026-10-03
 - **Legal pages:** the client's website already has the Terms of Use (rhythmandflow.co.za/terms-of-use/) and Privacy Policy (rhythmandflow.co.za/privacy-policy/). The app now links to them from the sign-up screen and Settings, says where they can be found, and the API's draft pages were replaced by redirects to them.
 - **Real push notifications built (Feature 3B):** the API stores each phone's Firebase token (`DeviceToken` table, max 5 per person, removed on log out and on account deletion) and pushes every notification through Firebase Cloud Messaging (data-only messages, same notification id as the in-app copy so nothing shows twice). Off automatically when no key is configured. The app registers after sign-in, builds without `google-services.json` so CI still works. 12 new backend tests (run in CI). **Not yet proven end to end:** real delivery can only be tried once the API runs on Azure with `Firebase__ServiceAccountJson` set.

@@ -312,7 +312,11 @@ class ClassesViewModel(private val c: AppContainer) : ViewModel() {
 }
 
 // ============================================================ Home / journal / profile
-data class HomeState(val summary: ProgressSummary? = null, val nextBooking: Booking? = null, val loading: Boolean = true, val unread: Int = 0)
+data class HomeState(
+    val summary: ProgressSummary? = null, val nextBooking: Booking? = null, val loading: Boolean = true, val unread: Int = 0,
+    /** A practice the person started and has not finished, so Home can offer to carry on. */
+    val resume: Lesson? = null,
+)
 
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
     private val repo = c.repository
@@ -328,7 +332,10 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             if (allBookings != null) com.rhythmandflow.app.notifications.ReminderScheduler.sync(c.app, c.localPrefs, allBookings)
             val b = allBookings?.firstOrNull()
             val unread = (repo.unreadCount() as? Outcome.Ok)?.value?.count ?: 0
-            _state.value = HomeState(s, b, false, unread)
+            val resume = (repo.lessons() as? Outcome.Ok)?.value
+                ?.filter { !it.locked && it.watchTimeSeconds > 0 && it.completionPercentage in 1.0..94.9 }
+                ?.maxByOrNull { it.completionPercentage }
+            _state.value = HomeState(s, b, false, unread, resume)
         }
     }
 

@@ -38,7 +38,7 @@ class DemoApi : Api {
         L(7, 4, "Full Body Flow Masterclass", 3, "Sunrise Flow", "A longer morning flow to start your day.", "Yoga", 2100, false),
         L(8, 4, "Full Body Flow Masterclass", 3, "Dance Cardio Burn", "High energy dance for a full body workout.", "Dance", 1800, false),
     )
-    private val watched = mutableMapOf<Int, Int>()
+    private val watched = mutableMapOf(1 to 240)   // Alex is part-way through the first lesson, so Home shows "continue"
 
     private val classes = mutableListOf(
         mkClass(1, "Morning Flow", 1, 7, 20, 3), mkClass(2, "Dance with Joy", 2, 12, 20, 12), mkClass(3, "Barre & Stretch", 3, 17, 20, 0),

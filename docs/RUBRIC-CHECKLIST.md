@@ -11,7 +11,7 @@ Status key: DONE / PARTIAL / TODO. Last updated 4 October 2026. This file double
 | Affordance | Filled pill buttons, chips, lock badges, back arrows, tappable cards with press feedback, pickers instead of typed dates | DONE |
 | Branding | Logo (black/white), adaptive app icon, brand colours (RGB values), fonts | PARTIAL (client's Amaris font and photography still to come) |
 | Responsive design | Phone, tablet (navigation rail, centred 720dp column) and maximum text size (layout switches so words never break) | DONE |
-| Accessibility | Headings, screen-reader labels, 48dp touch targets, 4.5:1 text contrast, text scaling to 200% checked | PARTIAL (TalkBack walk-through and keyboard navigation of forms still to do) |
+| Accessibility | Headings, screen-reader labels, 48dp touch targets, 4.5:1 text contrast, text scaling to 200% checked | PARTIAL (automated label and touch-size audit passed, keyboard keys done; live TalkBack walk-through on a real phone still to do) |
 | Colour & typography | Palette defined once in `Theme.kt`; deeper tangerine for small text and buttons with white text (contrast) | DONE |
 | Consistency | Shared components in `ui/components`; one theme for dialogs and pickers | DONE |
 | Feedback & system response | Snackbars, skeletons, inline errors, confirmations, notifications (in-app, phone, push), video error with Retry | DONE |
