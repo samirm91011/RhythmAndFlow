@@ -25,6 +25,9 @@ Living record of what exists, what changed, and what is left. Newest entries at 
 - Earlier: cloud-neutral backend (SQLite locally, PostgreSQL by config); videos are placeholder public clips; plans R99/R199/R299 are placeholders; Shop is a "coming soon" screen.
 
 ## Work log
+### 2026-10-05
+- **Full phone test on the live server (5 Oct):** admin dashboard, bookings, who is booked, active plans, class/plan/lesson editing, customer view, a booking, a sandbox PayFast payment (receipt and notification, admin lists updated), cancelling the booking and the subscription, journal, video playback and progress all worked on a Samsung S21. Found one small thing: plan-end dates in messages were in UTC, so a plan ending just after midnight in South Africa read a day early; messages now use South African time (`SubscriptionService.Day`, 2 tests).
+
 ### 2026-10-04
 - **Admin experience:** an administrator now lands on an Admin dashboard (never the customer home) with their own bottom bar: Dashboard, Classes, Customers, Plans, Account. The dashboard has a "See the app as a customer" option and customers' You screen still offers "Admin tools" to switch back; customers never see either. Admin alerts (for example a new error) open the admin side. Same sign-in screen for everyone: the server decides the role, so there is nothing separate to secure.
 - **Edit a class or a lesson:** Edit button on each class (name, coach, place, date, time, length, capacity) and each lesson (programme, title, description, category, length, video address, free preview). Rules: a cancelled class can't be edited; capacity can't drop below the number already booked; people already booked are notified when the time or place changes. `ScheduleAdminService` with 8 server tests; admin lesson list now reports video details (admin only).

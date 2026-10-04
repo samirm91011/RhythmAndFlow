@@ -8,6 +8,9 @@ namespace RhythmFlow.Api.Services;
 public class SubscriptionService(
     AppDbContext db, PayFastService payFast, IPayFastApi payFastApi, NotificationService notifications, ILogger<SubscriptionService> log)
 {
+    /// <summary>Dates in messages are shown in South African time (UTC+2, no daylight saving), the same as the app, so a plan that ends just after midnight there does not read a day early.</summary>
+    public static string Day(DateTime? utc) => utc is null ? "" : utc.Value.AddHours(2).ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
+
     public async Task<CheckoutResponse> CheckoutAsync(Guid userId, int planId)
     {
         var plan = await db.Plans.FirstOrDefaultAsync(p => p.Id == planId && p.Status == "ACTIVE")
@@ -73,11 +76,11 @@ public class SubscriptionService(
         sub.Status = SubscriptionStatus.Cancelled;
         await db.SaveChangesAsync();
         await notifications.AddAsync(userId, "SUBSCRIPTION", "Subscription cancelled",
-            $"Your {sub.Plan!.Name} plan won't renew. You keep access until {sub.EndDate:d MMM yyyy}.", "subscription");
+            $"Your {sub.Plan!.Name} plan won't renew. You keep access until {Day(sub.EndDate)}.", "subscription");
 
         var text = cancelledWithPayFast
-            ? $"Your subscription is cancelled and PayFast won't charge you again. You keep access until {sub.EndDate:d MMM yyyy}."
-            : $"Your subscription is cancelled. You keep access until {sub.EndDate:d MMM yyyy}.";
+            ? $"Your subscription is cancelled and PayFast won't charge you again. You keep access until {Day(sub.EndDate)}."
+            : $"Your subscription is cancelled. You keep access until {Day(sub.EndDate)}.";
         return (true, new CancelResultDto(text, cancelledWithPayFast), null);
     }
 
@@ -118,7 +121,7 @@ public class SubscriptionService(
                 await notifications.AddAsync(sub.UserId, "PAYMENT",
                     firstPayment ? "You're subscribed!" : "Payment received",
                     firstPayment ? $"Your {sub.Plan.Name} plan is active. Enjoy your practice."
-                                 : $"Thanks! Your {sub.Plan.Name} plan renews until {sub.EndDate:d MMM yyyy}.", "subscription");
+                                 : $"Thanks! Your {sub.Plan.Name} plan renews until {Day(sub.EndDate)}.", "subscription");
                 return true;
             case "FAILED":
                 db.Payments.Add(new Payment { SubscriptionId = sub.Id, Amount = amountGross, Status = "FAILED", TransactionReference = pfPaymentId });
@@ -134,7 +137,7 @@ public class SubscriptionService(
                 {
                     sub.Status = SubscriptionStatus.Cancelled;
                     await notifications.AddAsync(sub.UserId, "SUBSCRIPTION", "Subscription cancelled",
-                        $"Your plan won't renew. You keep access until {sub.EndDate:d MMM yyyy}.", "subscription");
+                        $"Your plan won't renew. You keep access until {Day(sub.EndDate)}.", "subscription");
                 }
                 await db.SaveChangesAsync();
                 return true;
