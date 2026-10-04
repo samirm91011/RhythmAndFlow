@@ -82,6 +82,8 @@ public record PlanUpsert(
     string? Features,
     string? Status);
 
+public record AdminPlanDto(int Id, string Name, string Description, decimal Price, string BillingFrequency, int Tier, List<string> Features, string Status);
+
 public record AdminSummaryDto(int Users, int ActiveSubscriptions, int UpcomingClasses, int ActiveBookings, decimal MonthlyRecurringRevenue, int OpenErrors);
 
 // ---- Password ----

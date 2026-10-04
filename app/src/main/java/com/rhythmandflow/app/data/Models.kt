@@ -39,6 +39,18 @@ data class Plan(
     val features: List<String>,
 )
 
+/** A plan as the administrator sees it, including whether customers can see it (ACTIVE) or not (INACTIVE). */
+data class AdminPlan(
+    val id: Int,
+    val name: String,
+    val description: String,
+    val price: Double,
+    val billingFrequency: String,
+    val tier: Int,
+    val features: List<String>,
+    val status: String,
+)
+
 data class Subscription(
     val id: Int,
     val planId: Int,

@@ -24,7 +24,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.rhythmandflow.app.data.ClassUpsert
 import com.rhythmandflow.app.data.LessonUpsert
-import com.rhythmandflow.app.data.Plan
+import com.rhythmandflow.app.data.AdminPlan
 import com.rhythmandflow.app.data.PlanUpsert
 import com.rhythmandflow.app.ui.components.*
 import com.rhythmandflow.app.ui.theme.Brand
@@ -286,18 +286,23 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
 fun AdminPlansScreen(onBack: () -> Unit, notify: (String) -> Unit) {
     val vm = appViewModel(key = "admin") { AdminViewModel(it) }
     val state by vm.state.collectAsState()
-    val scope = rememberCoroutineScope()
-    var editing by remember { mutableStateOf<Plan?>(null) }
+    var editing by remember { mutableStateOf<AdminPlan?>(null) }
+    var adding by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Subscription plans", onBack = onBack)
         Column(Modifier.vScroll().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            PrimaryButton("Add plan", onClick = { adding = true })
             state.plans.forEach { p ->
                 SoftCard(Modifier.fillMaxWidth(), onClick = { editing = p }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(p.name, style = MaterialTheme.typography.titleMedium)
                             Text("${formatRand(p.price)} / month · access level ${p.tier}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                            if (p.status != "ACTIVE") {
+                                VSpace(4)
+                                InfoPill("Hidden from customers", color = Brand.LightGrey, textColor = Brand.Muted)
+                            }
                         }
                         Text("Edit", color = Brand.TealDeep)
                     }
@@ -305,30 +310,72 @@ fun AdminPlansScreen(onBack: () -> Unit, notify: (String) -> Unit) {
             }
         }
     }
+    if (adding) PlanFormDialog(
+        initial = null, onDismiss = { adding = false },
+        onSave = { vm.createPlan(it) },
+        onSaved = { adding = false; notify("Plan added.") },
+    )
     editing?.let { p ->
-        var name by remember(p.id) { mutableStateOf(p.name) }
-        var price by remember(p.id) { mutableStateOf(p.price.toInt().toString()) }
-        AlertDialog(
-            onDismissRequest = { editing = null },
-            title = { Text("Edit plan") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    RfTextField(name, { name = it }, "Name")
-                    RfTextField(price, { price = it.filter(Char::isDigit) }, "Price per month (R)", keyboardType = KeyboardType.Number)
-                    Text("Changing a price only affects new subscribers. Existing PayFast subscriptions keep their amount.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val amount = price.toDoubleOrNull()
-                    editing = null
-                    if (amount == null || amount < 1 || name.isBlank()) notify("Enter a name and a price.")
-                    else scope.launch {
-                        notify(vm.updatePlan(p.id, PlanUpsert(name.trim(), p.description, amount, p.tier, p.features.joinToString("|"), "ACTIVE")) ?: "Plan updated.")
-                    }
-                }) { Text("Save") }
-            },
-            dismissButton = { TextButton(onClick = { editing = null }) { Text("Cancel") } },
+        PlanFormDialog(
+            initial = p, onDismiss = { editing = null },
+            onSave = { vm.updatePlan(p.id, it) },
+            onSaved = { editing = null; notify("Plan updated.") },
         )
     }
+}
+
+/** Add or edit a plan. Stays open and shows the server's message if the save is refused. */
+@Composable
+private fun PlanFormDialog(
+    initial: AdminPlan?,
+    onDismiss: () -> Unit,
+    onSave: suspend (PlanUpsert) -> String?,
+    onSaved: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var name by remember { mutableStateOf(initial?.name.orEmpty()) }
+    var price by remember { mutableStateOf(initial?.price?.toInt()?.toString().orEmpty()) }
+    var description by remember { mutableStateOf(initial?.description.orEmpty()) }
+    var tier by remember { mutableStateOf(initial?.tier ?: 1) }
+    var features by remember { mutableStateOf(initial?.features?.joinToString("\n").orEmpty()) }
+    var visible by remember { mutableStateOf(initial?.status != "INACTIVE") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var saving by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text(if (initial == null) "Add plan" else "Edit plan") },
+        text = {
+            Column(Modifier.vScroll(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                RfTextField(name, { name = it }, "Name")
+                RfTextField(price, { price = it.filter(Char::isDigit) }, "Price per month (R)", keyboardType = KeyboardType.Number)
+                RfTextField(description, { description = it }, "Short description", singleLine = false, minLines = 2)
+                Text("Access level", style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    (1..3).forEach { t -> SelectChip("Level $t", tier == t, onClick = { tier = t }) }
+                }
+                Text("A plan unlocks every programme at its level or below.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                RfTextField(features, { features = it }, "What's included (one per line)", singleLine = false, minLines = 3)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(checked = visible, onCheckedChange = { visible = it }, colors = SwitchDefaults.colors(checkedTrackColor = Brand.TealDeep))
+                    HSpace(10); Text("Visible to customers")
+                }
+                if (initial != null) Text("Changing a price only affects new subscribers. Existing PayFast subscriptions keep their amount.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                error?.let { Text(it, color = Brand.Error, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !saving, onClick = {
+                val amount = price.toDoubleOrNull()
+                if (name.isBlank() || amount == null || amount < 1) { error = "Enter a name and a price of at least R1."; return@TextButton }
+                saving = true; error = null
+                scope.launch {
+                    val problem = onSave(PlanUpsert(name.trim(), description.trim(), amount, tier, features.trim(), if (visible) "ACTIVE" else "INACTIVE"))
+                    saving = false
+                    if (problem == null) onSaved() else error = problem
+                }
+            }) { Text(if (saving) "Saving…" else "Save") }
+        },
+        dismissButton = { TextButton(enabled = !saving, onClick = onDismiss) { Text("Cancel") } },
+    )
 }

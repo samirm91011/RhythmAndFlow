@@ -144,7 +144,7 @@ class DemoApi : Api {
     }
 
     // ---- plans & subscriptions
-    override suspend fun plans(): List<Plan> { pause(); return plans }
+    override suspend fun plans(): List<Plan> { pause(); return plans.filter { it.id !in hiddenPlans }.sortedBy { it.price } }
     override suspend fun subscriptions(): List<Subscription> {
         pause()
         sub?.let { s -> if (s.status == "PENDING" && ++checkoutPolls >= 2) activate(plans.first { it.id == s.planId }) }
@@ -288,9 +288,30 @@ class DemoApi : Api {
     }
     override suspend fun adminCreateClass(body: ClassUpsert): Int { pause(); return ++nextId }
     override suspend fun adminCancelClass(id: Int): Response<Unit> { pause(); return ok() }
-    override suspend fun adminPlans(): List<Plan> { pause(); return plans }
+    private val hiddenPlans = mutableSetOf<Int>()
+    private fun splitFeatures(s: String?) = s.orEmpty().split('|', '\n').map { it.trim() }.filter { it.isNotEmpty() }
+    private fun checkPlan(id: Int?, b: PlanUpsert) {
+        if (b.name.isBlank()) fail(400, "Enter a plan name.")
+        if (b.price < 1) fail(400, "The price must be at least R1.")
+        if (plans.any { it.id != id && it.name.equals(b.name.trim(), true) }) fail(400, "A plan with that name already exists.")
+    }
+    override suspend fun adminPlans(): List<AdminPlan> {
+        pause()
+        return plans.sortedBy { it.price }.map { AdminPlan(it.id, it.name, it.description, it.price, it.billingFrequency, it.tier, it.features, if (it.id in hiddenPlans) "INACTIVE" else "ACTIVE") }
+    }
+    override suspend fun adminCreatePlan(body: PlanUpsert): Int {
+        pause(); checkPlan(null, body)
+        val id = ++nextId
+        plans.add(Plan(id, body.name.trim(), body.description.orEmpty(), body.price, "MONTHLY", body.tier, splitFeatures(body.features)))
+        if (body.status == "INACTIVE") hiddenPlans.add(id)
+        return id
+    }
     override suspend fun adminUpdatePlan(id: Int, body: PlanUpsert): Response<Unit> {
-        pause(); val i = plans.indexOfFirst { it.id == id }; if (i >= 0) plans[i] = plans[i].copy(name = body.name, price = body.price); return ok()
+        pause(); checkPlan(id, body)
+        val i = plans.indexOfFirst { it.id == id }
+        if (i >= 0) plans[i] = plans[i].copy(name = body.name.trim(), description = body.description.orEmpty(), price = body.price, tier = body.tier, features = splitFeatures(body.features))
+        if (body.status == "INACTIVE") hiddenPlans.add(id) else hiddenPlans.remove(id)
+        return ok()
     }
     override suspend fun adminErrors(status: String): List<ErrorLogItem> { pause(); return errors.filter { status == "ALL" || it.status == status } }
     override suspend fun adminResolveError(id: Int): Response<Unit> { pause(); errors.replaceAll { if (it.id == id) it.copy(status = "RESOLVED") else it }; return ok() }

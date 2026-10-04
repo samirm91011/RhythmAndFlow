@@ -142,6 +142,7 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     suspend fun adminCreateLesson(l: LessonUpsert) = call { api.adminCreateLesson(l) }
     suspend fun adminDeleteLesson(id: Int) = callUnit { api.adminDeleteLesson(id) }
     suspend fun adminPlans() = call { api.adminPlans() }
+    suspend fun adminCreatePlan(p: PlanUpsert) = call { api.adminCreatePlan(p) }
     suspend fun adminUpdatePlan(id: Int, p: PlanUpsert) = callUnit { api.adminUpdatePlan(id, p) }
 
     @Suppress("unused") private val gson = Gson()

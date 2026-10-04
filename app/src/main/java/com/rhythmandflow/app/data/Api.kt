@@ -83,6 +83,7 @@ interface Api {
     @GET("api/admin/classes") suspend fun adminClasses(): List<ClassItem>
     @POST("api/admin/classes") suspend fun adminCreateClass(@Body body: ClassUpsert): Int
     @POST("api/admin/classes/{id}/cancel") suspend fun adminCancelClass(@Path("id") id: Int): Response<Unit>
-    @GET("api/admin/plans") suspend fun adminPlans(): List<Plan>
+    @GET("api/admin/plans") suspend fun adminPlans(): List<AdminPlan>
+    @POST("api/admin/plans") suspend fun adminCreatePlan(@Body body: PlanUpsert): Int
     @PUT("api/admin/plans/{id}") suspend fun adminUpdatePlan(@Path("id") id: Int, @Body body: PlanUpsert): Response<Unit>
 }

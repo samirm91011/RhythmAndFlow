@@ -69,7 +69,7 @@ public class JournalController(AppDbContext db) : ApiController
 /// <summary>Administrator functions. Every action requires the ADMIN role (BR-15, FR-22).</summary>
 [ApiController, Authorize(Roles = Roles.Admin)]
 [Route("api/admin")]
-public class AdminController(AppDbContext db, NotificationService notifications, UserAdminService users, ProgrammeAdminService programmes, AdminOverviewService overview) : ApiController
+public class AdminController(AppDbContext db, NotificationService notifications, UserAdminService users, ProgrammeAdminService programmes, AdminOverviewService overview, PlanAdminService plansAdmin) : ApiController
 {
     // ---- Who is booked, who holds a plan ----
     [HttpGet("bookings")]
@@ -227,26 +227,21 @@ public class AdminController(AppDbContext db, NotificationService notifications,
 
     // ---- Plans ----
     [HttpGet("plans")]
-    public async Task<List<PlanDto>> Plans() => (await db.Plans.ToListAsync()).OrderBy(p => p.Price).Select(ContentController.PlanDtoOf).ToList();
+    public Task<List<AdminPlanDto>> Plans() => plansAdmin.ListAsync();
 
     [HttpPut("plans/{id:int}")]
     public async Task<IActionResult> UpdatePlan(int id, PlanUpsert r)
     {
-        var p = await db.Plans.FindAsync(id);
-        if (p is null) return NotFound();
-        p.Name = r.Name.Trim(); p.Description = r.Description?.Trim() ?? ""; p.Price = r.Price; p.Tier = r.Tier;
-        p.Features = r.Features ?? ""; p.Status = string.IsNullOrWhiteSpace(r.Status) ? "ACTIVE" : r.Status;
-        await db.SaveChangesAsync();
-        return NoContent();
+        var (ok, notFound, error) = await plansAdmin.UpdateAsync(id, r);
+        if (notFound) return NotFound();
+        return ok ? NoContent() : BadRequest(new { error });
     }
 
     [HttpPost("plans")]
     public async Task<ActionResult<int>> CreatePlan(PlanUpsert r)
     {
-        var p = new SubscriptionPlan { Name = r.Name.Trim(), Description = r.Description?.Trim() ?? "", Price = r.Price, Tier = r.Tier, Features = r.Features ?? "" };
-        db.Plans.Add(p);
-        await db.SaveChangesAsync();
-        return p.Id;
+        var (ok, id, error) = await plansAdmin.CreateAsync(r);
+        return ok ? id : BadRequest(new { error });
     }
 
     // ---- Error log (reports from the API and the app) ----

@@ -382,7 +382,7 @@ data class AdminState(
     val summary: AdminSummary? = null,
     val classes: List<ClassItem> = emptyList(),
     val lessons: List<Lesson> = emptyList(),
-    val plans: List<Plan> = emptyList(),
+    val plans: List<AdminPlan> = emptyList(),
 )
 
 class AdminViewModel(private val c: AppContainer) : ViewModel() {
@@ -419,6 +419,7 @@ class AdminViewModel(private val c: AppContainer) : ViewModel() {
     suspend fun createLesson(l: LessonUpsert) = after(repo.adminCreateLesson(l))
     suspend fun deleteLesson(id: Int) = after(repo.adminDeleteLesson(id))
     suspend fun updatePlan(id: Int, p: PlanUpsert) = after(repo.adminUpdatePlan(id, p))
+    suspend fun createPlan(p: PlanUpsert) = after(repo.adminCreatePlan(p))
 }
 
 // ============================================================ Notifications
