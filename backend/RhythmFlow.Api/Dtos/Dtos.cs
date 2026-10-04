@@ -82,6 +82,11 @@ public record PlanUpsert(
     string? Features,
     string? Status);
 
+/// <summary>A lesson as the administrator sees it, including where the video comes from (customers never see this).</summary>
+public record AdminLessonDto(
+    int Id, int ProgrammeId, string ProgrammeName, string Title, string Description, string Category, string Level,
+    int DurationSeconds, string VideoProvider, string VideoReference, bool IsPreview);
+
 public record AdminPlanDto(int Id, string Name, string Description, decimal Price, string BillingFrequency, int Tier, List<string> Features, string Status);
 
 public record AdminSummaryDto(int Users, int ActiveSubscriptions, int UpcomingClasses, int ActiveBookings, decimal MonthlyRecurringRevenue, int OpenErrors);

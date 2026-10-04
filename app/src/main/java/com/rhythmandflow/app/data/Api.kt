@@ -75,6 +75,9 @@ interface Api {
     @POST("api/admin/errors/{id}/resolve") suspend fun adminResolveError(@Path("id") id: Int): Response<Unit>
     @POST("api/admin/errors/resolve-all") suspend fun adminResolveAllErrors(): Response<Unit>
     @GET("api/admin/summary") suspend fun adminSummary(): AdminSummary
+    @GET("api/admin/lessons") suspend fun adminLessons(): List<AdminLesson>
+    @PUT("api/admin/lessons/{id}") suspend fun adminUpdateLesson(@Path("id") id: Int, @Body body: LessonUpsert): Response<Unit>
+    @PUT("api/admin/classes/{id}") suspend fun adminUpdateClass(@Path("id") id: Int, @Body body: ClassUpsert): Response<Unit>
     @POST("api/admin/lessons") suspend fun adminCreateLesson(@Body body: LessonUpsert): Int
     @DELETE("api/admin/lessons/{id}") suspend fun adminDeleteLesson(@Path("id") id: Int): Response<Unit>
     @GET("api/admin/bookings") suspend fun adminBookings(): List<AdminBooking>

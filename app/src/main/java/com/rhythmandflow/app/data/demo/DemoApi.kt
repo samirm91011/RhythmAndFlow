@@ -28,7 +28,7 @@ class DemoApi : Api {
     )
 
     private data class L(val id: Int, val prog: Int, val progName: String, val minTier: Int, val title: String, val desc: String, val cat: String, val secs: Int, val preview: Boolean)
-    private val lessonsData = listOf(
+    private val lessonsData = mutableListOf(
         L(1, 1, "Move & Release", 1, "Full Body Flow", "A gentle flow to move, breathe and reconnect with your body.", "Yoga", 600, true),
         L(2, 1, "Move & Release", 1, "Move & Release", "Release tension and feel lighter.", "Stretch", 900, false),
         L(3, 2, "Dance with Joy", 1, "Dance with Joy", "Feel-good movement for your mood.", "Dance", 1500, true),
@@ -285,6 +285,36 @@ class DemoApi : Api {
             AdminSubscription(11, "u1", "Alex Demo", "alex@rhythmandflow.test", "Flow", 99.0, "ACTIVE", ago(60L * 24 * 12), Instant.now().plus(Duration.ofDays(18)).toString(), true),
             AdminSubscription(12, "u2", "Thandi Mokoena", "thandi@example.com", "Rhythm", 199.0, "ACTIVE", ago(60L * 24 * 5), Instant.now().plus(Duration.ofDays(25)).toString(), true),
         )
+    }
+    private val videoRefs = mutableMapOf<Int, String>()
+    override suspend fun adminLessons(): List<AdminLesson> {
+        pause()
+        return lessonsData.map {
+            AdminLesson(it.id, it.prog, it.progName, it.title, it.desc, it.cat, "All levels", it.secs, "Remote",
+                videoRefs[it.id] ?: "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4", it.preview)
+        }
+    }
+    override suspend fun adminUpdateLesson(id: Int, body: LessonUpsert): Response<Unit> {
+        pause()
+        val i = lessonsData.indexOfFirst { it.id == id }
+        if (i < 0) return Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
+        val progName = lessonsData.firstOrNull { it.prog == body.programmeId }?.progName ?: fail(400, "Unknown programme.")
+        lessonsData[i] = lessonsData[i].copy(prog = body.programmeId, progName = progName, title = body.title, desc = body.description.orEmpty(),
+            cat = body.category, secs = body.durationSeconds, preview = body.isPreview)
+        videoRefs[id] = body.videoReference
+        return ok()
+    }
+    override suspend fun adminUpdateClass(id: Int, body: ClassUpsert): Response<Unit> {
+        pause()
+        val i = classes.indexOfFirst { it.id == id }
+        if (i < 0) return Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
+        val c = classes[i]
+        val taken = c.capacity - c.spotsLeft
+        if (Instant.parse(body.endTime) <= Instant.parse(body.startTime)) fail(400, "End time must be after start time.")
+        if (body.capacity < taken) fail(400, "$taken people are already booked, so the capacity can't be lower than $taken.")
+        classes[i] = c.copy(name = body.name, description = body.description.orEmpty(), coachName = body.coachName, location = body.location,
+            startTime = body.startTime, endTime = body.endTime, capacity = body.capacity, spotsLeft = body.capacity - taken)
+        return ok()
     }
     override suspend fun adminCreateClass(body: ClassUpsert): Int { pause(); return ++nextId }
     override suspend fun adminCancelClass(id: Int): Response<Unit> { pause(); return ok() }

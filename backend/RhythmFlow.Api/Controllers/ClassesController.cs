@@ -69,7 +69,7 @@ public class JournalController(AppDbContext db) : ApiController
 /// <summary>Administrator functions. Every action requires the ADMIN role (BR-15, FR-22).</summary>
 [ApiController, Authorize(Roles = Roles.Admin)]
 [Route("api/admin")]
-public class AdminController(AppDbContext db, NotificationService notifications, UserAdminService users, ProgrammeAdminService programmes, AdminOverviewService overview, PlanAdminService plansAdmin) : ApiController
+public class AdminController(AppDbContext db, NotificationService notifications, UserAdminService users, ProgrammeAdminService programmes, AdminOverviewService overview, PlanAdminService plansAdmin, ScheduleAdminService schedule) : ApiController
 {
     // ---- Who is booked, who holds a plan ----
     [HttpGet("bookings")]
@@ -144,12 +144,13 @@ public class AdminController(AppDbContext db, NotificationService notifications,
     [HttpPut("lessons/{id:int}")]
     public async Task<IActionResult> UpdateLesson(int id, LessonUpsert r)
     {
-        var l = await db.Lessons.FindAsync(id);
-        if (l is null) return NotFound();
-        Apply(l, r);
-        await db.SaveChangesAsync();
-        return NoContent();
+        var (ok, notFound, error) = await schedule.UpdateLessonAsync(id, r);
+        if (notFound) return NotFound();
+        return ok ? NoContent() : BadRequest(new { error });
     }
+
+    [HttpGet("lessons")]
+    public Task<List<AdminLessonDto>> AdminLessons() => schedule.LessonsAsync();
 
     [HttpDelete("lessons/{id:int}")]
     public async Task<IActionResult> DeleteLesson(int id)
@@ -194,12 +195,9 @@ public class AdminController(AppDbContext db, NotificationService notifications,
     [HttpPut("classes/{id:int}")]
     public async Task<IActionResult> UpdateClass(int id, ClassUpsert r)
     {
-        var c = await db.Classes.FindAsync(id);
-        if (c is null) return NotFound();
-        if (r.EndTime <= r.StartTime) return BadRequest(new { error = "End time must be after start time." });
-        Apply(c, r);
-        await db.SaveChangesAsync();
-        return NoContent();
+        var (ok, notFound, error) = await schedule.UpdateClassAsync(id, r);
+        if (notFound) return NotFound();
+        return ok ? NoContent() : BadRequest(new { error });
     }
 
     [HttpPost("classes/{id:int}/cancel")]

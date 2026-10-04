@@ -88,6 +88,24 @@ data class Lesson(
         get() = if (durationSeconds < 90) "${durationSeconds} secs" else "${(durationSeconds + 30) / 60} mins"
 }
 
+/** A lesson as the administrator sees it, including where the video comes from. */
+data class AdminLesson(
+    val id: Int,
+    val programmeId: Int,
+    val programmeName: String,
+    val title: String,
+    val description: String,
+    val category: String,
+    val level: String,
+    val durationSeconds: Int,
+    val videoProvider: String,
+    val videoReference: String,
+    val isPreview: Boolean,
+) {
+    val durationLabel: String
+        get() = if (durationSeconds < 90) "${durationSeconds} secs" else "${(durationSeconds + 30) / 60} mins"
+}
+
 data class Playback(val url: String, val expiresAt: String, val resumeSeconds: Int)
 data class ProgressUpdate(val lessonId: Int, val watchTimeSeconds: Int)
 data class ProgressResult(val lessonId: Int, val watchTimeSeconds: Int, val completionPercentage: Double, val completed: Boolean)

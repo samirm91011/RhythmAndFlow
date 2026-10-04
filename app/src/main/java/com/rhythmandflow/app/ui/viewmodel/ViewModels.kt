@@ -381,7 +381,7 @@ data class AdminState(
     val error: String? = null,
     val summary: AdminSummary? = null,
     val classes: List<ClassItem> = emptyList(),
-    val lessons: List<Lesson> = emptyList(),
+    val lessons: List<AdminLesson> = emptyList(),
     val plans: List<AdminPlan> = emptyList(),
 )
 
@@ -396,7 +396,7 @@ class AdminViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch {
             val s = repo.adminSummary()
             val cl = repo.adminClasses()
-            val ls = repo.lessons()
+            val ls = repo.adminLessons()
             val pl = repo.adminPlans()
             _state.value = AdminState(
                 loading = false,
@@ -420,6 +420,8 @@ class AdminViewModel(private val c: AppContainer) : ViewModel() {
     suspend fun deleteLesson(id: Int) = after(repo.adminDeleteLesson(id))
     suspend fun updatePlan(id: Int, p: PlanUpsert) = after(repo.adminUpdatePlan(id, p))
     suspend fun createPlan(p: PlanUpsert) = after(repo.adminCreatePlan(p))
+    suspend fun updateClass(id: Int, c: ClassUpsert) = after(repo.adminUpdateClass(id, c))
+    suspend fun updateLesson(id: Int, l: LessonUpsert) = after(repo.adminUpdateLesson(id, l))
 }
 
 // ============================================================ Notifications

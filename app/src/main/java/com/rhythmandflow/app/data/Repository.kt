@@ -62,6 +62,8 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
         }
     } catch (e: CancellationException) {
         throw e
+    } catch (e: HttpException) {
+        Outcome.Fail(errorMessage(e.response()?.errorBody()?.string(), e.code()), e.code())
     } catch (e: IOException) {
         Outcome.Fail("Can't reach the Rhythm & Flow server. Check your internet connection and try again.")
     } catch (e: Exception) {
@@ -140,6 +142,9 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     suspend fun adminCreateClass(c: ClassUpsert) = call { api.adminCreateClass(c) }
     suspend fun adminCancelClass(id: Int) = callUnit { api.adminCancelClass(id) }
     suspend fun adminCreateLesson(l: LessonUpsert) = call { api.adminCreateLesson(l) }
+    suspend fun adminLessons() = call { api.adminLessons() }
+    suspend fun adminUpdateLesson(id: Int, l: LessonUpsert) = callUnit { api.adminUpdateLesson(id, l) }
+    suspend fun adminUpdateClass(id: Int, c: ClassUpsert) = callUnit { api.adminUpdateClass(id, c) }
     suspend fun adminDeleteLesson(id: Int) = callUnit { api.adminDeleteLesson(id) }
     suspend fun adminPlans() = call { api.adminPlans() }
     suspend fun adminCreatePlan(p: PlanUpsert) = call { api.adminCreatePlan(p) }

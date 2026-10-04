@@ -16,6 +16,10 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,13 +37,16 @@ import com.rhythmandflow.app.ui.viewmodel.appViewModel
 import java.time.Instant
 import kotlinx.coroutines.launch
 
-/** Administrator tools. The server enforces the ADMIN role on every call; these screens are only a convenience. */
+/** The administrator's home. The server enforces the ADMIN role on every call; these screens are only a convenience. */
 @Composable
-fun AdminHomeScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
+fun AdminHomeScreen(name: String, onNavigate: (String) -> Unit, onCustomerView: () -> Unit) {
     val vm = appViewModel(key = "admin") { AdminViewModel(it) }
     val state by vm.state.collectAsState()
+    OnResume { vm.load() }
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader("Admin tools", "Manage Rhythm & Flow.", onBack = onBack)
+        ScreenHeader("Admin dashboard", if (name.isBlank()) "Manage Rhythm & Flow." else "Signed in as $name") {
+            IconButton(onClick = { onNavigate("notifications") }) { Icon(Icons.Default.Notifications, "Notifications") }
+        }
         when {
             state.loading -> LoadingBox()
             state.error != null -> ErrorBox(state.error!!, onRetry = { vm.load() })
@@ -54,15 +61,20 @@ fun AdminHomeScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
                         Stat("${s.activeBookings}", "bookings", Modifier.weight(1f)) { onNavigate("admin/bookings") }
                     }
                     Stat(formatRand(s.monthlyRecurringRevenue), "monthly recurring revenue", Modifier.fillMaxWidth())
+                    if (s.openErrors > 0) AdminLink("Needs attention", "${s.openErrors} open problem(s) in the error log") { onNavigate("admin/errors") }
                 }
-                AdminLink("Error log", if ((state.summary?.openErrors ?: 0) > 0) "${state.summary?.openErrors} open problem(s) to review" else "Nothing open") { onNavigate("admin/errors") }
-                AdminLink("Customers", "Find people and switch accounts off") { onNavigate("admin/users") }
+                Text("Manage", style = MaterialTheme.typography.titleMedium)
+                AdminLink("Classes", "Schedule, edit and cancel classes, see who is booked") { onNavigate("admin/classes") }
+                AdminLink("Lessons & videos", "Add, edit or remove lessons") { onNavigate("admin/lessons") }
                 AdminLink("Programmes", "Add, edit or hide programmes") { onNavigate("admin/programmes") }
-                AdminLink("Lessons & videos", "Add or remove lessons") { onNavigate("admin/lessons") }
-                AdminLink("Classes", "Schedule and cancel classes, see who is booked") { onNavigate("admin/classes") }
+                AdminLink("Subscription plans", "Add plans, change prices, hide a plan") { onNavigate("admin/plans") }
+                Text("Review", style = MaterialTheme.typography.titleMedium)
                 AdminLink("Bookings", "Everyone booked into an upcoming class") { onNavigate("admin/bookings") }
                 AdminLink("Active plans", "Who is subscribed, and to what") { onNavigate("admin/subscriptions") }
-                AdminLink("Subscription plans", "Edit names and prices") { onNavigate("admin/plans") }
+                AdminLink("Customers", "Find people and switch accounts off") { onNavigate("admin/users") }
+                AdminLink("Error log", if ((state.summary?.openErrors ?: 0) > 0) "${state.summary?.openErrors} open problem(s) to review" else "Nothing open") { onNavigate("admin/errors") }
+                Text("Customer view", style = MaterialTheme.typography.titleMedium)
+                AdminLink("See the app as a customer", "Check what your customers see. Switch back from You → Admin tools.") { onCustomerView() }
             }
         }
     }
@@ -106,12 +118,16 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
     var url by remember { mutableStateOf("") }
     var preview by remember { mutableStateOf(false) }
     var programmeId by remember { mutableStateOf<Int?>(null) }
+    var editingId by remember { mutableStateOf<Int?>(null) }
+    var level by remember { mutableStateOf("All levels") }
     val chosenProgramme = programmeId ?: programmes.firstOrNull()?.first
+    val scroll = rememberScrollState()
+    fun clearForm() { editingId = null; title = ""; description = ""; category = "Yoga"; seconds = ""; url = ""; preview = false; level = "All levels" }
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Lessons & videos", onBack = onBack)
-        Column(Modifier.vScroll().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Add a lesson", style = MaterialTheme.typography.titleLarge)
+        Column(Modifier.verticalScroll(scroll).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(if (editingId == null) "Add a lesson" else "Edit lesson", style = MaterialTheme.typography.titleLarge)
             Text("Programme", style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
             programmes.chunked(2).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -132,15 +148,16 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
                 Switch(checked = preview, onCheckedChange = { preview = it }, colors = SwitchDefaults.colors(checkedTrackColor = Brand.TealDeep))
                 HSpace(10); Text("Free preview (no subscription needed)")
             }
-            PrimaryButton("Add lesson", enabled = title.isNotBlank() && seconds.isNotBlank() && url.startsWith("http") && chosenProgramme != null, onClick = {
+            PrimaryButton(if (editingId == null) "Add lesson" else "Save changes", enabled = title.isNotBlank() && seconds.isNotBlank() && url.startsWith("http") && chosenProgramme != null, onClick = {
                 scope.launch {
-                    val err = vm.createLesson(
-                        LessonUpsert(chosenProgramme!!, title.trim(), description.trim(), category, "All levels", seconds.toInt().coerceAtLeast(1), "Remote", url.trim(), preview),
-                    )
-                    if (err == null) { title = ""; description = ""; seconds = ""; url = ""; preview = false }
-                    notify(err ?: "Lesson added.")
+                    val body = LessonUpsert(chosenProgramme!!, title.trim(), description.trim(), category, level, seconds.toInt().coerceAtLeast(1), "Remote", url.trim(), preview)
+                    val id = editingId
+                    val err = if (id == null) vm.createLesson(body) else vm.updateLesson(id, body)
+                    if (err == null) clearForm()
+                    notify(err ?: if (id == null) "Lesson added." else "Lesson updated.")
                 }
             })
+            if (editingId != null) SecondaryButton("Cancel editing", onClick = { clearForm() })
             VSpace(8)
             Text("Existing lessons", style = MaterialTheme.typography.titleLarge)
             state.lessons.forEach { l ->
@@ -150,6 +167,11 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
                             Text(l.title, style = MaterialTheme.typography.titleSmall)
                             Text("${l.programmeName} · ${l.category} · ${l.durationLabel}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
                         }
+                        IconButton(onClick = {
+                            editingId = l.id; title = l.title; description = l.description; category = l.category; seconds = l.durationSeconds.toString()
+                            url = l.videoReference; preview = l.isPreview; programmeId = l.programmeId; level = l.level
+                            scope.launch { scroll.animateScrollTo(0) }
+                        }) { Icon(Icons.Default.Edit, "Edit lesson", tint = Brand.TealDeep) }
                         IconButton(onClick = { delete = l.id }) { Icon(Icons.Default.Delete, "Delete lesson", tint = Brand.Error) }
                     }
                 }
@@ -197,11 +219,15 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
     var minutes by remember { mutableStateOf("60") }
     var capacity by remember { mutableStateOf("20") }
     var cancel by remember { mutableStateOf<Int?>(null) }
+    var editingId by remember { mutableStateOf<Int?>(null) }
+    var description by remember { mutableStateOf("All levels welcome.") }
+    val scroll = rememberScrollState()
+    fun clearForm() { editingId = null; name = ""; date = ""; time = ""; location = ""; minutes = "60"; capacity = "20"; description = "All levels welcome." }
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Classes", onBack = onBack)
-        Column(Modifier.vScroll().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Schedule a class", style = MaterialTheme.typography.titleLarge)
+        Column(Modifier.verticalScroll(scroll).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(if (editingId == null) "Schedule a class" else "Edit class", style = MaterialTheme.typography.titleLarge)
             RfTextField(name, { name = it }, "Class name")
             RfTextField(coach, { coach = it }, "Coach")
             RfTextField(location, { location = it }, "Location (studio or online)")
@@ -240,7 +266,8 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
                 Box(Modifier.weight(1f)) { RfTextField(minutes, { minutes = it.filter(Char::isDigit) }, "Minutes", keyboardType = KeyboardType.Number) }
                 Box(Modifier.weight(1f)) { RfTextField(capacity, { capacity = it.filter(Char::isDigit) }, "Capacity", keyboardType = KeyboardType.Number) }
             }
-            PrimaryButton("Add class", enabled = name.isNotBlank() && location.isNotBlank() && date.isNotBlank() && time.isNotBlank(), onClick = {
+            if (editingId != null) Text("Anyone already booked is told if the time or place changes.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+            PrimaryButton(if (editingId == null) "Add class" else "Save changes", enabled = name.isNotBlank() && location.isNotBlank() && date.isNotBlank() && time.isNotBlank(), onClick = {
                 val start = localToUtcIso(date, time)
                 val mins = minutes.toIntOrNull() ?: 0
                 val cap = capacity.toIntOrNull() ?: 0
@@ -249,12 +276,15 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
                     mins < 5 || cap < 1 -> notify("Enter the class length and capacity.")
                     else -> scope.launch {
                         val end = Instant.parse(start).plusSeconds(mins * 60L).toString()
-                        val err = vm.createClass(ClassUpsert(name.trim(), "All levels welcome.", coach.trim(), location.trim(), start, end, cap))
-                        if (err == null) { name = ""; date = ""; time = "" }
-                        notify(err ?: "Class scheduled.")
+                        val body = ClassUpsert(name.trim(), description, coach.trim(), location.trim(), start, end, cap)
+                        val id = editingId
+                        val err = if (id == null) vm.createClass(body) else vm.updateClass(id, body)
+                        if (err == null) clearForm()
+                        notify(err ?: if (id == null) "Class scheduled." else "Class updated.")
                     }
                 }
             })
+            if (editingId != null) SecondaryButton("Cancel editing", onClick = { clearForm() })
             VSpace(8)
             Text("Scheduled classes", style = MaterialTheme.typography.titleLarge)
             state.classes.forEach { c ->
@@ -265,8 +295,20 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
                             Text("${formatDayTime(c.startTime)} · ${c.capacity - c.spotsLeft}/${c.capacity} booked", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
                             Text("Tap to see who is booked", style = MaterialTheme.typography.labelSmall, color = Brand.TealDeep)
                         }
-                        if (c.status == "SCHEDULED") TextButton(onClick = { cancel = c.id }) { Text("Cancel", color = Brand.Error) }
-                        else InfoPill("Cancelled", color = Brand.LightGrey, textColor = Brand.Muted)
+                        if (c.status == "SCHEDULED") {
+                            Column(horizontalAlignment = Alignment.End) {
+                                TextButton(onClick = {
+                                    val s = parseInstant(c.startTime)
+                                    val e = parseInstant(c.endTime)
+                                    editingId = c.id; name = c.name; coach = c.coachName; location = c.location; description = c.description
+                                    date = s?.toLocalDate()?.toString().orEmpty(); time = s?.let { "%02d:%02d".format(it.hour, it.minute) }.orEmpty()
+                                    minutes = if (s != null && e != null) java.time.Duration.between(s, e).toMinutes().toString() else "60"
+                                    capacity = c.capacity.toString()
+                                    scope.launch { scroll.animateScrollTo(0) }
+                                }) { Text("Edit", color = Brand.TealDeep) }
+                                TextButton(onClick = { cancel = c.id }) { Text("Cancel", color = Brand.Error) }
+                            }
+                        } else InfoPill("Cancelled", color = Brand.LightGrey, textColor = Brand.Muted)
                     }
                 }
             }

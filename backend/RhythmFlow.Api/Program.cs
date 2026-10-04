@@ -89,6 +89,7 @@ builder.Services.AddScoped<UserAdminService>();
 builder.Services.AddScoped<ProgrammeAdminService>();
 builder.Services.AddScoped<AdminOverviewService>();
 builder.Services.AddScoped<PlanAdminService>();
+builder.Services.AddScoped<ScheduleAdminService>();
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient("video", c => c.Timeout = TimeSpan.FromMinutes(30));
 builder.Services.AddControllers();
