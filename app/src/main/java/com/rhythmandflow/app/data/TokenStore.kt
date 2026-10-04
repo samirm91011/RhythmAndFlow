@@ -34,6 +34,8 @@ class LocalPrefs(context: Context) {
     fun putSet(key: String, value: Set<String>) = prefs.edit().putStringSet(key, value).apply()
     fun getInt(key: String, default: Int = -1) = prefs.getInt(key, default)
     fun putInt(key: String, value: Int) = prefs.edit().putInt(key, value).apply()
+    fun getString(key: String): String? = prefs.getString(key, null)
+    fun putString(key: String, value: String?) = prefs.edit().apply { if (value == null) remove(key) else putString(key, value) }.apply()
     fun getBool(key: String, default: Boolean = false) = prefs.getBoolean(key, default)
     fun putBool(key: String, value: Boolean) = prefs.edit().putBoolean(key, value).apply()
 }

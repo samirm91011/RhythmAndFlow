@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- White logo kept inside the centre 60% so launchers can crop the icon to any shape. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/rf_logo_white"
+    android:insetLeft="20%"
+    android:insetTop="20%"
+    android:insetRight="20%"
+    android:insetBottom="20%" />

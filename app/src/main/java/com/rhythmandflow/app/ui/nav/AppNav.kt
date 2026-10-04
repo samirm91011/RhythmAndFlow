@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.rhythmandflow.app.ui.components.CappedFontScale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.widthIn
@@ -84,15 +85,30 @@ fun AppRoot(session: SessionViewModel, pendingRoute: String? = null, onRouteHand
     val scope = rememberCoroutineScope()
     val notify: (String) -> Unit = { msg -> scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(msg) } }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, containerColor = Color.White) { _ ->
-        when (state) {
-            SessionState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Image(painterResource(R.drawable.rf_logo_black), "Rhythm & Flow", Modifier.size(140.dp))
+    // This frame only hosts the snackbar; each screen below handles the system bars itself, so no insets are applied here.
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) }, containerColor = Color.White,
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+    ) { frame ->
+        Box(Modifier.fillMaxSize().padding(frame)) {
+            when (state) {
+                SessionState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Image(painterResource(R.drawable.rf_logo_black), "Rhythm & Flow", Modifier.size(140.dp))
+                }
+                SessionState.SignedOut -> Box(Modifier.fillMaxSize().background(Brand.Canvas), contentAlignment = Alignment.TopCenter) {
+                    Box(Modifier.widthIn(max = 560.dp).fillMaxHeight().background(Color.White)) { AuthGraph(session, notify) }
+                }
+                is SessionState.SignedIn -> MainGraph(session, notify, pendingRoute, onRouteHandled)
             }
-            SessionState.SignedOut -> Box(Modifier.fillMaxSize().background(Brand.Canvas), contentAlignment = Alignment.TopCenter) {
-                Box(Modifier.widthIn(max = 560.dp).fillMaxHeight().background(Color.White)) { AuthGraph(session, notify) }
+            // Demo builds run on made-up data and must never be mistaken for the real thing.
+            if (com.rhythmandflow.app.BuildConfig.DEMO_MODE) {
+                Text(
+                    "Demo data", color = Color.White, style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 92.dp)
+                        .background(Brand.Ink.copy(alpha = 0.55f), androidx.compose.foundation.shape.RoundedCornerShape(50))
+                        .padding(horizontal = 10.dp, vertical = 3.dp),
+                )
             }
-            is SessionState.SignedIn -> MainGraph(session, notify, pendingRoute, onRouteHandled)
         }
     }
 }
@@ -151,7 +167,7 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
                             selected = route == t.route,
                             onClick = { nav.goTab(t.route) },
                             icon = { Icon(t.icon, t.label) },
-                            label = { Text(t.label) },
+                            label = { CappedFontScale { Text(t.label, maxLines = 1, softWrap = false) } },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = Brand.TealDeep, selectedTextColor = Brand.TealDeep,
                                 indicatorColor = Brand.TealSoft, unselectedIconColor = Brand.Muted, unselectedTextColor = Brand.Muted,
@@ -171,7 +187,7 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
                         selected = route == t.route,
                         onClick = { nav.goTab(t.route) },
                         icon = { Icon(t.icon, t.label) },
-                        label = { Text(t.label) },
+                        label = { CappedFontScale { Text(t.label, maxLines = 1, softWrap = false) } },
                         colors = NavigationRailItemDefaults.colors(
                             selectedIconColor = Brand.TealDeep, selectedTextColor = Brand.TealDeep,
                             indicatorColor = Brand.TealSoft, unselectedIconColor = Brand.Muted, unselectedTextColor = Brand.Muted,
@@ -195,7 +211,12 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
 
             // ---- Tabs ----
             composable("home") { HomeScreen(session, onNavigate = go, notify = notify) }
-            composable("move") { MoveScreen(onLesson = { nav.navigate("lesson/$it") }) }
+            composable("move") { MoveScreen(onLesson = { nav.navigate("lesson/$it") }, onProgramme = { nav.navigate("programme/$it") }) }
+            composable("programme/{id}", listOf(navArgument("id") { type = NavType.IntType })) { e ->
+                ProgrammeScreen(e.arguments!!.getInt("id"), onBack = back, onLesson = { nav.navigate("lesson/$it") }, onPlans = { nav.navigate("plans") })
+            }
+            composable("progress") { ProgressScreen(onBack = back, onLesson = { nav.navigate("lesson/$it") }) }
+            composable("admin/programmes") { AdminProgrammesScreen(onBack = back, notify = notify) }
             composable("classes") { ClassesScreen(onBookings = { nav.navigate("bookings") }, notify = notify) }
             composable("journal") { JournalScreen(onLesson = { nav.navigate("lesson/$it") }, notify = notify) }
             composable("you") { YouScreen(session, onNavigate = go, onLesson = { nav.navigate("lesson/$it") }) }
@@ -223,7 +244,7 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
             }
 
             // ---- Explore / shop ----
-            composable("explore") { ExploreScreen(onArticle = { nav.navigate("article/${android.net.Uri.encode(it)}") }, onShop = { nav.navigate("shop") }) }
+            composable("explore") { ExploreScreen(onBack = back, onArticle = { nav.navigate("article/${android.net.Uri.encode(it)}") }, onShop = { nav.navigate("shop") }) }
             composable("article/{title}", listOf(navArgument("title") { type = NavType.StringType })) { e ->
                 ArticleScreen(e.arguments!!.getString("title") ?: "", onBack = back, notify = notify)
             }
@@ -239,7 +260,9 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
                     onDone = { nav.goTab("home") }, onBack = back, notify = notify,
                 )
             }
-            composable("subscription") { SubscriptionScreen(session, onBack = back, onPlans = { nav.navigate("plans") }, notify = notify) }
+            composable("payments") { PaymentHistoryScreen(onBack = back) }
+            composable("admin/users") { AdminUsersScreen(onBack = back, notify = notify) }
+            composable("subscription") { SubscriptionScreen(session, onBack = back, onPlans = { nav.navigate("plans") }, onPayments = { nav.navigate("payments") }, notify = notify) }
             composable("bookings") { BookingsScreen(onBack = back, onBrowse = { nav.goTab("classes") }, notify = notify) }
 
             // ---- Profile ----
@@ -260,10 +283,15 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
     }
 }
 
+/**
+ * Switches to a tab. Switching from one tab to another keeps each tab's own history. Leaving a flow (payment, a finished
+ * practice, a booking list) starts the tab fresh, so screens like "You're subscribed!" are not brought back later.
+ */
 private fun NavHostController.goTab(route: String) {
+    val fromTab = currentDestination?.route in tabs.map { it.route }
     navigate(route) {
-        popUpTo("home") { saveState = true }
+        popUpTo("home") { saveState = fromTab }
         launchSingleTop = true
-        restoreState = true
+        restoreState = fromTab
     }
 }

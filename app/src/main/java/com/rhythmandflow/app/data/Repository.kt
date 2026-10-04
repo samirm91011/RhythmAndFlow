@@ -68,23 +68,7 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
         errors.report("${e.javaClass.simpleName}: ${e.message}", Log.getStackTraceString(e), null, false)
         Outcome.Fail("Something went wrong. Please try again.")
     }
-    private fun errorMessage(body: String?, code: Int): String {
-        if (!body.isNullOrBlank()) {
-            try {
-                val obj = JsonParser.parseString(body).asJsonObject
-                obj.get("error")?.takeIf { !it.isJsonNull }?.asString?.let { return it }
-                // ASP.NET validation problem details: {"errors":{"Password":["..."]}}
-                obj.getAsJsonObject("errors")?.entrySet()?.firstOrNull()?.value?.asJsonArray?.firstOrNull()?.asString?.let { return it }
-            } catch (_: Exception) { }
-        }
-        return when (code) {
-            401 -> "Please sign in again."
-            403 -> "You don't have access to that."
-            404 -> "We couldn't find that."
-            429 -> "Too many attempts. Please wait a moment."
-            else -> "Something went wrong (error $code)."
-        }
-    }
+    private fun errorMessage(body: String?, code: Int): String = friendlyErrorMessage(body, code)
 
     // ---- Auth ----
     suspend fun login(identifier: String, password: String) = call { api.login(LoginRequest(identifier, password)) }
@@ -98,6 +82,11 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     /** Changing the password signs other devices out, so the server returns a fresh token for this one. */
     suspend fun changePassword(current: String, new: String) = call { api.changePassword(ChangePasswordRequest(current, new)) }
         .also { if (it is Outcome.Ok) tokens.token = it.value.token }
+    suspend fun registerDeviceToken(token: String) = call { api.registerDeviceToken(DeviceTokenRequest(token)) }
+    suspend fun removeDeviceToken(token: String) = call { api.removeDeviceToken(DeviceTokenRequest(token)) }
+    suspend fun payments() = call { api.payments() }
+    suspend fun adminUsers(search: String?) = call { api.adminUsers(search?.takeIf { it.isNotBlank() }) }
+    suspend fun adminSetUserStatus(id: String, status: String) = callUnit { api.adminSetUserStatus(id, SetUserStatusRequest(status)) }
     suspend fun exportData() = call { api.exportData().use { it.string() } }
     suspend fun deleteAccount(password: String) = call { api.deleteAccount(DeleteAccountRequest(password)) }
     suspend fun me() = call { api.me() }
@@ -112,8 +101,12 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     suspend fun simulatePayment(id: Int) = callUnit { api.simulatePayment(id) }
 
     // ---- Content ----
-    suspend fun lessons(category: String? = null, query: String? = null) =
-        call { api.lessons(category?.takeIf { it != "All" }, query?.takeIf { it.isNotBlank() }) }
+    suspend fun lessons(category: String? = null, query: String? = null, programmeId: Int? = null) =
+        call { api.lessons(category?.takeIf { it != "All" }, query?.takeIf { it.isNotBlank() }, programmeId) }
+    suspend fun programmes() = call { api.programmes() }
+    suspend fun adminProgrammes() = call { api.adminProgrammes() }
+    suspend fun adminCreateProgramme(p: ProgrammeUpsert) = call { api.adminCreateProgramme(p) }
+    suspend fun adminUpdateProgramme(id: Int, p: ProgrammeUpsert) = callUnit { api.adminUpdateProgramme(id, p) }
     suspend fun lesson(id: Int) = call { api.lesson(id) }
     suspend fun playback(id: Int) = call { api.playback(id) }
     suspend fun updateProgress(lessonId: Int, seconds: Int) = call { api.updateProgress(ProgressUpdate(lessonId, seconds)) }

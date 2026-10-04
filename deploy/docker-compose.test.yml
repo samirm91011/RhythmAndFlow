@@ -38,6 +38,7 @@ services:
       Seed__Users__0__Email: ciadmin@example.com
       Seed__Users__0__Password: CiAdmin-Password-1!
       Seed__Users__0__Role: ADMIN
+      RateLimit__AuthPerMinute: "300"      # the smoke test makes many sign-in-type calls from one address
       DOTNET_GCHeapHardLimit: "0x20000000"
       DOTNET_GCConserveMemory: "5"
       DOTNET_TieredPGO: "0"

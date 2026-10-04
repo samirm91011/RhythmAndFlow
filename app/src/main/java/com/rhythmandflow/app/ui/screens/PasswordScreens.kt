@@ -81,7 +81,8 @@ fun ForgotPasswordScreen(onBack: () -> Unit, onDone: (String) -> Unit) {
         onBack = { if (step == 2) { step = 1; error = null } else onBack() },
     ) {
         if (step == 1) {
-            RfTextField(email, { email = it; error = null }, "Email", Icons.Default.Email, keyboardType = KeyboardType.Email)
+            RfTextField(email, { email = it; error = null }, "Email", Icons.Default.Email, keyboardType = KeyboardType.Email,
+                imeAction = androidx.compose.ui.text.input.ImeAction.Done, onImeAction = ::sendCode)
             error?.let { VSpace(8); Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
             VSpace(16)
             PrimaryButton("Send code", onClick = ::sendCode, loading = busy)
@@ -91,7 +92,8 @@ fun ForgotPasswordScreen(onBack: () -> Unit, onDone: (String) -> Unit) {
             VSpace(8)
             RfTextField(password, { password = it }, "New password", Icons.Default.Lock, isPassword = true, error = if (submitted) passErr else null)
             VSpace(8)
-            RfTextField(confirm, { confirm = it }, "Confirm new password", Icons.Default.Lock, isPassword = true, error = if (submitted) matchErr else null)
+            RfTextField(confirm, { confirm = it }, "Confirm new password", Icons.Default.Lock, isPassword = true, error = if (submitted) matchErr else null,
+                imeAction = androidx.compose.ui.text.input.ImeAction.Done)
             error?.let { VSpace(8); Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
             VSpace(16)
             PrimaryButton("Change password", loading = busy, onClick = {
@@ -141,7 +143,8 @@ fun ChangePasswordScreen(session: SessionViewModel, onBack: () -> Unit, notify: 
         Column(Modifier.vScroll().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             RfTextField(current, { current = it; error = null }, "Current password", Icons.Default.Lock, isPassword = true, error = if (submitted) currentErr else null)
             RfTextField(password, { password = it }, "New password", Icons.Default.Lock, isPassword = true, error = if (submitted) passErr else null)
-            RfTextField(confirm, { confirm = it }, "Confirm new password", Icons.Default.Lock, isPassword = true, error = if (submitted) matchErr else null)
+            RfTextField(confirm, { confirm = it }, "Confirm new password", Icons.Default.Lock, isPassword = true, error = if (submitted) matchErr else null,
+                imeAction = androidx.compose.ui.text.input.ImeAction.Done)
             Text(
                 "For your safety you'll be signed out of Rhythm & Flow on your other devices.",
                 style = MaterialTheme.typography.bodySmall, color = Brand.Muted, textAlign = TextAlign.Start,

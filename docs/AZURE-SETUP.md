@@ -20,7 +20,7 @@ Student subscriptions have extra limits. None of them is a dead end – use the 
 - **The credit is US$100 and nothing bills a card.** Check it under *Cost Management → Credits*. Expected cost for this setup: roughly US$20–30 per month (database B1ms ≈ US$13, web app B1 ≈ US$13), so it comfortably covers the demo. When the credit ends the resources stop; nothing is charged.
 - **If .NET 10 is not in the runtime list** (Part 3), or the database cannot be created in any allowed region: stop and tell Samir. There are two fallbacks (a small Azure virtual machine running the same stack, or deploying the app as a container) – do **not** pick an older .NET version.
 - **Who adds GitHub secrets:** only the repository *owner* (Samir) can. You send him the publish profile (Part 5, step 1) privately and the app name; he adds them. You do not need to touch GitHub settings.
-- **Never put passwords in chat messages, screenshots or GitHub.** The repository is **public**.
+- **Never put passwords or keys in chat messages, screenshots, e-mails or GitHub.** Send them to Samir privately, and only the ones he asks for.
 
 ## Part 1 – Resource group
 1. Search **Resource groups** → **Create**.
@@ -73,6 +73,7 @@ Open the App Service → **Settings → Environment variables** (older portals: 
 | `Smtp__Password` | the Gmail app password (same file) |
 | `Smtp__FromAddress` | the Gmail address |
 | `Admin__AlertEmails__0` | the Gmail address (error alerts go here) |
+| `Firebase__ServiceAccountJson` | the **entire contents** of `firebase-service-account.json` pasted as one value (Samir sends this privately, never by chat or e-mail in the clear). Needed for push notifications; without it the app still works but notifications arrive about every 15 minutes instead of instantly |
 | `Seed__Users__0__FullName` | `Rhythm Admin` |
 | `Seed__Users__0__Username` | `admin` |
 | `Seed__Users__0__Email` | `admin@rhythmandflow.test` |

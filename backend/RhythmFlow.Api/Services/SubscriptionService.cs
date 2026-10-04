@@ -14,6 +14,12 @@ public class SubscriptionService(
             ?? throw new InvalidOperationException("That plan is not available.");
         var user = await db.Users.FirstAsync(u => u.Id == userId);
 
+        // A second plan while one is still renewing would mean two recurring PayFast agreements, so the customer would be
+        // charged twice. To switch, cancel the current plan first (access continues to the end of the paid period).
+        if (await db.Subscriptions.AnyAsync(s => s.UserId == userId && s.Status == SubscriptionStatus.Active))
+            throw new InvalidOperationException(
+                "You already have an active plan. To switch plans, cancel it first (you keep access until the period ends), then choose the new plan.");
+
         // Only one open checkout at a time per user.
         var stale = await db.Subscriptions.Where(s => s.UserId == userId && s.Status == SubscriptionStatus.Pending).ToListAsync();
         foreach (var s in stale) s.Status = SubscriptionStatus.Cancelled;
@@ -31,6 +37,17 @@ public class SubscriptionService(
             .Where(s => s.UserId == userId).OrderByDescending(s => s.CreatedAt).ToListAsync();
         return subs.Select(s => new SubscriptionDto(s.Id, s.PlanId, s.Plan!.Name, s.Plan.Tier, s.Plan.Price, s.Status,
             s.StartDate, s.EndDate, EntitlementService.GrantsAccess(s))).ToList();
+    }
+
+    /// <summary>The person's payments, newest first, each with a receipt number (RF-000123) they can quote to support.</summary>
+    public async Task<List<PaymentDto>> PaymentsAsync(Guid userId)
+    {
+        var rows = await db.Payments.AsNoTracking()
+            .Include(p => p.Subscription).ThenInclude(s => s!.Plan)
+            .Where(p => p.Subscription!.UserId == userId).ToListAsync();
+        return rows.OrderByDescending(p => p.PaymentDate).ThenByDescending(p => p.Id)
+            .Select(p => new PaymentDto(p.Id, p.Subscription!.Plan!.Name, p.Amount, p.Status, p.PaymentDate, $"RF-{p.Id:D6}"))
+            .ToList();
     }
 
     /// <summary>

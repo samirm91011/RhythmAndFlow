@@ -144,6 +144,27 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
             }
         }
 
+        state.resume?.let { l ->
+            VSpace(20)
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                SoftCard(onClick = { onNavigate("lesson/${l.id}") }, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth()) {
+                        InfoPill("Continue where you left off")
+                        VSpace(8)
+                        Text(l.title, style = MaterialTheme.typography.titleLarge)
+                        val left = ((l.durationSeconds - l.watchTimeSeconds).coerceAtLeast(0) + 59) / 60
+                        Text("${l.completionPercentage.toInt()}% done · about $left min left", color = Brand.Muted, style = MaterialTheme.typography.bodyMedium)
+                        VSpace(10)
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { (l.completionPercentage / 100.0).toFloat() },
+                            modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                            color = Brand.TealDeep, trackColor = Brand.TealSoft,
+                        )
+                    }
+                }
+            }
+        }
+
         VSpace(20)
         SectionTitle("Your Rhythm Today", action = "See All", onAction = { onNavigate("rhythm") })
         VSpace(8)
@@ -152,9 +173,9 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
         VSpace(20)
         state.summary?.let { s ->
             Row(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatCard("${s.sessionsThisMonth}", "sessions this month", Modifier.weight(1f))
-                StatCard("${s.minutesWatched}", "minutes moved", Modifier.weight(1f))
-                StatCard("${s.completedLessons}", "completed", Modifier.weight(1f))
+                StatCard("${s.sessionsThisMonth}", "sessions this month", Modifier.weight(1f), onClick = { onNavigate("progress") })
+                StatCard("${s.minutesWatched}", "minutes moved", Modifier.weight(1f), onClick = { onNavigate("progress") })
+                StatCard("${s.completedLessons}", "completed", Modifier.weight(1f), onClick = { onNavigate("progress") })
             }
             VSpace(20)
         }
@@ -189,8 +210,10 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
 
 @Composable
 private fun MoodGrid(selected: String?, onSelect: (String) -> Unit) {
+    // With very large text, three tiles across would break words in the middle, so use two.
+    val columns = if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) 2 else 3
     Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        moods.chunked(3).forEach { row ->
+        moods.chunked(columns).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { m ->
                     val isSel = selected == m.label
@@ -209,15 +232,15 @@ private fun MoodGrid(selected: String?, onSelect: (String) -> Unit) {
                         Text(m.label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
                     }
                 }
-                repeat(3 - row.size) { Box(Modifier.weight(1f)) }
+                repeat(columns - row.size) { Box(Modifier.weight(1f)) }
             }
         }
     }
 }
 
 @Composable
-private fun StatCard(value: String, label: String, modifier: Modifier = Modifier) {
-    SoftCard(modifier) {
+private fun StatCard(value: String, label: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+    SoftCard(modifier, onClick = onClick) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(value, style = MaterialTheme.typography.headlineSmall, color = Brand.TealDeep)
             Text(label, style = MaterialTheme.typography.labelSmall, color = Brand.Muted, textAlign = TextAlign.Center)

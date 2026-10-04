@@ -13,6 +13,7 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.*" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.*" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.*" />
+    <PackageReference Include="FirebaseAdmin" Version="3.*" />
   </ItemGroup>
 
 </Project>

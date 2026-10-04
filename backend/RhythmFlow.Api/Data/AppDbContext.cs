@@ -18,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PasswordResetCode> PasswordResets => Set<PasswordResetCode>();
     public DbSet<AppNotification> Notifications => Set<AppNotification>();
     public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
+    public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
 
     // Store and read every timestamp as UTC so the API always serialises them with a trailing "Z".
     protected override void ConfigureConventions(ModelConfigurationBuilder c)
@@ -71,6 +72,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         });
         b.Entity<PasswordResetCode>().HasIndex(x => new { x.UserId, x.CreatedAt });
         b.Entity<AppNotification>().HasIndex(x => new { x.UserId, x.CreatedAt });
+        b.Entity<DeviceToken>(e =>
+        {
+            e.Property(x => x.Token).HasMaxLength(512);
+            e.Property(x => x.Platform).HasMaxLength(20);
+            e.HasIndex(x => x.Token).IsUnique();
+            e.HasIndex(x => x.UserId);
+        });
         b.Entity<ErrorLog>(e =>
         {
             e.HasIndex(x => x.Fingerprint);
