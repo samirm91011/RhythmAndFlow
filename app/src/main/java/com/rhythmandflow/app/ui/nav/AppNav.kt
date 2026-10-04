@@ -274,7 +274,12 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
             composable("admin") { AdminHomeScreen(onBack = back, onNavigate = go) }
             composable("admin/errors") { AdminErrorsScreen(onBack = back, notify = notify) }
             composable("admin/lessons") { AdminLessonsScreen(onBack = back, notify = notify) }
-            composable("admin/classes") { AdminClassesScreen(onBack = back, notify = notify) }
+            composable("admin/classes") { AdminClassesScreen(onBack = back, notify = notify, onAttendees = { nav.navigate("admin/class/$it") }) }
+            composable("admin/class/{id}", listOf(navArgument("id") { type = NavType.IntType })) { e ->
+                AdminAttendeesScreen(e.arguments!!.getInt("id"), onBack = back)
+            }
+            composable("admin/bookings") { AdminBookingsScreen(onBack = back, onClass = { nav.navigate("admin/class/$it") }) }
+            composable("admin/subscriptions") { AdminSubscriptionsScreen(onBack = back) }
             composable("admin/plans") { AdminPlansScreen(onBack = back, notify = notify) }
         }
           }

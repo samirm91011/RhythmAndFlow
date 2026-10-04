@@ -77,6 +77,9 @@ interface Api {
     @GET("api/admin/summary") suspend fun adminSummary(): AdminSummary
     @POST("api/admin/lessons") suspend fun adminCreateLesson(@Body body: LessonUpsert): Int
     @DELETE("api/admin/lessons/{id}") suspend fun adminDeleteLesson(@Path("id") id: Int): Response<Unit>
+    @GET("api/admin/bookings") suspend fun adminBookings(): List<AdminBooking>
+    @GET("api/admin/subscriptions") suspend fun adminSubscriptions(): List<AdminSubscription>
+    @GET("api/admin/classes/{id}/attendees") suspend fun adminAttendees(@Path("id") id: Int): List<AdminAttendee>
     @GET("api/admin/classes") suspend fun adminClasses(): List<ClassItem>
     @POST("api/admin/classes") suspend fun adminCreateClass(@Body body: ClassUpsert): Int
     @POST("api/admin/classes/{id}/cancel") suspend fun adminCancelClass(@Path("id") id: Int): Response<Unit>

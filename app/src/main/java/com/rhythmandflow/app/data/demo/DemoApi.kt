@@ -265,6 +265,27 @@ class DemoApi : Api {
     override suspend fun adminCreateLesson(body: LessonUpsert): Int { pause(); return ++nextId }
     override suspend fun adminDeleteLesson(id: Int): Response<Unit> { pause(); return ok() }
     override suspend fun adminClasses(): List<ClassItem> { pause(); return classes.map(::classDto) }
+
+    private val demoPeople = listOf("Thandi Mokoena", "Sam Naidoo", "Priya Pillay", "Lerato Dlamini", "Megan Botha", "Zanele Khumalo", "Aisha Patel", "Nomsa Sithole", "Chloe Jacobs", "Ruan Venter")
+    private fun attendeesOf(c: ClassItem): List<AdminAttendee> =
+        (0 until (c.capacity - c.spotsLeft).coerceAtMost(demoPeople.size)).map { i ->
+            val n = demoPeople[i]
+            AdminAttendee(c.id * 100 + i, "p$i", n, n.lowercase().substringBefore(' ') + "@example.com", ago(60L * (i + 2)), "BOOKED")
+        }
+    override suspend fun adminAttendees(id: Int): List<AdminAttendee> { pause(); return attendeesOf(classes.first { it.id == id }) }
+    override suspend fun adminBookings(): List<AdminBooking> {
+        pause()
+        return classes.sortedBy { it.startTime }.flatMap { c ->
+            attendeesOf(c).map { AdminBooking(it.bookingId, c.id, c.name, c.startTime, c.location, it.userId, it.fullName, it.email, it.bookedAt, it.status) }
+        }
+    }
+    override suspend fun adminSubscriptions(): List<AdminSubscription> {
+        pause()
+        return listOf(
+            AdminSubscription(11, "u1", "Alex Demo", "alex@rhythmandflow.test", "Flow", 99.0, "ACTIVE", ago(60L * 24 * 12), Instant.now().plus(Duration.ofDays(18)).toString(), true),
+            AdminSubscription(12, "u2", "Thandi Mokoena", "thandi@example.com", "Rhythm", 199.0, "ACTIVE", ago(60L * 24 * 5), Instant.now().plus(Duration.ofDays(25)).toString(), true),
+        )
+    }
     override suspend fun adminCreateClass(body: ClassUpsert): Int { pause(); return ++nextId }
     override suspend fun adminCancelClass(id: Int): Response<Unit> { pause(); return ok() }
     override suspend fun adminPlans(): List<Plan> { pause(); return plans }

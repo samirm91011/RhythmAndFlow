@@ -69,8 +69,19 @@ public class JournalController(AppDbContext db) : ApiController
 /// <summary>Administrator functions. Every action requires the ADMIN role (BR-15, FR-22).</summary>
 [ApiController, Authorize(Roles = Roles.Admin)]
 [Route("api/admin")]
-public class AdminController(AppDbContext db, NotificationService notifications, UserAdminService users, ProgrammeAdminService programmes) : ApiController
+public class AdminController(AppDbContext db, NotificationService notifications, UserAdminService users, ProgrammeAdminService programmes, AdminOverviewService overview) : ApiController
 {
+    // ---- Who is booked, who holds a plan ----
+    [HttpGet("bookings")]
+    public Task<List<AdminBookingDto>> UpcomingBookings() => overview.UpcomingBookingsAsync();
+
+    [HttpGet("classes/{id:int}/attendees")]
+    public async Task<ActionResult<List<AdminAttendeeDto>>> Attendees(int id) =>
+        await overview.AttendeesAsync(id) is { } list ? list : NotFound();
+
+    [HttpGet("subscriptions")]
+    public Task<List<AdminSubscriptionDto>> ActiveSubscriptions() => overview.ActiveSubscriptionsAsync();
+
     // ---- Programmes (FR-22) ----
     [HttpGet("programmes")]
     public Task<List<AdminProgrammeDto>> Programmes() => programmes.ListAsync();

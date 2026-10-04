@@ -126,5 +126,14 @@ public record PaymentDto(int Id, string PlanName, decimal Amount, string Status,
 public record AdminUserDto(Guid Id, string FullName, string Username, string Email, string Role, string Status, DateTime CreatedAt, string? Plan);
 public record SetUserStatusRequest([Required, RegularExpression("^(ACTIVE|DISABLED)$")] string Status);
 
+// ---- Admin overview lists: who is booked, who holds a plan ----
+public record AdminAttendeeDto(int BookingId, Guid UserId, string FullName, string Email, DateTime BookedAt, string Status);
+public record AdminBookingDto(
+    int BookingId, int ClassId, string ClassName, DateTime StartTime, string Location,
+    Guid UserId, string FullName, string Email, DateTime BookedAt, string Status);
+public record AdminSubscriptionDto(
+    int Id, Guid UserId, string FullName, string Email, string PlanName, decimal Price, string Status,
+    DateTime? StartDate, DateTime? EndDate, bool Renewing);
+
 public record CancelResultDto(string Message, bool CancelledWithPayFast);
 

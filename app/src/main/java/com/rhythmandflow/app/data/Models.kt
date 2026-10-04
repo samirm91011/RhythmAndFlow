@@ -123,6 +123,16 @@ data class AdminSummary(
     val openErrors: Int = 0,
 )
 
+data class AdminAttendee(val bookingId: Int, val userId: String, val fullName: String, val email: String, val bookedAt: String, val status: String)
+data class AdminBooking(
+    val bookingId: Int, val classId: Int, val className: String, val startTime: String, val location: String,
+    val userId: String, val fullName: String, val email: String, val bookedAt: String, val status: String,
+)
+data class AdminSubscription(
+    val id: Int, val userId: String, val fullName: String, val email: String, val planName: String, val price: Double,
+    val status: String, val startDate: String?, val endDate: String?, val renewing: Boolean,
+)
+
 data class ErrorReportBody(
     val message: String, val details: String?, val route: String?, val appVersion: String?, val device: String?, val fatal: Boolean,
 )

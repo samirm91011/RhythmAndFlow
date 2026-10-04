@@ -46,12 +46,12 @@ fun AdminHomeScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
             else -> Column(Modifier.vScroll().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 state.summary?.let { s ->
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Stat("${s.users}", "customers", Modifier.weight(1f))
-                        Stat("${s.activeSubscriptions}", "active plans", Modifier.weight(1f))
+                        Stat("${s.users}", "customers", Modifier.weight(1f)) { onNavigate("admin/users") }
+                        Stat("${s.activeSubscriptions}", "active plans", Modifier.weight(1f)) { onNavigate("admin/subscriptions") }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Stat("${s.upcomingClasses}", "upcoming classes", Modifier.weight(1f))
-                        Stat("${s.activeBookings}", "bookings", Modifier.weight(1f))
+                        Stat("${s.upcomingClasses}", "upcoming classes", Modifier.weight(1f)) { onNavigate("admin/classes") }
+                        Stat("${s.activeBookings}", "bookings", Modifier.weight(1f)) { onNavigate("admin/bookings") }
                     }
                     Stat(formatRand(s.monthlyRecurringRevenue), "monthly recurring revenue", Modifier.fillMaxWidth())
                 }
@@ -59,7 +59,9 @@ fun AdminHomeScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
                 AdminLink("Customers", "Find people and switch accounts off") { onNavigate("admin/users") }
                 AdminLink("Programmes", "Add, edit or hide programmes") { onNavigate("admin/programmes") }
                 AdminLink("Lessons & videos", "Add or remove lessons") { onNavigate("admin/lessons") }
-                AdminLink("Classes", "Schedule and cancel classes") { onNavigate("admin/classes") }
+                AdminLink("Classes", "Schedule and cancel classes, see who is booked") { onNavigate("admin/classes") }
+                AdminLink("Bookings", "Everyone booked into an upcoming class") { onNavigate("admin/bookings") }
+                AdminLink("Active plans", "Who is subscribed, and to what") { onNavigate("admin/subscriptions") }
                 AdminLink("Subscription plans", "Edit names and prices") { onNavigate("admin/plans") }
             }
         }
@@ -67,8 +69,8 @@ fun AdminHomeScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
 }
 
 @Composable
-private fun Stat(value: String, label: String, modifier: Modifier) {
-    SoftCard(modifier) {
+private fun Stat(value: String, label: String, modifier: Modifier, onClick: (() -> Unit)? = null) {
+    SoftCard(modifier, onClick = onClick) {
         Column(Modifier.fillMaxWidth()) {
             Text(value, style = MaterialTheme.typography.headlineSmall, color = Brand.TealDeep)
             Text(label, style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
@@ -181,7 +183,7 @@ private fun PickerField(value: String, label: String, icon: ImageVector, modifie
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit) {
+fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees: (Int) -> Unit = {}) {
     val vm = appViewModel(key = "admin") { AdminViewModel(it) }
     val state by vm.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -256,11 +258,12 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit) {
             VSpace(8)
             Text("Scheduled classes", style = MaterialTheme.typography.titleLarge)
             state.classes.forEach { c ->
-                SoftCard(Modifier.fillMaxWidth()) {
+                SoftCard(Modifier.fillMaxWidth(), onClick = { onAttendees(c.id) }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(c.name, style = MaterialTheme.typography.titleSmall)
                             Text("${formatDayTime(c.startTime)} · ${c.capacity - c.spotsLeft}/${c.capacity} booked", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                            Text("Tap to see who is booked", style = MaterialTheme.typography.labelSmall, color = Brand.TealDeep)
                         }
                         if (c.status == "SCHEDULED") TextButton(onClick = { cancel = c.id }) { Text("Cancel", color = Brand.Error) }
                         else InfoPill("Cancelled", color = Brand.LightGrey, textColor = Brand.Muted)
