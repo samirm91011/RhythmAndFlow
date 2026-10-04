@@ -36,6 +36,7 @@ Instead of clicking through the portal, you can create the resource group, datab
 - [ ] **D3.** Branch rules for `main` (see `GITHUB-SETUP.md`).
 
 ## E. First deploy and check (Part 6) — only when Samir says "go"
+> **Do not deploy before Samir says the pull requests are merged into `main`.** The deploy builds whatever is on `main`; until the merge, `main` is missing most of the app.
 - [ ] **E1.** GitHub → **Actions → Deploy → Run workflow** (branch `main`).
 - [ ] **E2.** When green, open `https://<app name>.azurewebsites.net/health`. Expect `{"status":"ok", …}`.
 - [ ] **E3.** Also open `/docs` (API documentation) - it should load. `/terms` and `/privacy` should jump to the Rhythm & Flow website pages (rhythmandflow.co.za/terms-of-use and /privacy-policy).
@@ -55,3 +56,4 @@ Instead of clicking through the portal, you can create the resource group, datab
 | 3 Oct | New app setting `Firebase__ServiceAccountJson`. | Add it (A5/B1). |
 | 3 Oct | New database table for push notification phones. | Nothing to do on a first deploy. A reset is only needed if you already deployed an older version. |
 | 3 Oct | Account deletion/data export added to the API, and `/terms` and `/privacy` now redirect to the client's website pages. | Check E3 after deploying. Optional settings `Legal__TermsUrl` and `Legal__PrivacyUrl` exist but are not needed. |
+| 4 Oct | New optional script `deploy/azure/setup-azure.sh` (see A+). New optional setting `Seed__KeepSampleClassesUpcoming` (on by default). More API endpoints: payment history, customers, programmes. | Nothing extra to add. After deploying, the live check script (run by Samir) also covers the new endpoints. |
