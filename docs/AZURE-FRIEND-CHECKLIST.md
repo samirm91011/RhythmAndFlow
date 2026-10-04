@@ -54,6 +54,6 @@ Instead of clicking through the portal, you can create the resource group, datab
 |---|---|---|
 | 3 Oct | The repository is now **private** and has a new name, `RhythmAndFlow`. | Use the new address. You need to be a collaborator (Samir has added you). |
 | 3 Oct | New app setting `Firebase__ServiceAccountJson`. | Add it (A5/B1). |
-| 3 Oct | New database table for push notification phones. | Nothing to do on a first deploy. A reset is only needed if you already deployed an older version. |
+| 3 Oct | New database table for push notification phones. | Nothing to do. The server now adds this table itself when it starts (even on a database created by an earlier version), so **no database reset is needed**. |
 | 3 Oct | Account deletion/data export added to the API, and `/terms` and `/privacy` now redirect to the client's website pages. | Check E3 after deploying. Optional settings `Legal__TermsUrl` and `Legal__PrivacyUrl` exist but are not needed. |
 | 4 Oct | New optional script `deploy/azure/setup-azure.sh` (see A+). New optional setting `Seed__KeepSampleClassesUpcoming` (on by default). More API endpoints: payment history, customers, programmes. | Nothing extra to add. After deploying, the live check script (run by Samir) also covers the new endpoints. |
