@@ -82,6 +82,13 @@ public record PlanUpsert(
     string? Features,
     string? Status);
 
+/// <summary>A lesson as the administrator sees it, including where the video comes from (customers never see this).</summary>
+public record AdminLessonDto(
+    int Id, int ProgrammeId, string ProgrammeName, string Title, string Description, string Category, string Level,
+    int DurationSeconds, string VideoProvider, string VideoReference, bool IsPreview);
+
+public record AdminPlanDto(int Id, string Name, string Description, decimal Price, string BillingFrequency, int Tier, List<string> Features, string Status);
+
 public record AdminSummaryDto(int Users, int ActiveSubscriptions, int UpcomingClasses, int ActiveBookings, decimal MonthlyRecurringRevenue, int OpenErrors);
 
 // ---- Password ----
@@ -125,6 +132,15 @@ public record AdminProgrammeDto(int Id, string Name, string Description, int Min
 public record PaymentDto(int Id, string PlanName, decimal Amount, string Status, DateTime Date, string Receipt);
 public record AdminUserDto(Guid Id, string FullName, string Username, string Email, string Role, string Status, DateTime CreatedAt, string? Plan);
 public record SetUserStatusRequest([Required, RegularExpression("^(ACTIVE|DISABLED)$")] string Status);
+
+// ---- Admin overview lists: who is booked, who holds a plan ----
+public record AdminAttendeeDto(int BookingId, Guid UserId, string FullName, string Email, DateTime BookedAt, string Status);
+public record AdminBookingDto(
+    int BookingId, int ClassId, string ClassName, DateTime StartTime, string Location,
+    Guid UserId, string FullName, string Email, DateTime BookedAt, string Status);
+public record AdminSubscriptionDto(
+    int Id, Guid UserId, string FullName, string Email, string PlanName, decimal Price, string Status,
+    DateTime? StartDate, DateTime? EndDate, bool Renewing);
 
 public record CancelResultDto(string Message, bool CancelledWithPayFast);
 

@@ -37,8 +37,12 @@ import com.rhythmandflow.app.ui.components.ScreenHeader
 import com.rhythmandflow.app.ui.components.SoftCard
 import com.rhythmandflow.app.ui.components.VSpace
 import com.rhythmandflow.app.ui.components.formatDate
+import com.rhythmandflow.app.ui.components.formatDayTime
 import com.rhythmandflow.app.ui.components.formatRand
 import com.rhythmandflow.app.ui.theme.Brand
+import com.rhythmandflow.app.ui.viewmodel.AdminAttendeesViewModel
+import com.rhythmandflow.app.ui.viewmodel.AdminBookingsViewModel
+import com.rhythmandflow.app.ui.viewmodel.AdminSubscriptionsViewModel
 import com.rhythmandflow.app.ui.viewmodel.AdminUsersViewModel
 import com.rhythmandflow.app.ui.viewmodel.PaymentsViewModel
 import com.rhythmandflow.app.ui.viewmodel.appViewModel
@@ -78,6 +82,108 @@ private fun PaymentCard(p: PaymentItem) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("${formatDate(p.date)} · Receipt ${p.receipt}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted, modifier = Modifier.weight(1f))
                 if (paid) InfoPill("Paid") else InfoPill("Didn't go through", color = Brand.TangerineSoft, textColor = Brand.TangerineDeep)
+            }
+        }
+    }
+}
+
+/** Administrators: every upcoming booking, grouped by class, with who made it. */
+@Composable
+fun AdminBookingsScreen(onBack: () -> Unit, onClass: (Int) -> Unit) {
+    val vm = appViewModel(key = "admin-bookings") { AdminBookingsViewModel(it) }
+    val state by vm.items.collectAsState()
+    OnResume { vm.load() }
+    val data = state.data
+
+    Column(Modifier.fillMaxSize()) {
+        ScreenHeader("Bookings", "Everyone booked into an upcoming class.", onBack = onBack)
+        when {
+            state.loading && data == null -> LoadingBox()
+            state.error != null && data == null -> ErrorBox(state.error!!, onRetry = vm::load)
+            data.isNullOrEmpty() -> EmptyState("No bookings yet", "When customers book a class, they will be listed here.")
+            else -> {
+                val byClass = data.groupBy { it.classId }
+                LazyColumn(contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    byClass.forEach { (classId, rows) ->
+                        item(key = "class$classId") {
+                            SoftCard(Modifier.fillMaxWidth(), onClick = { onClass(classId) }) {
+                                Column(Modifier.fillMaxWidth()) {
+                                    val first = rows.first()
+                                    Text(first.className, style = MaterialTheme.typography.titleMedium)
+                                    Text("${formatDayTime(first.startTime)} · ${first.location}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                                    VSpace(6)
+                                    InfoPill("${rows.size} booked")
+                                    VSpace(6)
+                                    rows.forEach { r -> Text("${r.fullName}  ·  ${r.email}", style = MaterialTheme.typography.bodyMedium) }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Administrators: who is booked into one class. */
+@Composable
+fun AdminAttendeesScreen(classId: Int, onBack: () -> Unit) {
+    val vm = appViewModel(key = "admin-class$classId") { AdminAttendeesViewModel(it, classId) }
+    val state by vm.state.collectAsState()
+    OnResume { vm.load() }
+    val c = state.cls
+
+    Column(Modifier.fillMaxSize()) {
+        ScreenHeader(c?.name ?: "Who's booked", c?.let { "${formatDayTime(it.startTime)} · ${it.capacity - it.spotsLeft}/${it.capacity} booked" }, onBack = onBack)
+        when {
+            state.loading -> LoadingBox()
+            state.error != null && state.people.isEmpty() -> ErrorBox(state.error!!, onRetry = vm::load)
+            state.people.isEmpty() -> EmptyState("No one has booked yet", "Customers who book this class will appear here.")
+            else -> LazyColumn(contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(state.people, key = { it.bookingId }) { p ->
+                    SoftCard(Modifier.fillMaxWidth()) {
+                        Column(Modifier.fillMaxWidth()) {
+                            Text(p.fullName, style = MaterialTheme.typography.titleSmall)
+                            Text("${p.email} · booked ${formatDate(p.bookedAt)}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Administrators: who holds an active plan, which one, and until when. */
+@Composable
+fun AdminSubscriptionsScreen(onBack: () -> Unit) {
+    val vm = appViewModel(key = "admin-subs") { AdminSubscriptionsViewModel(it) }
+    val state by vm.items.collectAsState()
+    OnResume { vm.load() }
+    val data = state.data
+
+    Column(Modifier.fillMaxSize()) {
+        ScreenHeader("Active plans", "Who is subscribed, and to what.", onBack = onBack)
+        when {
+            state.loading && data == null -> LoadingBox()
+            state.error != null && data == null -> ErrorBox(state.error!!, onRetry = vm::load)
+            data.isNullOrEmpty() -> EmptyState("No active plans yet", "Customers who subscribe will be listed here.")
+            else -> LazyColumn(contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(data, key = { it.id }) { s ->
+                    SoftCard(Modifier.fillMaxWidth()) {
+                        Column(Modifier.fillMaxWidth()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(s.fullName, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                                InfoPill(s.planName)
+                            }
+                            Text(s.email, style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                            VSpace(4)
+                            Text(
+                                "${formatRand(s.price)} / month" + (s.startDate?.let { " · since ${formatDate(it)}" } ?: "") + (s.endDate?.let { " · paid to ${formatDate(it)}" } ?: ""),
+                                style = MaterialTheme.typography.bodySmall, color = Brand.Muted,
+                            )
+                        }
+                    }
+                }
             }
         }
     }

@@ -381,8 +381,8 @@ data class AdminState(
     val error: String? = null,
     val summary: AdminSummary? = null,
     val classes: List<ClassItem> = emptyList(),
-    val lessons: List<Lesson> = emptyList(),
-    val plans: List<Plan> = emptyList(),
+    val lessons: List<AdminLesson> = emptyList(),
+    val plans: List<AdminPlan> = emptyList(),
 )
 
 class AdminViewModel(private val c: AppContainer) : ViewModel() {
@@ -396,7 +396,7 @@ class AdminViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch {
             val s = repo.adminSummary()
             val cl = repo.adminClasses()
-            val ls = repo.lessons()
+            val ls = repo.adminLessons()
             val pl = repo.adminPlans()
             _state.value = AdminState(
                 loading = false,
@@ -419,6 +419,9 @@ class AdminViewModel(private val c: AppContainer) : ViewModel() {
     suspend fun createLesson(l: LessonUpsert) = after(repo.adminCreateLesson(l))
     suspend fun deleteLesson(id: Int) = after(repo.adminDeleteLesson(id))
     suspend fun updatePlan(id: Int, p: PlanUpsert) = after(repo.adminUpdatePlan(id, p))
+    suspend fun createPlan(p: PlanUpsert) = after(repo.adminCreatePlan(p))
+    suspend fun updateClass(id: Int, c: ClassUpsert) = after(repo.adminUpdateClass(id, c))
+    suspend fun updateLesson(id: Int, l: LessonUpsert) = after(repo.adminUpdateLesson(id, l))
 }
 
 // ============================================================ Notifications
@@ -581,6 +584,64 @@ class AdminUsersViewModel(private val c: AppContainer) : ViewModel() {
     suspend fun setStatus(id: String, status: String): String? = when (val r = repo.adminSetUserStatus(id, status)) {
         is Outcome.Ok -> { load(); null }
         is Outcome.Fail -> r.message
+    }
+}
+
+/** Every upcoming booking across all classes (administrators). */
+class AdminBookingsViewModel(private val c: AppContainer) : ViewModel() {
+    private val repo = c.repository
+    private val _items = MutableStateFlow(Load<List<AdminBooking>>())
+    val items: StateFlow<Load<List<AdminBooking>>> = _items.asStateFlow()
+
+    init { load() }
+
+    fun load() {
+        viewModelScope.launch {
+            when (val r = repo.adminBookings()) {
+                is Outcome.Ok -> _items.value = Load(false, null, r.value)
+                is Outcome.Fail -> _items.value = Load(false, r.message, _items.value.data)
+            }
+        }
+    }
+}
+
+/** Who holds an active plan (administrators). */
+class AdminSubscriptionsViewModel(private val c: AppContainer) : ViewModel() {
+    private val repo = c.repository
+    private val _items = MutableStateFlow(Load<List<AdminSubscription>>())
+    val items: StateFlow<Load<List<AdminSubscription>>> = _items.asStateFlow()
+
+    init { load() }
+
+    fun load() {
+        viewModelScope.launch {
+            when (val r = repo.adminSubscriptions()) {
+                is Outcome.Ok -> _items.value = Load(false, null, r.value)
+                is Outcome.Fail -> _items.value = Load(false, r.message, _items.value.data)
+            }
+        }
+    }
+}
+
+data class AttendeesState(val cls: ClassItem? = null, val loading: Boolean = true, val error: String? = null, val people: List<AdminAttendee> = emptyList())
+
+/** Who is booked into one class (administrators). */
+class AdminAttendeesViewModel(private val c: AppContainer, val classId: Int) : ViewModel() {
+    private val repo = c.repository
+    private val _state = MutableStateFlow(AttendeesState())
+    val state: StateFlow<AttendeesState> = _state.asStateFlow()
+
+    init { load() }
+
+    fun load() {
+        viewModelScope.launch {
+            val people = repo.adminAttendees(classId)
+            val cls = (repo.adminClasses() as? Outcome.Ok)?.value?.firstOrNull { it.id == classId }
+            _state.value = when (people) {
+                is Outcome.Ok -> AttendeesState(cls, false, null, people.value)
+                is Outcome.Fail -> AttendeesState(cls, false, people.message, _state.value.people)
+            }
+        }
     }
 }
 

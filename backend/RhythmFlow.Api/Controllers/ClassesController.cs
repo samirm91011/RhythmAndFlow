@@ -69,8 +69,19 @@ public class JournalController(AppDbContext db) : ApiController
 /// <summary>Administrator functions. Every action requires the ADMIN role (BR-15, FR-22).</summary>
 [ApiController, Authorize(Roles = Roles.Admin)]
 [Route("api/admin")]
-public class AdminController(AppDbContext db, NotificationService notifications, UserAdminService users, ProgrammeAdminService programmes) : ApiController
+public class AdminController(AppDbContext db, NotificationService notifications, UserAdminService users, ProgrammeAdminService programmes, AdminOverviewService overview, PlanAdminService plansAdmin, ScheduleAdminService schedule) : ApiController
 {
+    // ---- Who is booked, who holds a plan ----
+    [HttpGet("bookings")]
+    public Task<List<AdminBookingDto>> UpcomingBookings() => overview.UpcomingBookingsAsync();
+
+    [HttpGet("classes/{id:int}/attendees")]
+    public async Task<ActionResult<List<AdminAttendeeDto>>> Attendees(int id) =>
+        await overview.AttendeesAsync(id) is { } list ? list : NotFound();
+
+    [HttpGet("subscriptions")]
+    public Task<List<AdminSubscriptionDto>> ActiveSubscriptions() => overview.ActiveSubscriptionsAsync();
+
     // ---- Programmes (FR-22) ----
     [HttpGet("programmes")]
     public Task<List<AdminProgrammeDto>> Programmes() => programmes.ListAsync();
@@ -133,12 +144,13 @@ public class AdminController(AppDbContext db, NotificationService notifications,
     [HttpPut("lessons/{id:int}")]
     public async Task<IActionResult> UpdateLesson(int id, LessonUpsert r)
     {
-        var l = await db.Lessons.FindAsync(id);
-        if (l is null) return NotFound();
-        Apply(l, r);
-        await db.SaveChangesAsync();
-        return NoContent();
+        var (ok, notFound, error) = await schedule.UpdateLessonAsync(id, r);
+        if (notFound) return NotFound();
+        return ok ? NoContent() : BadRequest(new { error });
     }
+
+    [HttpGet("lessons")]
+    public Task<List<AdminLessonDto>> AdminLessons() => schedule.LessonsAsync();
 
     [HttpDelete("lessons/{id:int}")]
     public async Task<IActionResult> DeleteLesson(int id)
@@ -183,12 +195,9 @@ public class AdminController(AppDbContext db, NotificationService notifications,
     [HttpPut("classes/{id:int}")]
     public async Task<IActionResult> UpdateClass(int id, ClassUpsert r)
     {
-        var c = await db.Classes.FindAsync(id);
-        if (c is null) return NotFound();
-        if (r.EndTime <= r.StartTime) return BadRequest(new { error = "End time must be after start time." });
-        Apply(c, r);
-        await db.SaveChangesAsync();
-        return NoContent();
+        var (ok, notFound, error) = await schedule.UpdateClassAsync(id, r);
+        if (notFound) return NotFound();
+        return ok ? NoContent() : BadRequest(new { error });
     }
 
     [HttpPost("classes/{id:int}/cancel")]
@@ -216,26 +225,21 @@ public class AdminController(AppDbContext db, NotificationService notifications,
 
     // ---- Plans ----
     [HttpGet("plans")]
-    public async Task<List<PlanDto>> Plans() => (await db.Plans.ToListAsync()).OrderBy(p => p.Price).Select(ContentController.PlanDtoOf).ToList();
+    public Task<List<AdminPlanDto>> Plans() => plansAdmin.ListAsync();
 
     [HttpPut("plans/{id:int}")]
     public async Task<IActionResult> UpdatePlan(int id, PlanUpsert r)
     {
-        var p = await db.Plans.FindAsync(id);
-        if (p is null) return NotFound();
-        p.Name = r.Name.Trim(); p.Description = r.Description?.Trim() ?? ""; p.Price = r.Price; p.Tier = r.Tier;
-        p.Features = r.Features ?? ""; p.Status = string.IsNullOrWhiteSpace(r.Status) ? "ACTIVE" : r.Status;
-        await db.SaveChangesAsync();
-        return NoContent();
+        var (ok, notFound, error) = await plansAdmin.UpdateAsync(id, r);
+        if (notFound) return NotFound();
+        return ok ? NoContent() : BadRequest(new { error });
     }
 
     [HttpPost("plans")]
     public async Task<ActionResult<int>> CreatePlan(PlanUpsert r)
     {
-        var p = new SubscriptionPlan { Name = r.Name.Trim(), Description = r.Description?.Trim() ?? "", Price = r.Price, Tier = r.Tier, Features = r.Features ?? "" };
-        db.Plans.Add(p);
-        await db.SaveChangesAsync();
-        return p.Id;
+        var (ok, id, error) = await plansAdmin.CreateAsync(r);
+        return ok ? id : BadRequest(new { error });
     }
 
     // ---- Error log (reports from the API and the app) ----
