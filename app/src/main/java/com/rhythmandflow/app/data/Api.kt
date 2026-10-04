@@ -18,6 +18,14 @@ interface Api {
     @POST("api/auth/forgot-password") suspend fun forgotPassword(@Body body: ForgotPasswordRequest): MessageResponse
     @POST("api/auth/reset-password") suspend fun resetPassword(@Body body: ResetPasswordRequest): MessageResponse
     @POST("api/auth/change-password") suspend fun changePassword(@Body body: ChangePasswordRequest): AuthResponse
+    @POST("api/notifications/device-token") suspend fun registerDeviceToken(@Body body: DeviceTokenRequest): MessageResponse
+    @POST("api/notifications/device-token/remove") suspend fun removeDeviceToken(@Body body: DeviceTokenRequest): MessageResponse
+    @GET("api/subscriptions/payments") suspend fun payments(): List<PaymentItem>
+    @GET("api/admin/programmes") suspend fun adminProgrammes(): List<AdminProgramme>
+    @POST("api/admin/programmes") suspend fun adminCreateProgramme(@Body body: ProgrammeUpsert): Int
+    @PUT("api/admin/programmes/{id}") suspend fun adminUpdateProgramme(@Path("id") id: Int, @Body body: ProgrammeUpsert): Response<Unit>
+    @GET("api/admin/users") suspend fun adminUsers(@Query("search") search: String? = null): List<AdminUser>
+    @POST("api/admin/users/{id}/status") suspend fun adminSetUserStatus(@Path("id") id: String, @Body body: SetUserStatusRequest): Response<Unit>
     @GET("api/account/export") suspend fun exportData(): okhttp3.ResponseBody
     @POST("api/account/delete") suspend fun deleteAccount(@Body body: DeleteAccountRequest): MessageResponse
 
@@ -33,6 +41,7 @@ interface Api {
     @GET("api/lessons") suspend fun lessons(
         @Query("category") category: String? = null,
         @Query("q") query: String? = null,
+        @Query("programmeId") programmeId: Int? = null,
     ): List<Lesson>
     @GET("api/lessons/{id}") suspend fun lesson(@Path("id") id: Int): Lesson
     @GET("api/lessons/{id}/playback") suspend fun playback(@Path("id") id: Int): Playback

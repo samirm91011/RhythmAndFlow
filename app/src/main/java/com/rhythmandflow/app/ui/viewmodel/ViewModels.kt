@@ -46,11 +46,11 @@ class SessionViewModel(private val c: AppContainer) : ViewModel() {
     val subscriptions: StateFlow<List<Subscription>> = _subs.asStateFlow()
 
     init {
-        viewModelScope.launch { repo.unauthorized.collect { signOut() } }
+        viewModelScope.launch { repo.unauthorized.collect { finishSignOut() } }
         viewModelScope.launch {
             if (!repo.hasToken) { _state.value = SessionState.SignedOut; return@launch }
             when (val r = repo.me()) {
-                is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value); refreshSubscriptions(); com.rhythmandflow.app.notifications.NotificationSync.start(c.app) }
+                is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value); onSignedIn() }
                 // A network failure should not log the user out; only an auth failure does (handled via `unauthorized`).
                 is Outcome.Fail -> _state.value = SessionState.SignedOut
             }
@@ -59,13 +59,13 @@ class SessionViewModel(private val c: AppContainer) : ViewModel() {
 
     suspend fun login(identifier: String, password: String): String? =
         when (val r = repo.login(identifier.trim(), password)) {
-            is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value.user); refreshSubscriptions(); com.rhythmandflow.app.notifications.NotificationSync.start(c.app); null }
+            is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value.user); onSignedIn(); null }
             is Outcome.Fail -> r.message
         }
 
     suspend fun register(name: String, username: String, email: String, password: String): String? =
         when (val r = repo.register(name.trim(), username.trim(), email.trim(), password)) {
-            is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value.user); refreshSubscriptions(); null }
+            is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value.user); onSignedIn(); null }
             is Outcome.Fail -> r.message
         }
 
@@ -95,7 +95,22 @@ class SessionViewModel(private val c: AppContainer) : ViewModel() {
             is Outcome.Fail -> r.message
         }
 
+    /** Things to start once someone is signed in: their plans, the notification sync, and push for this phone. */
+    private fun onSignedIn() {
+        refreshSubscriptions()
+        com.rhythmandflow.app.notifications.NotificationSync.start(c.app)
+        com.rhythmandflow.app.notifications.PushRegistration.sync(c.app)
+    }
+
+    /** Tells the server first (while the login still works) so this phone stops receiving this person's pushes, then signs out. */
     fun signOut() {
+        viewModelScope.launch {
+            kotlinx.coroutines.withTimeoutOrNull(2500) { com.rhythmandflow.app.notifications.PushRegistration.unregister(c.app) }
+            finishSignOut()
+        }
+    }
+
+    private fun finishSignOut() {
         repo.signOut()
         com.rhythmandflow.app.notifications.NotificationSync.stop(c.app)
         com.rhythmandflow.app.notifications.ReminderScheduler.cancelAll(c.app, c.localPrefs)
@@ -122,6 +137,8 @@ class MoveViewModel(private val c: AppContainer) : ViewModel() {
     var category = MutableStateFlow("All"); private set
     var query = MutableStateFlow(""); private set
     private var job: Job? = null
+    private val _programmes = MutableStateFlow<List<Programme>>(emptyList())
+    val programmes: StateFlow<List<Programme>> = _programmes.asStateFlow()
 
     init { load() }
 
@@ -132,6 +149,7 @@ class MoveViewModel(private val c: AppContainer) : ViewModel() {
         job?.cancel()
         job = viewModelScope.launch {
             if (debounce) delay(350)
+            else (repo.programmes() as? Outcome.Ok)?.let { _programmes.value = it.value }
             _lessons.update { it.copy(loading = it.data == null, error = null) }
             when (val r = repo.lessons(category.value, query.value)) {
                 is Outcome.Ok -> _lessons.value = Load(false, null, r.value)
@@ -297,7 +315,11 @@ class ClassesViewModel(private val c: AppContainer) : ViewModel() {
 }
 
 // ============================================================ Home / journal / profile
-data class HomeState(val summary: ProgressSummary? = null, val nextBooking: Booking? = null, val loading: Boolean = true, val unread: Int = 0)
+data class HomeState(
+    val summary: ProgressSummary? = null, val nextBooking: Booking? = null, val loading: Boolean = true, val unread: Int = 0,
+    /** A practice the person started and has not finished, so Home can offer to carry on. */
+    val resume: Lesson? = null,
+)
 
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
     private val repo = c.repository
@@ -313,7 +335,10 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             if (allBookings != null) com.rhythmandflow.app.notifications.ReminderScheduler.sync(c.app, c.localPrefs, allBookings)
             val b = allBookings?.firstOrNull()
             val unread = (repo.unreadCount() as? Outcome.Ok)?.value?.count ?: 0
-            _state.value = HomeState(s, b, false, unread)
+            val resume = (repo.lessons() as? Outcome.Ok)?.value
+                ?.filter { !it.locked && it.watchTimeSeconds > 0 && it.completionPercentage in 1.0..94.9 }
+                ?.maxByOrNull { it.completionPercentage }
+            _state.value = HomeState(s, b, false, unread, resume)
         }
     }
 
@@ -424,6 +449,141 @@ class NotificationsViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch { repo.markRead(null) }
     }
 }
+/** One fitness programme: what it is, who it is included for, and its lessons (FR-03, FR-04). */
+data class ProgrammeState(
+    val loading: Boolean = true, val error: String? = null,
+    val programme: Programme? = null, val lessons: List<Lesson> = emptyList(),
+    /** The cheapest plan that includes this programme, e.g. "Rhythm". */
+    val planName: String? = null,
+)
+
+class ProgrammeViewModel(private val c: AppContainer, val programmeId: Int) : ViewModel() {
+    private val repo = c.repository
+    private val _state = MutableStateFlow(ProgrammeState())
+    val state: StateFlow<ProgrammeState> = _state.asStateFlow()
+
+    init { load() }
+
+    fun load() {
+        viewModelScope.launch {
+            val programmes = repo.programmes()
+            val lessons = repo.lessons(programmeId = programmeId)
+            val plans = (repo.plans() as? Outcome.Ok)?.value.orEmpty()
+            val programme = (programmes as? Outcome.Ok)?.value?.firstOrNull { it.id == programmeId }
+            _state.value = when {
+                programme == null -> ProgrammeState(false, (programmes as? Outcome.Fail)?.message ?: "We couldn't find that programme.")
+                else -> ProgrammeState(
+                    loading = false, programme = programme,
+                    lessons = (lessons as? Outcome.Ok)?.value.orEmpty(),
+                    planName = plans.filter { it.tier >= programme.minTier }.minByOrNull { it.tier }?.name,
+                )
+            }
+        }
+    }
+}
+
+/** The person's workout progress (FR-13): totals, practices in progress and finished ones. */
+data class ProgressScreenState(
+    val loading: Boolean = true, val error: String? = null,
+    val summary: ProgressSummary? = null, val lessons: List<Lesson> = emptyList(),
+)
+
+class ProgressViewModel(private val c: AppContainer) : ViewModel() {
+    private val repo = c.repository
+    private val _state = MutableStateFlow(ProgressScreenState())
+    val state: StateFlow<ProgressScreenState> = _state.asStateFlow()
+
+    init { load() }
+
+    fun load() {
+        viewModelScope.launch {
+            val summary = repo.progressSummary()
+            val lessons = repo.lessons()
+            _state.value = ProgressScreenState(
+                loading = false,
+                error = (lessons as? Outcome.Fail)?.message,
+                summary = (summary as? Outcome.Ok)?.value,
+                lessons = (lessons as? Outcome.Ok)?.value.orEmpty(),
+            )
+        }
+    }
+}
+
+class AdminProgrammesViewModel(private val c: AppContainer) : ViewModel() {
+    private val repo = c.repository
+    private val _items = MutableStateFlow(Load<List<AdminProgramme>>())
+    val items: StateFlow<Load<List<AdminProgramme>>> = _items.asStateFlow()
+
+    init { load() }
+
+    fun load() {
+        viewModelScope.launch {
+            when (val r = repo.adminProgrammes()) {
+                is Outcome.Ok -> _items.value = Load(false, null, r.value)
+                is Outcome.Fail -> _items.value = Load(false, r.message, _items.value.data)
+            }
+        }
+    }
+
+    suspend fun create(p: ProgrammeUpsert): String? = when (val r = repo.adminCreateProgramme(p)) {
+        is Outcome.Ok -> { load(); null }
+        is Outcome.Fail -> r.message
+    }
+
+    suspend fun update(id: Int, p: ProgrammeUpsert): String? = when (val r = repo.adminUpdateProgramme(id, p)) {
+        is Outcome.Ok -> { load(); null }
+        is Outcome.Fail -> r.message
+    }
+}
+
+class PaymentsViewModel(private val c: AppContainer) : ViewModel() {
+    private val repo = c.repository
+    private val _items = MutableStateFlow(Load<List<PaymentItem>>())
+    val items: StateFlow<Load<List<PaymentItem>>> = _items.asStateFlow()
+
+    init { load() }
+
+    fun load() {
+        viewModelScope.launch {
+            when (val r = repo.payments()) {
+                is Outcome.Ok -> _items.value = Load(false, null, r.value)
+                is Outcome.Fail -> _items.value = Load(false, r.message, _items.value.data)
+            }
+        }
+    }
+}
+
+class AdminUsersViewModel(private val c: AppContainer) : ViewModel() {
+    private val repo = c.repository
+    private val _items = MutableStateFlow(Load<List<AdminUser>>())
+    val items: StateFlow<Load<List<AdminUser>>> = _items.asStateFlow()
+    val query = MutableStateFlow("")
+    private var searchJob: Job? = null
+
+    init { load() }
+
+    /** Waits a moment after the last keystroke so the server is not asked on every letter. */
+    fun search(q: String) {
+        query.value = q
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch { delay(350); load() }
+    }
+
+    fun load() {
+        viewModelScope.launch {
+            when (val r = repo.adminUsers(query.value)) {
+                is Outcome.Ok -> _items.value = Load(false, null, r.value)
+                is Outcome.Fail -> _items.value = Load(false, r.message, _items.value.data)
+            }
+        }
+    }
+
+    suspend fun setStatus(id: String, status: String): String? = when (val r = repo.adminSetUserStatus(id, status)) {
+        is Outcome.Ok -> { load(); null }
+        is Outcome.Fail -> r.message
+    }
+}
+
 class AdminErrorsViewModel(private val c: AppContainer) : ViewModel() {
     private val repo = c.repository
     private val _items = MutableStateFlow(Load<List<ErrorLogItem>>())

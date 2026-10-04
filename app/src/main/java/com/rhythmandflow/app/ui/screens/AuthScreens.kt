@@ -48,6 +48,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.rhythmandflow.app.R
+import com.rhythmandflow.app.ui.components.LegalNotice
 import com.rhythmandflow.app.ui.components.PrimaryButton
 import com.rhythmandflow.app.ui.components.RfTextField
 import com.rhythmandflow.app.ui.components.SecondaryButton
@@ -107,9 +108,12 @@ fun SignInScreen(session: SessionViewModel, onSignUp: () -> Unit, onForgot: () -
     }
 
     AuthFrame(title = "Welcome Back!", subtitle = "Log in to continue your wellness journey.") {
-        RfTextField(identifier, { identifier = it; error = null }, "Username or email", Icons.Default.Person)
+        RfTextField(identifier, { identifier = it; error = null }, "Username or email", Icons.Default.Person,
+            autofill = androidx.compose.ui.autofill.ContentType.Username + androidx.compose.ui.autofill.ContentType.EmailAddress)
         VSpace(12)
-        RfTextField(password, { password = it; error = null }, "Password", Icons.Default.Lock, isPassword = true)
+        RfTextField(password, { password = it; error = null }, "Password", Icons.Default.Lock, isPassword = true,
+            imeAction = androidx.compose.ui.text.input.ImeAction.Go, onImeAction = ::submit,
+            autofill = androidx.compose.ui.autofill.ContentType.Password)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = onForgot) { Text("Forgot Password?", color = Brand.TealDeep) }
         }
@@ -148,11 +152,15 @@ fun SignUpScreen(session: SessionViewModel, onBack: () -> Unit, onLogin: () -> U
         VSpace(8)
         RfTextField(username, { username = it }, "Username", Icons.Default.AccountCircle, error = if (submitted) userErr else null)
         VSpace(8)
-        RfTextField(email, { email = it }, "Email", Icons.Default.Email, keyboardType = KeyboardType.Email, error = if (submitted) emailErr else null)
+        RfTextField(email, { email = it }, "Email", Icons.Default.Email, keyboardType = KeyboardType.Email, error = if (submitted) emailErr else null,
+            autofill = androidx.compose.ui.autofill.ContentType.NewUsername)
         VSpace(8)
-        RfTextField(password, { password = it }, "Password", Icons.Default.Lock, isPassword = true, error = if (submitted) passErr else null)
+        RfTextField(password, { password = it }, "Password", Icons.Default.Lock, isPassword = true, error = if (submitted) passErr else null,
+            imeAction = androidx.compose.ui.text.input.ImeAction.Done, autofill = androidx.compose.ui.autofill.ContentType.NewPassword)
         VSpace(8)
         serverError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium); VSpace(8) }
+        LegalNotice(Modifier.fillMaxWidth())
+        VSpace(12)
         PrimaryButton("Sign Up", loading = busy, onClick = {
             submitted = true
             if (listOf(nameErr, userErr, emailErr, passErr).all { it == null }) {

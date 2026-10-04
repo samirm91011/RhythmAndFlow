@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Help
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
@@ -80,11 +81,12 @@ fun YouScreen(session: SessionViewModel, onNavigate: (String) -> Unit, onLesson:
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Brand.Muted)
                         }
                     }
-                    SoftCard(Modifier.fillMaxWidth()) {
+                    SoftCard(Modifier.fillMaxWidth(), onClick = { onNavigate("progress") }) {
                         Column(Modifier.fillMaxWidth()) {
                             Text("Your Journey", style = MaterialTheme.typography.titleLarge)
                             val n = summary.summary?.sessionsThisMonth ?: 0
                             Text("You've shown up for yourself $n ${if (n == 1) "time" else "times"} this month.", color = Brand.Muted)
+                            Text("See my progress", color = Brand.TealDeep, style = MaterialTheme.typography.labelLarge)
                         }
                     }
                     NavRow(Icons.Default.CreditCard, if (activeSub != null) "${activeSub.planName} plan" else "Choose a plan",
@@ -193,8 +195,7 @@ fun SettingsScreen(session: SessionViewModel, onBack: () -> Unit, onNavigate: (S
     var exportError by remember { mutableStateOf<String?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
-    fun openPage(path: String) {
-        val url = com.rhythmandflow.app.BuildConfig.API_BASE_URL.trimEnd('/') + path
+    fun openPage(url: String) {
         try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
         catch (_: Exception) { dialog = "Can't open the page" to "No web browser was found on this phone." }
     }
@@ -203,14 +204,14 @@ fun SettingsScreen(session: SessionViewModel, onBack: () -> Unit, onNavigate: (S
         Column(Modifier.vScroll().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             NavRow(Icons.Default.Person, "Account", "Personal information") { onNavigate("edit_profile") }
             NavRow(Icons.Default.Lock, "Password", "Change your password") { onNavigate("change_password") }
-            NavRow(Icons.Default.CreditCard, "Subscription", "Plan and billing") { onNavigate("subscription") }
+            NavRow(Icons.Default.CreditCard, "Subscription", "Plan, billing and receipts") { onNavigate("subscription") }
             NavRow(Icons.Default.Notifications, "Notifications", "Your updates and alerts") { onNavigate("notifications") }
             ReminderSwitchRow()
-            NavRow(Icons.Default.Lock, "Privacy Policy", "How we look after your data") { openPage("/privacy") }
+            NavRow(Icons.Default.Lock, "Privacy Policy", "Read it on rhythmandflow.co.za/privacy-policy") { openPage(LegalLinks.PRIVACY) }
+            NavRow(Icons.Default.Policy, "Terms of Use", "Read it on rhythmandflow.co.za/terms-of-use") { openPage(LegalLinks.TERMS) }
             NavRow(Icons.Default.Help, "Help & Support", "Get answers and contact us") {
                 dialog = "Help & Support" to "Visit rhythmandflow.co.za to get in touch with the Rhythm & Flow team."
             }
-            NavRow(Icons.Default.Policy, "Terms of Use", "Read our terms") { openPage("/terms") }
             NavRow(Icons.Default.Download, if (exporting) "Preparing your data..." else "Download my data", "Get a copy of everything we hold about you") {
                 if (!exporting) {
                     exporting = true
@@ -229,11 +230,20 @@ fun SettingsScreen(session: SessionViewModel, onBack: () -> Unit, onNavigate: (S
                 }
             }
             NavRow(Icons.Default.DeleteForever, "Delete my account", "Erase your account and personal data") { deleting = true }
+            NavRow(Icons.Default.Info, "About", "Version and credits") {
+                dialog = "Rhythm & Flow" to (
+                    "Version ${com.rhythmandflow.app.BuildConfig.VERSION_NAME}" +
+                        (if (com.rhythmandflow.app.BuildConfig.DEMO_MODE) " (demo data)" else "") +
+                        "\n\nHeadings use Cormorant Garamond and text uses Open Sans, both under the SIL Open Font Licence 1.1." +
+                        "\n\nBuilt with Kotlin, Jetpack Compose, Retrofit, OkHttp, Media3 (ExoPlayer), WorkManager and Firebase Cloud Messaging, all under their open-source licences." +
+                        "\n\nQuestions? Visit rhythmandflow.co.za."
+                    )
+            }
             VSpace(8)
             OutlinedButton(
                 onClick = onSignOut, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(28.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Brand.Tangerine),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Brand.Tangerine),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Brand.TangerineDeep),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Brand.TangerineDeep),
             ) {
                 Icon(Icons.AutoMirrored.Filled.Logout, null); HSpace(8); Text("Log Out")
             }

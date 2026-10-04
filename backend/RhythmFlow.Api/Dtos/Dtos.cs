@@ -97,6 +97,7 @@ public record ChangePasswordRequest(
 // ---- Notifications ----
 public record NotificationDto(int Id, string Kind, string Title, string Body, string? Route, DateTime CreatedAt, bool Read);
 public record MarkReadRequest(List<int>? Ids);
+public record DeviceTokenRequest([Required, StringLength(512, MinimumLength = 20)] string Token);
 
 // ---- Error reporting ----
 public record ErrorReportRequest(
@@ -111,6 +112,19 @@ public record ErrorLogDto(
     string? Device, int Count, DateTime FirstSeen, DateTime LastSeen, string Status);
 
 public record DeleteAccountRequest([Required] string Password);
+
+// ---- Programme administration (FR-22) ----
+public record ProgrammeUpsert(
+    [Required, StringLength(100)] string Name,
+    [StringLength(500)] string? Description,
+    [Range(1, 10)] int MinTier,
+    bool Active = true);
+public record AdminProgrammeDto(int Id, string Name, string Description, int MinTier, bool Active, int LessonCount);
+
+// ---- Payments and user administration ----
+public record PaymentDto(int Id, string PlanName, decimal Amount, string Status, DateTime Date, string Receipt);
+public record AdminUserDto(Guid Id, string FullName, string Username, string Email, string Role, string Status, DateTime CreatedAt, string? Plan);
+public record SetUserStatusRequest([Required, RegularExpression("^(ACTIVE|DISABLED)$")] string Status);
 
 public record CancelResultDto(string Message, bool CancelledWithPayFast);
 

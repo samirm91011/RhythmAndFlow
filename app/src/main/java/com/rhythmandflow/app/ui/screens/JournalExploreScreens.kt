@@ -136,7 +136,7 @@ private fun JournalListTab(entries: List<JournalEntry>?, loading: Boolean, error
                         Column(Modifier.weight(1f)) {
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 InfoPill(e.kind.lowercase().replaceFirstChar { it.uppercase() })
-                                if (e.mood.isNotBlank()) InfoPill(e.mood, color = Brand.TangerineSoft, textColor = Brand.Tangerine)
+                                if (e.mood.isNotBlank()) InfoPill(e.mood, color = Brand.TangerineSoft, textColor = Brand.TangerineDeep)
                             }
                             if (e.text.isNotBlank()) { VSpace(6); Text(e.text) }
                             VSpace(4)
@@ -195,9 +195,9 @@ private val exploreItems = listOf(
 )
 
 @Composable
-fun ExploreScreen(onArticle: (String) -> Unit, onShop: () -> Unit) {
+fun ExploreScreen(onBack: () -> Unit, onArticle: (String) -> Unit, onShop: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader("Explore", "A holistic wellness library.")
+        ScreenHeader("Explore", "A holistic wellness library.", onBack = onBack)
         LazyColumn(contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(exploreItems, key = { it.title }) { item ->
                 SoftCard(Modifier.fillMaxWidth(), onClick = { if (item.title == "Shop") onShop() else onArticle(item.title) }, background = Color.White) {

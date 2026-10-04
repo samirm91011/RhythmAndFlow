@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Brand teal gradient behind the logo. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient
+        android:angle="315"
+        android:startColor="#5BA699"
+        android:endColor="#2F7A6E"
+        android:type="linear" />
+</shape>

@@ -81,6 +81,34 @@ public static class SeedData
         await db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Keeps the sample timetable from running dry while the studio's real classes have not been entered yet: whenever
+    /// fewer than <paramref name="minimum"/> classes are coming up, more placeholder classes are added for the following
+    /// days. It stops for good as soon as anyone creates a class of their own (a location without "(placeholder)").
+    /// </summary>
+    public static async Task EnsureUpcomingClassesAsync(AppDbContext db, int minimum = 5)
+    {
+        if (await db.Classes.AnyAsync(c => !c.Location.Contains("(placeholder)"))) return;
+
+        var now = DateTime.UtcNow;
+        var upcoming = await db.Classes.Where(c => c.Status == "SCHEDULED" && c.StartTime > now).Select(c => c.StartTime).ToListAsync();
+        if (upcoming.Count >= minimum) return;
+
+        string[] names = ["Morning Flow", "Dance with Joy", "Barre & Stretch", "Yoga Reset", "Weekend Wind-Down", "Mobility for Life"];
+        var day = (upcoming.Count > 0 ? upcoming.Max() : now).Date.AddDays(1);
+        var existing = await db.Classes.CountAsync();
+        for (var i = upcoming.Count; i < minimum + 1; i++, day = day.AddDays(1))
+        {
+            var start = day.AddHours(7 + (existing + i) % 3 * 5);    // 09:00, 14:00 or 19:00 SAST
+            db.Classes.Add(new ClassSession
+            {
+                Name = names[(existing + i) % names.Length], Description = "All levels welcome. Bring water and a mat.", CoachName = "Deni",
+                Location = "Rhythm & Flow Studio (placeholder)", StartTime = start, EndTime = start.AddMinutes(60), Capacity = 20,
+            });
+        }
+        await db.SaveChangesAsync();
+    }
+
     private static Lesson L(int seq, string title, string desc, string cat, int ignoredSecs, (string Url, int Seconds) clip, bool preview = false) => new()
     {
         SequenceNumber = seq, Title = title, Description = desc, Category = cat, DurationSeconds = clip.Seconds,

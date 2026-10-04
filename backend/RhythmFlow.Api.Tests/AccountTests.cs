@@ -146,6 +146,20 @@ public class AccountTests
     }
 
     [Fact]
+    public async Task Delete_forgets_the_users_phones_so_push_stops()
+    {
+        using var t = new TestDb();
+        var (svc, _) = Build(t);
+        var u = UserWithPassword(t);
+        t.Db.DeviceTokens.Add(new DeviceToken { UserId = u.Id, Token = "token-zzzzzzzzzzzzzzzzzzzzzzzzzzzz" });
+        await t.Db.SaveChangesAsync();
+
+        await svc.DeleteAsync(u.Id, Password);
+
+        Assert.Empty(t.Db.DeviceTokens);
+    }
+
+    [Fact]
     public async Task Delete_clears_the_user_from_error_logs()
     {
         using var t = new TestDb();

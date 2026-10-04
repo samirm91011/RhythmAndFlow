@@ -128,7 +128,7 @@ private fun ErrorCard(e: ErrorLogItem, onClick: () -> Unit) {
         Column(Modifier.fillMaxWidth()) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 InfoPill(if (e.source == "APP") "App" else "Server", color = Brand.White, textColor = Brand.TealDeep)
-                if (crash) InfoPill("Crash", color = Brand.Tangerine, textColor = Brand.White)
+                if (crash) InfoPill("Crash", color = Brand.TangerineDeep, textColor = Brand.White)
                 if (e.count > 1) InfoPill("${e.count}×", color = Brand.White, textColor = Brand.Muted)
             }
             VSpace(6)

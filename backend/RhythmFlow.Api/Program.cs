@@ -67,10 +67,26 @@ builder.Services.AddOpenApi(o => o.AddDocumentTransformer((doc, _, _) =>
     };
     return Task.CompletedTask;
 }));
+// Push notifications through Firebase Cloud Messaging. The service-account key comes from configuration
+// (Firebase:ServiceAccountJson as a secret setting, or Firebase:ServiceAccountPath, or a firebase-service-account.json
+// next to the app for local use). With no key, or a bad one, push is simply off and the app falls back to its periodic sync.
+var firebaseCredential = TryLoadFirebaseCredential(cfg, builder.Environment.ContentRootPath);
+if (firebaseCredential is not null)
+{
+    var firebaseApp = FirebaseAdmin.FirebaseApp.Create(new FirebaseAdmin.AppOptions { Credential = firebaseCredential });
+    builder.Services.AddSingleton<IPushSender>(sp => new FirebasePushSender(
+        FirebaseAdmin.Messaging.FirebaseMessaging.GetMessaging(firebaseApp), sp.GetRequiredService<ILogger<FirebasePushSender>>()));
+}
+else
+{
+    builder.Services.AddSingleton<IPushSender, NullPushSender>();
+}
 builder.Services.AddSingleton<ErrorLogService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<PasswordResetService>();
 builder.Services.AddScoped<AccountService>();
+builder.Services.AddScoped<UserAdminService>();
+builder.Services.AddScoped<ProgrammeAdminService>();
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient("video", c => c.Timeout = TimeSpan.FromMinutes(30));
 builder.Services.AddControllers();
@@ -133,7 +149,10 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.EnsureCreatedAsync();
+    await SchemaUpgrades.ApplyAsync(db);   // newer tables for a database that was created by an earlier version
     await SeedData.RunAsync(db, cfg);
+    // Placeholder timetable stays populated until the studio adds its own classes (set to false at launch to be sure).
+    if (cfg.GetValue("Seed:KeepSampleClassesUpcoming", true)) await SeedData.EnsureUpcomingClassesAsync(db);
 }
 
 app.UseMiddleware<ErrorHandlingMiddleware>();
@@ -161,6 +180,28 @@ _ = Task.Run(async () =>
 });
 
 app.Run();
+
+// Reads the Firebase service-account key from configuration; returns null (push off) when it is missing or unusable.
+static Google.Apis.Auth.OAuth2.GoogleCredential? TryLoadFirebaseCredential(IConfiguration cfg, string contentRoot)
+{
+    try
+    {
+        var json = cfg["Firebase:ServiceAccountJson"];
+        if (!string.IsNullOrWhiteSpace(json))
+            return Google.Apis.Auth.OAuth2.CredentialFactory.FromJson<Google.Apis.Auth.OAuth2.ServiceAccountCredential>(json).ToGoogleCredential();
+
+        var path = cfg["Firebase:ServiceAccountPath"];
+        if (string.IsNullOrWhiteSpace(path)) path = Path.Combine(contentRoot, "firebase-service-account.json");
+        return File.Exists(path)
+            ? Google.Apis.Auth.OAuth2.CredentialFactory.FromFile<Google.Apis.Auth.OAuth2.ServiceAccountCredential>(path).ToGoogleCredential()
+            : null;
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine("Push notifications are off: the Firebase key could not be read (" + ex.GetType().Name + ").");
+        return null;
+    }
+}
 
 // Hosts such as Render hand out the database as a URL (postgres://user:pass@host/db); Npgsql wants key=value pairs.
 static string NormalizePostgres(string cs)

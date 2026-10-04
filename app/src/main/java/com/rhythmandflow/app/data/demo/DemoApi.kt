@@ -38,7 +38,7 @@ class DemoApi : Api {
         L(7, 4, "Full Body Flow Masterclass", 3, "Sunrise Flow", "A longer morning flow to start your day.", "Yoga", 2100, false),
         L(8, 4, "Full Body Flow Masterclass", 3, "Dance Cardio Burn", "High energy dance for a full body workout.", "Dance", 1800, false),
     )
-    private val watched = mutableMapOf<Int, Int>()
+    private val watched = mutableMapOf(1 to 240)   // Alex is part-way through the first lesson, so Home shows "continue"
 
     private val classes = mutableListOf(
         mkClass(1, "Morning Flow", 1, 7, 20, 3), mkClass(2, "Dance with Joy", 2, 12, 20, 12), mkClass(3, "Barre & Stretch", 3, 17, 20, 0),
@@ -107,6 +107,31 @@ class DemoApi : Api {
         return AuthResponse("demo-token", user)
     }
 
+    override suspend fun registerDeviceToken(body: DeviceTokenRequest): MessageResponse = MessageResponse("Registered.")
+    override suspend fun removeDeviceToken(body: DeviceTokenRequest): MessageResponse = MessageResponse("Removed.")
+    override suspend fun payments(): List<PaymentItem> {
+        pause()
+        val s = sub?.takeIf { it.status == "ACTIVE" } ?: return emptyList()
+        return listOf(
+            PaymentItem(3, s.planName, s.price, "COMPLETE", ago(0), "RF-000003"),
+            PaymentItem(2, s.planName, s.price, "COMPLETE", ago(60L * 24 * 30), "RF-000002"),
+            PaymentItem(1, s.planName, s.price, "FAILED", ago(60L * 24 * 45), "RF-000001"),
+        )
+    }
+    private val demoUsers = mutableListOf(
+        AdminUser("u1", "Alex Demo", "alex", "alex@rhythmandflow.test", "CUSTOMER", "ACTIVE", ago(60L * 24 * 20), "Flow"),
+        AdminUser("u2", "Thandi Mokoena", "thandi", "thandi@example.com", "CUSTOMER", "ACTIVE", ago(60L * 24 * 9), "Rhythm"),
+        AdminUser("u3", "Sam Naidoo", "sam", "sam@example.com", "CUSTOMER", "ACTIVE", ago(60L * 24 * 3), null),
+        AdminUser("u4", "Rhythm Admin", "admin", "admin@rhythmandflow.test", "ADMIN", "ACTIVE", ago(60L * 24 * 60), null),
+    )
+    override suspend fun adminUsers(search: String?): List<AdminUser> {
+        pause()
+        val q = search?.trim()?.lowercase().orEmpty()
+        return demoUsers.filter { q.isEmpty() || it.fullName.lowercase().contains(q) || it.email.lowercase().contains(q) || it.username.lowercase().contains(q) }
+    }
+    override suspend fun adminSetUserStatus(id: String, body: SetUserStatusRequest): Response<Unit> {
+        pause(); demoUsers.replaceAll { if (it.id == id) it.copy(status = body.status) else it }; return ok()
+    }
     override suspend fun exportData(): okhttp3.ResponseBody {
         pause()
         val json = """{"exportedAt":"demo","profile":{"fullName":"${user.fullName}","email":"${user.email}"},"note":"Demo data only."}"""
@@ -140,11 +165,37 @@ class DemoApi : Api {
     override suspend fun simulatePayment(id: Int): Response<Unit> { pause(); sub?.let { activate(plans.first { p -> p.id == it.planId }) }; return ok() }
 
     // ---- content
-    override suspend fun programmes(): List<Programme> = lessonsData.groupBy { it.prog }.map { (id, ls) ->
-        Programme(id, ls.first().progName, "", ls.first().minTier, tier < ls.first().minTier, ls.size) }
-    override suspend fun lessons(category: String?, query: String?): List<Lesson> {
+    private val demoProgrammes = mutableListOf(
+        AdminProgramme(1, "Move & Release", "Gentle practices to release tension and feel lighter.", 1, true, 2),
+        AdminProgramme(2, "Dance with Joy", "Feel-good dance movement for every level.", 1, true, 2),
+        AdminProgramme(3, "Mindful Mobility", "Stretch, restore and move well for life.", 2, true, 2),
+        AdminProgramme(4, "Full Body Flow Masterclass", "Longer, deeper flows with Deni.", 3, true, 2),
+    )
+    override suspend fun programmes(): List<Programme> {
         pause()
-        return lessonsData.filter { (category == null || it.cat == category) && (query.isNullOrBlank() || it.title.contains(query, true) || it.desc.contains(query, true)) }.map(::lessonDto)
+        return demoProgrammes.filter { it.active }.map { p -> Programme(p.id, p.name, p.description, p.minTier, user.role != "ADMIN" && tier < p.minTier, lessonsData.count { it.prog == p.id }) }
+    }
+    override suspend fun adminProgrammes(): List<AdminProgramme> { pause(); return demoProgrammes.map { p -> p.copy(lessonCount = lessonsData.count { it.prog == p.id }) } }
+    override suspend fun adminCreateProgramme(body: ProgrammeUpsert): Int {
+        pause()
+        if (demoProgrammes.any { it.name.equals(body.name.trim(), true) }) fail(400, "There is already a programme with that name.")
+        val id = demoProgrammes.maxOf { it.id } + 1
+        demoProgrammes.add(AdminProgramme(id, body.name.trim(), body.description.orEmpty(), body.minTier, body.active, 0))
+        return id
+    }
+    override suspend fun adminUpdateProgramme(id: Int, body: ProgrammeUpsert): Response<Unit> {
+        pause()
+        if (demoProgrammes.any { it.id != id && it.name.equals(body.name.trim(), true) }) fail(400, "There is already a programme with that name.")
+        demoProgrammes.replaceAll { if (it.id == id) it.copy(name = body.name.trim(), description = body.description.orEmpty(), minTier = body.minTier, active = body.active) else it }
+        return ok()
+    }
+    override suspend fun lessons(category: String?, query: String?, programmeId: Int?): List<Lesson> {
+        pause()
+        val hidden = demoProgrammes.filter { !it.active }.map { it.id }
+        return lessonsData.filter {
+            it.prog !in hidden && (programmeId == null || it.prog == programmeId) && (category == null || it.cat == category) &&
+                (query.isNullOrBlank() || it.title.contains(query, true) || it.desc.contains(query, true))
+        }.map(::lessonDto)
     }
     override suspend fun lesson(id: Int): Lesson { pause(); return lessonDto(lessonsData.first { it.id == id }) }
     override suspend fun playback(id: Int): Playback {

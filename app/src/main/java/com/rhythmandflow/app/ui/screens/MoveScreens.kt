@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -65,6 +67,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -114,15 +117,27 @@ private fun categoryColors(category: String): List<Color> = when (category) {
 }
 
 @Composable
-fun MoveScreen(onLesson: (Int) -> Unit) {
+fun MoveScreen(onLesson: (Int) -> Unit, onProgramme: (Int) -> Unit) {
     val vm = appViewModel { MoveViewModel(it) }
     val lessons by vm.lessons.collectAsState()
+    val programmes by vm.programmes.collectAsState()
     val category by vm.category.collectAsState()
     val query by vm.query.collectAsState()
     OnResume { vm.load() }
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Move", "Practices to help you feel good.")
+        if (programmes.isNotEmpty()) {
+            Text("Programmes", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp))
+            VSpace(6)
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                programmes.forEach { p -> ProgrammeCard(p, onClick = { onProgramme(p.id) }) }
+            }
+            VSpace(12)
+        }
         Column(Modifier.padding(horizontal = 20.dp)) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 categories.forEach { c -> SelectChip(c, category == c, onClick = { vm.setCategory(c) }) }
@@ -139,6 +154,20 @@ fun MoveScreen(onLesson: (Int) -> Unit) {
             else -> LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(data, key = { it.id }) { l -> LessonRow(l, onClick = { onLesson(l.id) }) }
             }
+        }
+    }
+}
+
+/** A programme as a small tappable card in the row above the practices (FR-03). */
+@Composable
+private fun ProgrammeCard(p: com.rhythmandflow.app.data.Programme, onClick: () -> Unit) {
+    SoftCard(Modifier.width(168.dp), onClick = onClick, background = if (p.locked) Brand.Surface else Brand.TealSoft) {
+        Column(Modifier.fillMaxWidth().heightIn(min = 74.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Row(verticalAlignment = Alignment.Top) {
+                Text(p.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), maxLines = 2)
+                if (p.locked) Icon(Icons.Default.Lock, "Locked", tint = Brand.Muted, modifier = Modifier.size(16.dp))
+            }
+            Text("${p.lessonCount} ${if (p.lessonCount == 1) "practice" else "practices"}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
         }
     }
 }
@@ -161,7 +190,7 @@ fun LessonRow(l: Lesson, onClick: () -> Unit) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     InfoPill(l.durationLabel)
                     InfoPill(l.category, color = Brand.Surface, textColor = Brand.Muted)
-                    if (l.isPreview) InfoPill("Preview", color = Brand.TangerineSoft, textColor = Brand.Tangerine)
+                    if (l.isPreview) InfoPill("Preview", color = Brand.TangerineSoft, textColor = Brand.TangerineDeep)
                 }
                 if (l.completionPercentage > 0) {
                     VSpace(8)
@@ -234,7 +263,7 @@ fun LessonDetailScreen(lessonId: Int, onBack: () -> Unit, onBegin: () -> Unit, o
                     Text("What you'll need", style = MaterialTheme.typography.titleLarge)
                     VSpace(8)
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        listOf("Yoga mat", "Water", "Open space").forEach { SoftCard(Modifier.weight(1f)) { Text(it, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) } }
+                        listOf("Yoga mat", "Water", "Open space").forEach { SoftCard(Modifier.weight(1f), background = Brand.TealMist) { Text(it, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) } }
                     }
                     VSpace(16)
                     PrimaryButton(if (lesson.watchTimeSeconds > 0 && lesson.completionPercentage < 95) "Resume Practice" else "Begin Practice", onClick = onBegin)
@@ -276,14 +305,18 @@ fun PlayerScreen(lessonId: Int, onBack: () -> Unit, onFinished: () -> Unit, onPl
     // Block screenshots and screen recording while a lesson is on screen (helps stop customers sharing paid videos).
     DisposableEffect(Unit) {
         val window = context.findActivity()?.window
-        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        if (!com.rhythmandflow.app.BuildConfig.ALLOW_SCREEN_CAPTURE) window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
     }
 
     val player = remember { ExoPlayer.Builder(context).build() }
+    var playbackFailed by remember { mutableStateOf(false) }
+    var playbackErrorCode by remember { mutableStateOf("") }
+    var retries by remember { mutableStateOf(0) }
 
-    LaunchedEffect(state.url) {
+    LaunchedEffect(state.url, retries) {
         val url = state.url ?: return@LaunchedEffect
+        playbackFailed = false
         player.setMediaItem(MediaItem.fromUri(url))
         player.prepare()
         if (state.resumeMs > 0) player.seekTo(state.resumeMs)
@@ -300,6 +333,13 @@ fun PlayerScreen(lessonId: Int, onBack: () -> Unit, onFinished: () -> Unit, onPl
 
     DisposableEffect(player) {
         val listener = object : Player.Listener {
+            override fun onPlayerError(error: PlaybackException) {
+                playbackFailed = true
+                playbackErrorCode = error.errorCodeName
+                // Let the team know (de-duplicated), so a broken video link or server problem shows up in the admin error log.
+                (context.applicationContext as? com.rhythmandflow.app.RhythmApplication)?.container?.errorReporter
+                    ?.report("Video playback failed: ${error.errorCodeName}", "lesson $lessonId: ${error.cause}", "player/$lessonId", false)
+            }
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) {
                     vm.report(((player.duration.coerceAtLeast(0)) / 1000).toInt() + 1, force = true)
@@ -330,6 +370,20 @@ fun PlayerScreen(lessonId: Int, onBack: () -> Unit, onFinished: () -> Unit, onPl
                 factory = { ctx -> PlayerView(ctx).apply { this.player = player; useController = true } },
                 modifier = Modifier.fillMaxSize(),
             )
+        }
+        if (playbackFailed && !state.loading && state.error == null) {
+            Column(
+                Modifier.fillMaxSize().background(Color.Black).padding(24.dp),
+                verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("This video couldn't be played. Check your internet connection and try again.", color = Color.White, textAlign = TextAlign.Center)
+                if (com.rhythmandflow.app.BuildConfig.DEBUG && playbackErrorCode.isNotBlank()) {
+                    VSpace(8)
+                    Text("($playbackErrorCode)", color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.bodySmall)
+                }
+                VSpace(16)
+                SecondaryButton("Try again", onClick = { retries++ })
+            }
         }
         IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(8.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)

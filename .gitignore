@@ -1,4 +1,4 @@
-﻿# Android / Gradle
+# Android / Gradle
 *.iml
 .gradle/
 build/
@@ -24,3 +24,6 @@ appsettings.Local.json
 app/google-services.json
 firebase-service-account*.json
 **/firebase-service-account*.json
+
+# Private hand-over files (secrets for the Azure set-up). Never commit.
+private/
