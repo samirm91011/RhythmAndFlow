@@ -28,7 +28,7 @@ class DemoApi : Api {
     )
 
     private data class L(val id: Int, val prog: Int, val progName: String, val minTier: Int, val title: String, val desc: String, val cat: String, val secs: Int, val preview: Boolean)
-    private val lessonsData = listOf(
+    private val lessonsData = mutableListOf(
         L(1, 1, "Move & Release", 1, "Full Body Flow", "A gentle flow to move, breathe and reconnect with your body.", "Yoga", 600, true),
         L(2, 1, "Move & Release", 1, "Move & Release", "Release tension and feel lighter.", "Stretch", 900, false),
         L(3, 2, "Dance with Joy", 1, "Dance with Joy", "Feel-good movement for your mood.", "Dance", 1500, true),
@@ -144,7 +144,7 @@ class DemoApi : Api {
     }
 
     // ---- plans & subscriptions
-    override suspend fun plans(): List<Plan> { pause(); return plans }
+    override suspend fun plans(): List<Plan> { pause(); return plans.filter { it.id !in hiddenPlans }.sortedBy { it.price } }
     override suspend fun subscriptions(): List<Subscription> {
         pause()
         sub?.let { s -> if (s.status == "PENDING" && ++checkoutPolls >= 2) activate(plans.first { it.id == s.planId }) }
@@ -265,11 +265,83 @@ class DemoApi : Api {
     override suspend fun adminCreateLesson(body: LessonUpsert): Int { pause(); return ++nextId }
     override suspend fun adminDeleteLesson(id: Int): Response<Unit> { pause(); return ok() }
     override suspend fun adminClasses(): List<ClassItem> { pause(); return classes.map(::classDto) }
+
+    private val demoPeople = listOf("Thandi Mokoena", "Sam Naidoo", "Priya Pillay", "Lerato Dlamini", "Megan Botha", "Zanele Khumalo", "Aisha Patel", "Nomsa Sithole", "Chloe Jacobs", "Ruan Venter")
+    private fun attendeesOf(c: ClassItem): List<AdminAttendee> =
+        (0 until (c.capacity - c.spotsLeft).coerceAtMost(demoPeople.size)).map { i ->
+            val n = demoPeople[i]
+            AdminAttendee(c.id * 100 + i, "p$i", n, n.lowercase().substringBefore(' ') + "@example.com", ago(60L * (i + 2)), "BOOKED")
+        }
+    override suspend fun adminAttendees(id: Int): List<AdminAttendee> { pause(); return attendeesOf(classes.first { it.id == id }) }
+    override suspend fun adminBookings(): List<AdminBooking> {
+        pause()
+        return classes.sortedBy { it.startTime }.flatMap { c ->
+            attendeesOf(c).map { AdminBooking(it.bookingId, c.id, c.name, c.startTime, c.location, it.userId, it.fullName, it.email, it.bookedAt, it.status) }
+        }
+    }
+    override suspend fun adminSubscriptions(): List<AdminSubscription> {
+        pause()
+        return listOf(
+            AdminSubscription(11, "u1", "Alex Demo", "alex@rhythmandflow.test", "Flow", 99.0, "ACTIVE", ago(60L * 24 * 12), Instant.now().plus(Duration.ofDays(18)).toString(), true),
+            AdminSubscription(12, "u2", "Thandi Mokoena", "thandi@example.com", "Rhythm", 199.0, "ACTIVE", ago(60L * 24 * 5), Instant.now().plus(Duration.ofDays(25)).toString(), true),
+        )
+    }
+    private val videoRefs = mutableMapOf<Int, String>()
+    override suspend fun adminLessons(): List<AdminLesson> {
+        pause()
+        return lessonsData.map {
+            AdminLesson(it.id, it.prog, it.progName, it.title, it.desc, it.cat, "All levels", it.secs, "Remote",
+                videoRefs[it.id] ?: "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4", it.preview)
+        }
+    }
+    override suspend fun adminUpdateLesson(id: Int, body: LessonUpsert): Response<Unit> {
+        pause()
+        val i = lessonsData.indexOfFirst { it.id == id }
+        if (i < 0) return Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
+        val progName = lessonsData.firstOrNull { it.prog == body.programmeId }?.progName ?: fail(400, "Unknown programme.")
+        lessonsData[i] = lessonsData[i].copy(prog = body.programmeId, progName = progName, title = body.title, desc = body.description.orEmpty(),
+            cat = body.category, secs = body.durationSeconds, preview = body.isPreview)
+        videoRefs[id] = body.videoReference
+        return ok()
+    }
+    override suspend fun adminUpdateClass(id: Int, body: ClassUpsert): Response<Unit> {
+        pause()
+        val i = classes.indexOfFirst { it.id == id }
+        if (i < 0) return Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
+        val c = classes[i]
+        val taken = c.capacity - c.spotsLeft
+        if (Instant.parse(body.endTime) <= Instant.parse(body.startTime)) fail(400, "End time must be after start time.")
+        if (body.capacity < taken) fail(400, "$taken people are already booked, so the capacity can't be lower than $taken.")
+        classes[i] = c.copy(name = body.name, description = body.description.orEmpty(), coachName = body.coachName, location = body.location,
+            startTime = body.startTime, endTime = body.endTime, capacity = body.capacity, spotsLeft = body.capacity - taken)
+        return ok()
+    }
     override suspend fun adminCreateClass(body: ClassUpsert): Int { pause(); return ++nextId }
     override suspend fun adminCancelClass(id: Int): Response<Unit> { pause(); return ok() }
-    override suspend fun adminPlans(): List<Plan> { pause(); return plans }
+    private val hiddenPlans = mutableSetOf<Int>()
+    private fun splitFeatures(s: String?) = s.orEmpty().split('|', '\n').map { it.trim() }.filter { it.isNotEmpty() }
+    private fun checkPlan(id: Int?, b: PlanUpsert) {
+        if (b.name.isBlank()) fail(400, "Enter a plan name.")
+        if (b.price < 1) fail(400, "The price must be at least R1.")
+        if (plans.any { it.id != id && it.name.equals(b.name.trim(), true) }) fail(400, "A plan with that name already exists.")
+    }
+    override suspend fun adminPlans(): List<AdminPlan> {
+        pause()
+        return plans.sortedBy { it.price }.map { AdminPlan(it.id, it.name, it.description, it.price, it.billingFrequency, it.tier, it.features, if (it.id in hiddenPlans) "INACTIVE" else "ACTIVE") }
+    }
+    override suspend fun adminCreatePlan(body: PlanUpsert): Int {
+        pause(); checkPlan(null, body)
+        val id = ++nextId
+        plans.add(Plan(id, body.name.trim(), body.description.orEmpty(), body.price, "MONTHLY", body.tier, splitFeatures(body.features)))
+        if (body.status == "INACTIVE") hiddenPlans.add(id)
+        return id
+    }
     override suspend fun adminUpdatePlan(id: Int, body: PlanUpsert): Response<Unit> {
-        pause(); val i = plans.indexOfFirst { it.id == id }; if (i >= 0) plans[i] = plans[i].copy(name = body.name, price = body.price); return ok()
+        pause(); checkPlan(id, body)
+        val i = plans.indexOfFirst { it.id == id }
+        if (i >= 0) plans[i] = plans[i].copy(name = body.name.trim(), description = body.description.orEmpty(), price = body.price, tier = body.tier, features = splitFeatures(body.features))
+        if (body.status == "INACTIVE") hiddenPlans.add(id) else hiddenPlans.remove(id)
+        return ok()
     }
     override suspend fun adminErrors(status: String): List<ErrorLogItem> { pause(); return errors.filter { status == "ALL" || it.status == status } }
     override suspend fun adminResolveError(id: Int): Response<Unit> { pause(); errors.replaceAll { if (it.id == id) it.copy(status = "RESOLVED") else it }; return ok() }

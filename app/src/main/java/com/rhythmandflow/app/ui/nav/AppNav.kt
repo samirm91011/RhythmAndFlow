@@ -13,8 +13,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
@@ -51,6 +55,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -73,6 +82,15 @@ private val tabs = listOf(
     Tab("classes", "Classes", Icons.Default.CalendarMonth),
     Tab("journal", "Journal", Icons.Default.MenuBook),
     Tab("you", "You", Icons.Default.Person),
+)
+
+/** What an administrator sees along the bottom instead of the customer tabs. Customers never get this bar. */
+private val adminTabs = listOf(
+    Tab("admin", "Dashboard", Icons.Default.Dashboard),
+    Tab("admin/classes", "Classes", Icons.Default.CalendarMonth),
+    Tab("admin/users", "Customers", Icons.Default.Group),
+    Tab("admin/plans", "Plans", Icons.Default.CreditCard),
+    Tab("settings", "Account", Icons.Default.Settings),
 )
 
 /** Screens a notification (or push message) is allowed to open. Anything else is ignored. */
@@ -98,7 +116,14 @@ fun AppRoot(session: SessionViewModel, pendingRoute: String? = null, onRouteHand
                 SessionState.SignedOut -> Box(Modifier.fillMaxSize().background(Brand.Canvas), contentAlignment = Alignment.TopCenter) {
                     Box(Modifier.widthIn(max = 560.dp).fillMaxHeight().background(Color.White)) { AuthGraph(session, notify) }
                 }
-                is SessionState.SignedIn -> MainGraph(session, notify, pendingRoute, onRouteHandled)
+                is SessionState.SignedIn -> {
+                    // Administrators land on their own dashboard and can flip to the customer view and back. Customers never see either.
+                    val user = (state as SessionState.SignedIn).user
+                    var adminView by rememberSaveable(user.id) { mutableStateOf(user.isAdmin) }
+                    key(adminView && user.isAdmin) {
+                        MainGraph(session, notify, adminView && user.isAdmin, { adminView = it }, pendingRoute, onRouteHandled)
+                    }
+                }
             }
             // Demo builds run on made-up data and must never be mistaken for the real thing.
             if (com.rhythmandflow.app.BuildConfig.DEMO_MODE) {
@@ -127,11 +152,16 @@ private fun AuthGraph(session: SessionViewModel, notify: (String) -> Unit) {
 }
 
 @Composable
-private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendingRoute: String?, onRouteHandled: () -> Unit) {
+private fun MainGraph(
+    session: SessionViewModel, notify: (String) -> Unit, adminView: Boolean, onSwitchView: (Boolean) -> Unit,
+    pendingRoute: String?, onRouteHandled: () -> Unit,
+) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
-    val showBar = route in tabs.map { it.route }
+    val barTabs = if (adminView) adminTabs else tabs
+    val tabRoutes = (tabs + adminTabs).map { it.route }
+    val showBar = route in barTabs.map { it.route }
     // Tablets and other wide windows get a side rail instead of the bottom bar, and content stays in a readable column.
     val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 840
     val prefs = container().localPrefs
@@ -149,7 +179,12 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
     LaunchedEffect(pendingRoute, backStack != null) {
         val r = pendingRoute
         if (r != null && backStack != null) {
-            if (r in knownRoutes) { if (r in tabs.map { it.route }) nav.goTab(r) else nav.navigate(r) }
+            // An administrator's alert (for example a new error) opens the admin side; the graph restarts in that view and handles it then.
+            if (r.startsWith("admin") && !adminView && (session.state.value as? SessionState.SignedIn)?.user?.isAdmin == true) {
+                onSwitchView(true)
+                return@LaunchedEffect
+            }
+            if (r in knownRoutes) { if (r in tabRoutes) nav.goTab(r) else nav.navigate(r) }
             onRouteHandled()
         }
     }
@@ -162,7 +197,7 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
                     containerColor = Color.White, tonalElevation = 0.dp,
                     modifier = Modifier.shadow(12.dp, ambientColor = Brand.Shadow.copy(alpha = 0.12f), spotColor = Brand.Shadow.copy(alpha = 0.12f)),
                 ) {
-                    tabs.forEach { t ->
+                    barTabs.forEach { t ->
                         NavigationBarItem(
                             selected = route == t.route,
                             onClick = { nav.goTab(t.route) },
@@ -182,7 +217,7 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
         if (showBar && wide) {
             NavigationRail(containerColor = Color.White) {
                 Spacer(Modifier.weight(1f))
-                tabs.forEach { t ->
+                barTabs.forEach { t ->
                     NavigationRailItem(
                         selected = route == t.route,
                         onClick = { nav.goTab(t.route) },
@@ -200,13 +235,20 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
         Box(Modifier.weight(1f).fillMaxHeight().background(Brand.Canvas), contentAlignment = Alignment.TopCenter) {
           Box(Modifier.widthIn(max = 720.dp).fillMaxHeight().background(Color.White)) {
         NavHost(
-            nav, startDestination = "home", modifier = Modifier.fillMaxSize(),
+            nav, startDestination = if (adminView) "admin" else "home", modifier = Modifier.fillMaxSize(),
             enterTransition = { fadeIn(tween(220)) + slideInHorizontally(tween(260)) { it / 14 } },
             exitTransition = { fadeOut(tween(160)) },
             popEnterTransition = { fadeIn(tween(220)) },
             popExitTransition = { fadeOut(tween(160)) + slideOutHorizontally(tween(240)) { it / 14 } },
         ) {
-            val go: (String) -> Unit = { r -> if (r in tabs.map { it.route }) nav.goTab(r) else nav.navigate(r) }
+            val go: (String) -> Unit = { r ->
+                when {
+                    // "Admin tools" on a customer's You screen: switch the app into the admin view.
+                    r == "admin" && !adminView -> onSwitchView(true)
+                    r in barTabs.map { it.route } -> nav.goTab(r)
+                    else -> nav.navigate(r)
+                }
+            }
             val back: () -> Unit = { nav.popBackStack() }
 
             // ---- Tabs ----
@@ -271,10 +313,18 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
             composable("settings") { SettingsScreen(session, onBack = back, onNavigate = go, onSignOut = { session.signOut() }) }
 
             // ---- Admin ----
-            composable("admin") { AdminHomeScreen(onBack = back, onNavigate = go) }
+            composable("admin") {
+                val user = (session.state.collectAsState().value as? SessionState.SignedIn)?.user
+                AdminHomeScreen(user?.fullName.orEmpty(), onNavigate = go, onCustomerView = { onSwitchView(false) })
+            }
             composable("admin/errors") { AdminErrorsScreen(onBack = back, notify = notify) }
             composable("admin/lessons") { AdminLessonsScreen(onBack = back, notify = notify) }
-            composable("admin/classes") { AdminClassesScreen(onBack = back, notify = notify) }
+            composable("admin/classes") { AdminClassesScreen(onBack = back, notify = notify, onAttendees = { nav.navigate("admin/class/$it") }) }
+            composable("admin/class/{id}", listOf(navArgument("id") { type = NavType.IntType })) { e ->
+                AdminAttendeesScreen(e.arguments!!.getInt("id"), onBack = back)
+            }
+            composable("admin/bookings") { AdminBookingsScreen(onBack = back, onClass = { nav.navigate("admin/class/$it") }) }
+            composable("admin/subscriptions") { AdminSubscriptionsScreen(onBack = back) }
             composable("admin/plans") { AdminPlansScreen(onBack = back, notify = notify) }
         }
           }
@@ -288,9 +338,9 @@ private fun MainGraph(session: SessionViewModel, notify: (String) -> Unit, pendi
  * practice, a booking list) starts the tab fresh, so screens like "You're subscribed!" are not brought back later.
  */
 private fun NavHostController.goTab(route: String) {
-    val fromTab = currentDestination?.route in tabs.map { it.route }
+    val fromTab = currentDestination?.route in (tabs + adminTabs).map { it.route }
     navigate(route) {
-        popUpTo("home") { saveState = fromTab }
+        popUpTo(graph.findStartDestination().id) { saveState = fromTab }
         launchSingleTop = true
         restoreState = fromTab
     }

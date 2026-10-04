@@ -39,6 +39,18 @@ data class Plan(
     val features: List<String>,
 )
 
+/** A plan as the administrator sees it, including whether customers can see it (ACTIVE) or not (INACTIVE). */
+data class AdminPlan(
+    val id: Int,
+    val name: String,
+    val description: String,
+    val price: Double,
+    val billingFrequency: String,
+    val tier: Int,
+    val features: List<String>,
+    val status: String,
+)
+
 data class Subscription(
     val id: Int,
     val planId: Int,
@@ -71,6 +83,24 @@ data class Lesson(
     val locked: Boolean,
     val completionPercentage: Double,
     val watchTimeSeconds: Int,
+) {
+    val durationLabel: String
+        get() = if (durationSeconds < 90) "${durationSeconds} secs" else "${(durationSeconds + 30) / 60} mins"
+}
+
+/** A lesson as the administrator sees it, including where the video comes from. */
+data class AdminLesson(
+    val id: Int,
+    val programmeId: Int,
+    val programmeName: String,
+    val title: String,
+    val description: String,
+    val category: String,
+    val level: String,
+    val durationSeconds: Int,
+    val videoProvider: String,
+    val videoReference: String,
+    val isPreview: Boolean,
 ) {
     val durationLabel: String
         get() = if (durationSeconds < 90) "${durationSeconds} secs" else "${(durationSeconds + 30) / 60} mins"
@@ -121,6 +151,16 @@ data class AdminSummary(
     val activeBookings: Int,
     val monthlyRecurringRevenue: Double,
     val openErrors: Int = 0,
+)
+
+data class AdminAttendee(val bookingId: Int, val userId: String, val fullName: String, val email: String, val bookedAt: String, val status: String)
+data class AdminBooking(
+    val bookingId: Int, val classId: Int, val className: String, val startTime: String, val location: String,
+    val userId: String, val fullName: String, val email: String, val bookedAt: String, val status: String,
+)
+data class AdminSubscription(
+    val id: Int, val userId: String, val fullName: String, val email: String, val planName: String, val price: Double,
+    val status: String, val startDate: String?, val endDate: String?, val renewing: Boolean,
 )
 
 data class ErrorReportBody(

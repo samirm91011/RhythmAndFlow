@@ -75,11 +75,18 @@ interface Api {
     @POST("api/admin/errors/{id}/resolve") suspend fun adminResolveError(@Path("id") id: Int): Response<Unit>
     @POST("api/admin/errors/resolve-all") suspend fun adminResolveAllErrors(): Response<Unit>
     @GET("api/admin/summary") suspend fun adminSummary(): AdminSummary
+    @GET("api/admin/lessons") suspend fun adminLessons(): List<AdminLesson>
+    @PUT("api/admin/lessons/{id}") suspend fun adminUpdateLesson(@Path("id") id: Int, @Body body: LessonUpsert): Response<Unit>
+    @PUT("api/admin/classes/{id}") suspend fun adminUpdateClass(@Path("id") id: Int, @Body body: ClassUpsert): Response<Unit>
     @POST("api/admin/lessons") suspend fun adminCreateLesson(@Body body: LessonUpsert): Int
     @DELETE("api/admin/lessons/{id}") suspend fun adminDeleteLesson(@Path("id") id: Int): Response<Unit>
+    @GET("api/admin/bookings") suspend fun adminBookings(): List<AdminBooking>
+    @GET("api/admin/subscriptions") suspend fun adminSubscriptions(): List<AdminSubscription>
+    @GET("api/admin/classes/{id}/attendees") suspend fun adminAttendees(@Path("id") id: Int): List<AdminAttendee>
     @GET("api/admin/classes") suspend fun adminClasses(): List<ClassItem>
     @POST("api/admin/classes") suspend fun adminCreateClass(@Body body: ClassUpsert): Int
     @POST("api/admin/classes/{id}/cancel") suspend fun adminCancelClass(@Path("id") id: Int): Response<Unit>
-    @GET("api/admin/plans") suspend fun adminPlans(): List<Plan>
+    @GET("api/admin/plans") suspend fun adminPlans(): List<AdminPlan>
+    @POST("api/admin/plans") suspend fun adminCreatePlan(@Body body: PlanUpsert): Int
     @PUT("api/admin/plans/{id}") suspend fun adminUpdatePlan(@Path("id") id: Int, @Body body: PlanUpsert): Response<Unit>
 }
