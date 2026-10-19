@@ -13,6 +13,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  web:
+    name: Web app script check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check every web app script for syntax errors
+        run: |
+          set -e
+          for f in backend/RhythmFlow.Api/wwwroot/app/js/*.js; do echo "checking $f"; node --check "$f"; done
+
   backend:
     name: API build and tests
     runs-on: ubuntu-latest

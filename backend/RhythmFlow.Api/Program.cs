@@ -158,6 +158,28 @@ using (var scope = app.Services.CreateScope())
     if (cfg.GetValue("Seed:KeepSampleClassesUpcoming", true)) await SeedData.EnsureUpcomingClassesAsync(db);
 }
 
+// ---- The web version of the app (for iPhones and browsers) is served from this same service at /app ----
+// Browser safety headers apply to /app only; the API's own responses are unchanged.
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Request.Path.StartsWithSegments("/app"))
+    {
+        ctx.Response.OnStarting(() =>
+        {
+            var h = ctx.Response.Headers;
+            h.CacheControl = "no-cache";               // new versions show up straight away
+            h["X-Content-Type-Options"] = "nosniff";
+            h["Referrer-Policy"] = "no-referrer";
+            h["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; " +
+                                           "script-src 'self'; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+            return Task.CompletedTask;
+        });
+    }
+    await next();
+});
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseMiddleware<ErrorHandlingMiddleware>();
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -166,6 +188,7 @@ app.MapControllers();
 app.MapOpenApi();                               // /openapi/v1.json
 app.MapScalarApiReference("/docs", o => o.WithTitle("Rhythm & Flow API"));  // interactive docs: /docs
 app.MapGet("/health", () => Results.Ok(new { status = "ok", time = DateTime.UtcNow }));
+app.MapGet("/app", () => Results.Redirect("/app/"));
 
 // Mark overdue subscriptions once an hour.
 _ = Task.Run(async () =>
