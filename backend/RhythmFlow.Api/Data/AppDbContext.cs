@@ -46,10 +46,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Role).HasMaxLength(20);
             e.Property(x => x.AccountStatus).HasMaxLength(20);
         });
-        b.Entity<SubscriptionPlan>().Property(x => x.Price).HasPrecision(10, 2);
+        b.Entity<SubscriptionPlan>(e =>
+        {
+            e.Property(x => x.Price).HasPrecision(10, 2);
+            e.Property(x => x.AnnualPrice).HasPrecision(10, 2);
+            e.Property(x => x.LaunchPrice).HasPrecision(10, 2);
+        });
         b.Entity<Subscription>(e =>
         {
             e.Property(x => x.Status).HasMaxLength(20);
+            e.Property(x => x.InitialAmount).HasPrecision(10, 2);
             e.HasIndex(x => x.UserId);
         });
         b.Entity<Payment>(e =>

@@ -21,9 +21,20 @@ public record UpdateProfileRequest(
     [StringLength(300)] string? About);
 
 // ---- Plans / subscriptions ----
-public record PlanDto(int Id, string Name, string Description, decimal Price, string BillingFrequency, int Tier, List<string> Features);
-public record SubscriptionDto(int Id, int PlanId, string PlanName, int Tier, decimal Price, string Status, DateTime? StartDate, DateTime? EndDate, bool GrantsAccess);
-public record CheckoutRequest(int PlanId);
+/// <summary>A plan as customers see it. LaunchPrice is only filled in while the launch offer is running.</summary>
+public record PlanDto(
+    int Id, string Name, string Description, decimal Price, string BillingFrequency, int Tier, List<string> Features,
+    decimal? AnnualPrice = null, decimal? LaunchPrice = null, DateTime? LaunchEndsAt = null, int TrialDays = 0);
+/// <summary>Price is what one billing period costs. Renewing is true while PayFast will charge again; the next charge or expiry date is EndDate.</summary>
+public record SubscriptionDto(
+    int Id, int PlanId, string PlanName, int Tier, decimal Price, string Status, DateTime? StartDate, DateTime? EndDate, bool GrantsAccess,
+    string Billing = "MONTHLY", bool Renewing = false);
+public record CheckoutRequest(int PlanId, string? Billing = null);
+/// <summary>Shown before a plan change is confirmed: what it costs, when it starts and what happens to access.</summary>
+public record PlanChangePreviewDto(
+    string CurrentPlan, decimal CurrentPrice, string CurrentBilling, string NewPlan, decimal NewPrice, string NewBilling,
+    decimal PriceDifference, DateTime EffectiveDate, string AccessImpact);
+public record PolicyDto(string Id, string Title, string Body);
 public record CheckoutResponse(int SubscriptionId, string PaymentUrl);
 
 // ---- Content ----
@@ -80,14 +91,20 @@ public record PlanUpsert(
     [Range(1, 100000)] decimal Price,
     [Range(1, 10)] int Tier,
     string? Features,
-    string? Status);
+    string? Status,
+    decimal? AnnualPrice = null,
+    decimal? LaunchPrice = null,
+    DateTime? LaunchEndsAt = null,
+    [Range(0, 60)] int TrialDays = 0);
 
 /// <summary>A lesson as the administrator sees it, including where the video comes from (customers never see this).</summary>
 public record AdminLessonDto(
     int Id, int ProgrammeId, string ProgrammeName, string Title, string Description, string Category, string Level,
     int DurationSeconds, string VideoProvider, string VideoReference, bool IsPreview);
 
-public record AdminPlanDto(int Id, string Name, string Description, decimal Price, string BillingFrequency, int Tier, List<string> Features, string Status);
+public record AdminPlanDto(
+    int Id, string Name, string Description, decimal Price, string BillingFrequency, int Tier, List<string> Features, string Status,
+    decimal? AnnualPrice = null, decimal? LaunchPrice = null, DateTime? LaunchEndsAt = null, int TrialDays = 0);
 
 public record AdminSummaryDto(int Users, int ActiveSubscriptions, int UpcomingClasses, int ActiveBookings, decimal MonthlyRecurringRevenue, int OpenErrors);
 

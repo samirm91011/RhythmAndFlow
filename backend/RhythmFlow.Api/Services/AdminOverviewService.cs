@@ -38,7 +38,7 @@ public class AdminOverviewService(AppDbContext db)
             .Where(s => s.Status == SubscriptionStatus.Active && (s.EndDate == null || s.EndDate > now)).ToListAsync();
         var users = await UsersAsync(rows.Select(s => s.UserId));
         return rows.OrderByDescending(s => s.StartDate ?? s.CreatedAt)
-            .Select(s => new AdminSubscriptionDto(s.Id, s.UserId, Name(users, s.UserId), Email(users, s.UserId), s.Plan!.Name, s.Plan.Price,
+            .Select(s => new AdminSubscriptionDto(s.Id, s.UserId, Name(users, s.UserId), Email(users, s.UserId), s.Plan!.Name, PlanPricing.RecurringPrice(s.Plan, PlanPricing.NormaliseBilling(s.Billing)),
                 s.Status, s.StartDate, s.EndDate, true)).ToList();
     }
 

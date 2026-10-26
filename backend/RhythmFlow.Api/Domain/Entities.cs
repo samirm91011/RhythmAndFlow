@@ -49,6 +49,14 @@ public class SubscriptionPlan
     /// <summary>Access level. A plan unlocks every programme whose MinTier is less than or equal to this.</summary>
     public int Tier { get; set; } = 1;
     public string Features { get; set; } = "";
+    /// <summary>Price for a whole year paid up front. Null means this plan is monthly only.</summary>
+    public decimal? AnnualPrice { get; set; }
+    /// <summary>Reduced price for the first month only, while the launch offer runs. Null means no launch offer.</summary>
+    public decimal? LaunchPrice { get; set; }
+    /// <summary>Last moment (UTC) a new subscriber can still get the launch price.</summary>
+    public DateTime? LaunchEndsAt { get; set; }
+    /// <summary>Free days before the first charge. 0 means no free trial.</summary>
+    public int TrialDays { get; set; }
 }
 
 public class Subscription
@@ -63,6 +71,18 @@ public class Subscription
     public string Status { get; set; } = SubscriptionStatus.Pending;
     public string? PayFastReference { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    /// <summary>MONTHLY or ANNUAL.</summary>
+    public string Billing { get; set; } = "MONTHLY";
+    /// <summary>What the very first PayFast payment is expected to be (launch price, full price, or 0 for a trial or a plan change). Null on subscriptions made before this existed.</summary>
+    public decimal? InitialAmount { get; set; }
+    /// <summary>Free trial length chosen at checkout (0 = none).</summary>
+    public int TrialDays { get; set; }
+    /// <summary>For a plan change: the day the new plan starts (the end of the plan it replaces).</summary>
+    public DateTime? PlannedStart { get; set; }
+    /// <summary>True after a free-start checkout until PayFast takes the first real payment.</summary>
+    public bool AwaitingFirstCharge { get; set; }
+    /// <summary>The end date a renewal reminder was already sent for, so each reminder goes out once.</summary>
+    public DateTime? ReminderForEnd { get; set; }
 }
 
 public class Payment

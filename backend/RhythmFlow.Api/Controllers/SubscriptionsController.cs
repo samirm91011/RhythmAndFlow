@@ -22,10 +22,25 @@ public class SubscriptionsController(SubscriptionService subs) : ApiController
     [HttpPost("checkout")]
     public async Task<ActionResult<CheckoutResponse>> Checkout(CheckoutRequest req)
     {
-        try { return await subs.CheckoutAsync(UserId, req.PlanId); }
+        try { return await subs.CheckoutAsync(UserId, req.PlanId, req.Billing); }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    /// <summary>What changing to another plan (or to yearly billing) would cost and when it would start. Nothing is changed.</summary>
+    [HttpGet("{id:int}/change-preview")]
+    public async Task<ActionResult<PlanChangePreviewDto>> ChangePreview(int id, [FromQuery] int planId, [FromQuery] string? billing)
+    {
+        var (preview, error) = await subs.PreviewChangeAsync(UserId, id, planId, billing);
+        return preview is not null ? Ok(preview) : BadRequest(new { error });
+    }
+
+    /// <summary>Confirms the change: the current renewal stops and the new plan is set up to start when the paid period ends.</summary>
+    [HttpPost("{id:int}/change")]
+    public async Task<ActionResult<CheckoutResponse>> Change(int id, CheckoutRequest req)
+    {
+        var (result, error) = await subs.ChangePlanAsync(UserId, id, req.PlanId, req.Billing);
+        return result is not null ? Ok(result) : BadRequest(new { error });
+    }
     [HttpPost("{id:int}/cancel")]
     public async Task<ActionResult<CancelResultDto>> Cancel(int id)
     {
@@ -103,7 +118,22 @@ public class DevController(SubscriptionService subs, Microsoft.Extensions.Hostin
         if (!env.IsDevelopment()) return NotFound();
         var sub = await db.Subscriptions.Include(s => s.Plan).FirstOrDefaultAsync(s => s.Id == subscriptionId && s.UserId == UserId);
         if (sub is null) return NotFound();
-        var ok = await subs.ApplyPaymentResultAsync(sub.Id, "COMPLETE", sub.Plan!.Price, "SIM-" + Guid.NewGuid().ToString("N")[..12], "SIM-TOKEN");
+        var billing = PlanPricing.NormaliseBilling(sub.Billing);
+        var recurring = PlanPricing.RecurringPrice(sub.Plan!, billing);
+        // The first notice carries the initial amount (0.00 for a free start); every later one carries the recurring price.
+        var amount = sub.Status == Domain.SubscriptionStatus.Pending ? sub.InitialAmount ?? recurring : recurring;
+        var ok = await subs.ApplyPaymentResultAsync(sub.Id, "COMPLETE", amount, "SIM-" + Guid.NewGuid().ToString("N")[..12], "SIM-TOKEN");
         return ok ? NoContent() : BadRequest();
     }
+}
+
+/// <summary>The client's cancellation, renewal and event policies. Open to everyone: they are shown before checkout and before sign-up.</summary>
+[ApiController]
+public class PoliciesController : ControllerBase
+{
+    [AllowAnonymous, HttpGet("api/policies")]
+    public IReadOnlyList<PolicyDto> All() => PolicyContent.All;
+
+    [AllowAnonymous, HttpGet("api/policies/{id}")]
+    public ActionResult<PolicyDto> One(string id) => PolicyContent.Find(id) is { } p ? p : NotFound();
 }

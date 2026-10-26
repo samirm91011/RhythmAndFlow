@@ -3,9 +3,9 @@ using Microsoft.EntityFrameworkCore;
 namespace RhythmFlow.Api.Data;
 
 /// <summary>
-/// Adds tables that were introduced after a database was first created. EnsureCreated only builds a brand-new database and
-/// never changes an existing one, so without this a server that was deployed earlier would be missing the newer tables.
-/// Every statement is "IF NOT EXISTS", so it is safe on every start and does nothing on a fresh database.
+/// Brings a database that was created by an earlier version up to date. EnsureCreated only builds a brand-new database and
+/// never changes an existing one, so without this a server that was deployed earlier would be missing newer tables and columns.
+/// Everything here is safe to repeat on every start and does nothing on a fresh database.
 /// Use this for small additive changes until EF Core migrations are adopted.
 /// </summary>
 public static class SchemaUpgrades
@@ -18,6 +18,23 @@ public static class SchemaUpgrades
     [
         """UPDATE "Lessons" SET "Category" = 'Barre & Pilates' WHERE "Category" = 'Barre'""",
         """UPDATE "Lessons" SET "Category" = 'Stretch & Mobility' WHERE "Category" = 'Stretch'""",
+    ];
+
+    /// <summary>A column that older databases do not have yet. Type names are given for PostgreSQL and SQLite.</summary>
+    private record Column(string Table, string Name, string Postgres, string Sqlite);
+
+    private static readonly Column[] NewColumns =
+    [
+        new("Plans", "AnnualPrice", "numeric(10,2) NULL", "TEXT NULL"),
+        new("Plans", "LaunchPrice", "numeric(10,2) NULL", "TEXT NULL"),
+        new("Plans", "LaunchEndsAt", "timestamp with time zone NULL", "TEXT NULL"),
+        new("Plans", "TrialDays", "integer NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
+        new("Subscriptions", "Billing", "text NOT NULL DEFAULT 'MONTHLY'", "TEXT NOT NULL DEFAULT 'MONTHLY'"),
+        new("Subscriptions", "InitialAmount", "numeric(10,2) NULL", "TEXT NULL"),
+        new("Subscriptions", "TrialDays", "integer NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
+        new("Subscriptions", "PlannedStart", "timestamp with time zone NULL", "TEXT NULL"),
+        new("Subscriptions", "AwaitingFirstCharge", "boolean NOT NULL DEFAULT false", "INTEGER NOT NULL DEFAULT 0"),
+        new("Subscriptions", "ReminderForEnd", "timestamp with time zone NULL", "TEXT NULL"),
     ];
 
     public static async Task ApplyAsync(AppDbContext db)
@@ -39,8 +56,10 @@ public static class SchemaUpgrades
                 """,
                 """CREATE UNIQUE INDEX IF NOT EXISTS "IX_DeviceTokens_Token" ON "DeviceTokens" ("Token")""",
                 """CREATE INDEX IF NOT EXISTS "IX_DeviceTokens_UserId" ON "DeviceTokens" ("UserId")""",
+                .. NewColumns.Select(c => $"""ALTER TABLE "{c.Table}" ADD COLUMN IF NOT EXISTS "{c.Name}" {c.Postgres}"""),
                 .. CategoryRenames,
             ];
+            foreach (var sql in statements) await db.Database.ExecuteSqlRawAsync(sql);
         }
         else if (db.Database.IsSqlite())
         {
@@ -58,11 +77,53 @@ public static class SchemaUpgrades
                 """,
                 """CREATE UNIQUE INDEX IF NOT EXISTS "IX_DeviceTokens_Token" ON "DeviceTokens" ("Token")""",
                 """CREATE INDEX IF NOT EXISTS "IX_DeviceTokens_UserId" ON "DeviceTokens" ("UserId")""",
-                .. CategoryRenames,
             ];
+            foreach (var sql in statements) await db.Database.ExecuteSqlRawAsync(sql);
+            // SQLite has no "ADD COLUMN IF NOT EXISTS", so look first.
+            foreach (var c in NewColumns)
+            {
+                var exists = await db.Database
+                    .SqlQuery<int>($"SELECT COUNT(*) AS \"Value\" FROM pragma_table_info({c.Table}) WHERE name = {c.Name}")
+                    .FirstAsync();
+                if (exists == 0) await db.Database.ExecuteSqlRawAsync($"""ALTER TABLE "{c.Table}" ADD COLUMN "{c.Name}" {c.Sqlite}""");
+            }
+            foreach (var sql in CategoryRenames) await db.Database.ExecuteSqlRawAsync(sql);
         }
         else return;
 
-        foreach (var sql in statements) await db.Database.ExecuteSqlRawAsync(sql);
+        await ApplyClientPlanCopyAsync(db);
+    }
+
+    /// <summary>
+    /// A database made before the client sent her plans still holds the three placeholder plans and programmes. This turns them
+    /// into her two memberships and her structured programme, matched by the old placeholder names so anything an administrator
+    /// has already renamed or edited is left alone. Safe to repeat: after the first run nothing matches the old names.
+    /// </summary>
+    private static async Task ApplyClientPlanCopyAsync(AppDbContext db)
+    {
+        var lib = ClientPlans.Library;
+        var guided = ClientPlans.Guided;
+        var months = ClientPlans.AnnualMonthsCharged;
+        var libAnnual = lib.Price * months;
+        var guidedAnnual = guided.Price * months;
+
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE "Plans" SET "Name" = {lib.Name}, "Price" = {lib.Price}, "Description" = {lib.Description}, "Features" = {lib.Features},
+                "Tier" = 1, "Status" = 'ACTIVE', "AnnualPrice" = {libAnnual}
+            WHERE "Name" = 'Flow'
+            """);
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE "Plans" SET "Name" = {guided.Name}, "Price" = {guided.Price}, "Description" = {guided.Description}, "Features" = {guided.Features},
+                "Tier" = 2, "Status" = 'ACTIVE', "AnnualPrice" = {guidedAnnual}
+            WHERE "Name" = 'Rhythm'
+            """);
+        // The third placeholder plan is hidden, not deleted: anyone who holds it keeps it and payments still refer to it.
+        await db.Database.ExecuteSqlRawAsync("""UPDATE "Plans" SET "Status" = 'INACTIVE' WHERE "Name" = 'Rhythm & Flow Unlimited'""");
+
+        await db.Database.ExecuteSqlRawAsync("""
+            UPDATE "Programmes" SET "Name" = '7-Day Flow Plan', "Description" = 'A structured week of movement, breathing and rest.', "MinTier" = 2
+            WHERE "Name" = 'Full Body Flow Masterclass'
+            """);
+        await db.Database.ExecuteSqlRawAsync("""UPDATE "Programmes" SET "MinTier" = 1 WHERE "Name" = 'Mindful Mobility' AND "MinTier" = 2""");
     }
 }

@@ -4,6 +4,23 @@ using RhythmFlow.Api.Domain;
 
 namespace RhythmFlow.Api.Data;
 
+/// <summary>The two memberships exactly as the client wrote them (feedback of 20 Oct 2026). One copy, used by the seed and by the upgrade of older databases.</summary>
+public static class ClientPlans
+{
+    public record Copy(string Name, decimal Price, string Description, string Features);
+
+    public static readonly Copy Library = new("Move & Breathe", 149,
+        "Your space to move, pause and reconnect with yourself, at your own pace.",
+        "Full on-demand video library|Yoga, barre, dance, mobility and stretching|Meditation, breathwork and strength classes|Beginner, intermediate and advanced options");
+
+    public static readonly Copy Guided = new("Move, Breathe & Grow", 249,
+        "Build a more intentional practice through movement, mindful breathing and guided programmes that nurture your wellbeing.",
+        "Everything in Move & Breathe|Access to all structured programmes|Guided journeys combining movement, mobility, relaxation and wellbeing|A more structured way to establish consistency and explore new practices");
+
+    /// <summary>The client said annual should work out at roughly one or two months free. Twelve months for ten is a starting value she can change in Admin tools.</summary>
+    public const decimal AnnualMonthsCharged = 10;
+}
+
 /// <summary>Demo data. Plans, prices and content are placeholders until the client confirms them.</summary>
 public static class SeedData
 {
@@ -22,15 +39,15 @@ public static class SeedData
             db.Plans.AddRange(
                 new SubscriptionPlan
                 {
-                    Name = "Move & Breathe", Price = 149, Tier = 1,
-                    Description = "Your space to move, pause and reconnect with yourself, at your own pace.",
-                    Features = "Full on-demand video library|Yoga, barre, dance, mobility and stretching|Meditation, breathwork and strength classes|Beginner, intermediate and advanced options",
+                    Name = ClientPlans.Library.Name, Price = ClientPlans.Library.Price, Tier = 1,
+                    Description = ClientPlans.Library.Description, Features = ClientPlans.Library.Features,
+                    AnnualPrice = ClientPlans.Library.Price * ClientPlans.AnnualMonthsCharged,
                 },
                 new SubscriptionPlan
                 {
-                    Name = "Move, Breathe & Grow", Price = 249, Tier = 2,
-                    Description = "Build a more intentional practice through movement, mindful breathing and guided programmes that nurture your wellbeing.",
-                    Features = "Everything in Move & Breathe|Access to all structured programmes|Guided journeys combining movement, mobility, relaxation and wellbeing|A more structured way to establish consistency and explore new practices",
+                    Name = ClientPlans.Guided.Name, Price = ClientPlans.Guided.Price, Tier = 2,
+                    Description = ClientPlans.Guided.Description, Features = ClientPlans.Guided.Features,
+                    AnnualPrice = ClientPlans.Guided.Price * ClientPlans.AnnualMonthsCharged,
                 });
         }
         if (!await db.Programmes.AnyAsync())

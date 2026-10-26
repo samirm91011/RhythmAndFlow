@@ -20,8 +20,13 @@ public class ContentController(
         (await db.Plans.Where(p => p.Status == "ACTIVE").ToListAsync()).OrderBy(p => p.Price)
         .Select(PlanDtoOf).ToList();
 
-    public static PlanDto PlanDtoOf(SubscriptionPlan p) => new(p.Id, p.Name, p.Description, p.Price, p.BillingFrequency, p.Tier,
-        p.Features.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList());
+    public static PlanDto PlanDtoOf(SubscriptionPlan p)
+    {
+        var launch = PlanPricing.LaunchActive(p, DateTime.UtcNow);
+        return new(p.Id, p.Name, p.Description, p.Price, p.BillingFrequency, p.Tier,
+            p.Features.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList(),
+            p.AnnualPrice, launch ? p.LaunchPrice : null, launch ? p.LaunchEndsAt : null, p.TrialDays);
+    }
 
     [Authorize, HttpGet("api/programmes")]
     public async Task<List<ProgrammeDto>> Programmes()
