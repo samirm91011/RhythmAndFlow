@@ -98,7 +98,10 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     // ---- Plans & subscriptions ----
     suspend fun plans() = call { api.plans() }
     suspend fun subscriptions() = call { api.subscriptions() }
-    suspend fun checkout(planId: Int) = call { api.checkout(CheckoutRequest(planId)) }
+    suspend fun checkout(planId: Int, billing: String? = null) = call { api.checkout(CheckoutRequest(planId, billing)) }
+    suspend fun changePreview(subId: Int, planId: Int, billing: String?) = call { api.changePreview(subId, planId, billing) }
+    suspend fun changePlan(subId: Int, planId: Int, billing: String?) = call { api.changePlan(subId, CheckoutRequest(planId, billing)) }
+    suspend fun policies() = call { api.policies() }
     suspend fun cancelSubscription(id: Int) = call { api.cancelSubscription(id) }
     suspend fun simulatePayment(id: Int) = callUnit { api.simulatePayment(id) }
 

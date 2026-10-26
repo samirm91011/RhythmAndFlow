@@ -342,6 +342,9 @@ fun AdminPlansScreen(onBack: () -> Unit, notify: (String) -> Unit) {
                         Column(Modifier.weight(1f)) {
                             Text(p.name, style = MaterialTheme.typography.titleMedium)
                             Text("${formatRand(p.price)} / month · access level ${p.tier}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                            p.annualPrice?.let { Text("${formatRand(it)} / year", style = MaterialTheme.typography.bodySmall, color = Brand.Muted) }
+                            p.launchPrice?.let { Text("Launch: ${formatRand(it)} first month, until ${formatDate(p.launchEndsAt)}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted) }
+                            if (p.trialDays > 0) Text("${p.trialDays}-day free trial", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
                             if (p.status != "ACTIVE") {
                                 VSpace(4)
                                 InfoPill("Hidden from customers", color = Brand.LightGrey, textColor = Brand.Muted)
@@ -382,6 +385,10 @@ private fun PlanFormDialog(
     var tier by remember { mutableStateOf(initial?.tier ?: 1) }
     var features by remember { mutableStateOf(initial?.features?.joinToString("\n").orEmpty()) }
     var visible by remember { mutableStateOf(initial?.status != "INACTIVE") }
+    var annual by remember { mutableStateOf(initial?.annualPrice?.toInt()?.toString().orEmpty()) }
+    var launch by remember { mutableStateOf(initial?.launchPrice?.toInt()?.toString().orEmpty()) }
+    var launchEnds by remember { mutableStateOf(parseInstant(initial?.launchEndsAt)?.toLocalDate()?.toString().orEmpty()) }
+    var trialDays by remember { mutableStateOf(initial?.trialDays?.takeIf { it > 0 }?.toString().orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
 
@@ -399,6 +406,12 @@ private fun PlanFormDialog(
                 }
                 Text("A plan unlocks every programme at its level or below.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
                 RfTextField(features, { features = it }, "What's included (one per line)", singleLine = false, minLines = 3)
+                Text("Billing options (all optional)", style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
+                RfTextField(annual, { annual = it.filter(Char::isDigit) }, "Price for a whole year (R). Leave empty for monthly only", keyboardType = KeyboardType.Number)
+                RfTextField(launch, { launch = it.filter(Char::isDigit) }, "Launch price for the first month (R)", keyboardType = KeyboardType.Number)
+                RfTextField(launchEnds, { launchEnds = it }, "Launch price ends on (yyyy-MM-dd)", keyboardType = KeyboardType.Ascii)
+                RfTextField(trialDays, { trialDays = it.filter(Char::isDigit).take(2) }, "Free trial days (empty = no trial)", keyboardType = KeyboardType.Number)
+                Text("The launch price and the free trial are only for people who have never held a plan.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(checked = visible, onCheckedChange = { visible = it }, colors = SwitchDefaults.colors(checkedTrackColor = Brand.TealDeep))
                     HSpace(10); Text("Visible to customers")
@@ -411,9 +424,18 @@ private fun PlanFormDialog(
             TextButton(enabled = !saving, onClick = {
                 val amount = price.toDoubleOrNull()
                 if (name.isBlank() || amount == null || amount < 1) { error = "Enter a name and a price of at least R1."; return@TextButton }
+                val launchAmount = launch.toDoubleOrNull()
+                val endsIso = if (launchAmount == null) null else localToUtcIso(launchEnds, "23:59")
+                if (launchAmount != null && endsIso == null) { error = "Enter the day the launch price ends as yyyy-MM-dd, for example 2026-11-30."; return@TextButton }
                 saving = true; error = null
                 scope.launch {
-                    val problem = onSave(PlanUpsert(name.trim(), description.trim(), amount, tier, features.trim(), if (visible) "ACTIVE" else "INACTIVE"))
+                    val problem = onSave(
+                        PlanUpsert(
+                            name.trim(), description.trim(), amount, tier, features.trim(), if (visible) "ACTIVE" else "INACTIVE",
+                            annualPrice = annual.toDoubleOrNull(), launchPrice = launchAmount, launchEndsAt = endsIso,
+                            trialDays = trialDays.toIntOrNull() ?: 0,
+                        ),
+                    )
                     saving = false
                     if (problem == null) onSaved() else error = problem
                 }

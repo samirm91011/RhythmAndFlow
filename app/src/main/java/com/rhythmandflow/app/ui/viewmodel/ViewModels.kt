@@ -253,12 +253,22 @@ class PlansViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     /** Creates a pending subscription and returns the PayFast checkout link (or an error message). */
-    suspend fun checkout(planId: Int): Outcome<CheckoutResponse> {
+    suspend fun checkout(planId: Int, billing: String? = null): Outcome<CheckoutResponse> {
         _state.update { it.copy(checkingOut = true) }
-        val r = repo.checkout(planId)
+        val r = repo.checkout(planId, billing)
         _state.update { it.copy(checkingOut = false) }
         return r
     }
+
+    /** What changing to another plan (or to yearly billing) would mean. Nothing is changed. */
+    suspend fun changePreview(subId: Int, planId: Int, billing: String?): Outcome<PlanChangePreview> =
+        repo.changePreview(subId, planId, billing)
+
+    /** Confirms a change: the old renewal stops and the new plan's PayFast link is returned. */
+    suspend fun changePlan(subId: Int, planId: Int, billing: String?): Outcome<CheckoutResponse> =
+        repo.changePlan(subId, planId, billing).also { if (it is Outcome.Ok) refreshSubs() }
+
+    suspend fun policies(): Outcome<List<Policy>> = repo.policies()
 
     suspend fun cancel(subId: Int): Outcome<CancelResult> =
         repo.cancelSubscription(subId).also { if (it is Outcome.Ok) refreshSubs() }

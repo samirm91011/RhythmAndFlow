@@ -37,6 +37,13 @@ data class Plan(
     val billingFrequency: String,
     val tier: Int,
     val features: List<String>,
+    /** Price for a year paid up front; null means the plan is monthly only. */
+    val annualPrice: Double? = null,
+    /** Reduced first-month price, only present while the launch offer runs. */
+    val launchPrice: Double? = null,
+    val launchEndsAt: String? = null,
+    /** Free days before the first charge; 0 means no trial. */
+    val trialDays: Int = 0,
 )
 
 /** A plan as the administrator sees it, including whether customers can see it (ACTIVE) or not (INACTIVE). */
@@ -49,6 +56,10 @@ data class AdminPlan(
     val tier: Int,
     val features: List<String>,
     val status: String,
+    val annualPrice: Double? = null,
+    val launchPrice: Double? = null,
+    val launchEndsAt: String? = null,
+    val trialDays: Int = 0,
 )
 
 data class Subscription(
@@ -61,9 +72,30 @@ data class Subscription(
     val startDate: String?,
     val endDate: String?,
     val grantsAccess: Boolean,
+    /** MONTHLY or ANNUAL. price is what one billing period costs. */
+    val billing: String = "MONTHLY",
+    /** True while PayFast will charge again; endDate is then the next charge date. */
+    val renewing: Boolean = false,
+    /** True during the free trial, before the first charge. */
+    val inTrial: Boolean = false,
 )
 
-data class CheckoutRequest(val planId: Int)
+data class CheckoutRequest(val planId: Int, val billing: String? = null)
+
+/** Shown before a plan change is confirmed. priceDifference is per month. */
+data class PlanChangePreview(
+    val currentPlan: String,
+    val currentPrice: Double,
+    val currentBilling: String,
+    val newPlan: String,
+    val newPrice: Double,
+    val newBilling: String,
+    val priceDifference: Double,
+    val effectiveDate: String,
+    val accessImpact: String,
+)
+
+data class Policy(val id: String, val title: String, val body: String)
 data class CancelResult(val message: String, val cancelledWithPayFast: Boolean)
 data class CheckoutResponse(val subscriptionId: Int, val paymentUrl: String)
 
@@ -194,4 +226,15 @@ data class ClassUpsert(
     val capacity: Int,
 )
 
-data class PlanUpsert(val name: String, val description: String?, val price: Double, val tier: Int, val features: String?, val status: String?)
+data class PlanUpsert(
+    val name: String,
+    val description: String?,
+    val price: Double,
+    val tier: Int,
+    val features: String?,
+    val status: String?,
+    val annualPrice: Double? = null,
+    val launchPrice: Double? = null,
+    val launchEndsAt: String? = null,
+    val trialDays: Int = 0,
+)

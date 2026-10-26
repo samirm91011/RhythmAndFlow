@@ -18,12 +18,14 @@ class DemoApi : Api {
     private var user = User("demo-user", "Alex Demo", "alex", "alex@rhythmandflow.test", "CUSTOMER", "A work in progress, and that's enough.")
     private var tier = 0
     private var sub: Subscription? = null
+    private var nextSub: Subscription? = null   // a plan change waiting for the current period to end
+    private var pendingBilling = "MONTHLY"
     private var checkoutPolls = 0
     private var nextId = 100
 
     private val plans = mutableListOf(
-        Plan(1, "Move & Breathe", "Your space to move, pause and reconnect with yourself, at your own pace.", 149.0, "MONTHLY", 1, listOf("Full on-demand video library", "Yoga, barre, dance, mobility and stretching", "Meditation, breathwork and strength classes", "Beginner, intermediate and advanced options")),
-        Plan(2, "Move, Breathe & Grow", "Build a more intentional practice through movement, mindful breathing and guided programmes.", 249.0, "MONTHLY", 2, listOf("Everything in Move & Breathe", "Access to all structured programmes", "Guided journeys combining movement, mobility, relaxation and wellbeing", "A more structured way to build consistency")),
+        Plan(1, "Move & Breathe", "Your space to move, pause and reconnect with yourself, at your own pace.", 149.0, "MONTHLY", 1, listOf("Full on-demand video library", "Yoga, barre, dance, mobility and stretching", "Meditation, breathwork and strength classes", "Beginner, intermediate and advanced options"), annualPrice = 1490.0, launchPrice = 99.0, launchEndsAt = Instant.now().plus(Duration.ofDays(10)).toString()),
+        Plan(2, "Move, Breathe & Grow", "Build a more intentional practice through movement, mindful breathing and guided programmes.", 249.0, "MONTHLY", 2, listOf("Everything in Move & Breathe", "Access to all structured programmes", "Guided journeys combining movement, mobility, relaxation and wellbeing", "A more structured way to build consistency"), annualPrice = 2490.0, trialDays = 7),
     )
 
     private data class L(val id: Int, val prog: Int, val progName: String, val minTier: Int, val title: String, val desc: String, val cat: String, val secs: Int, val preview: Boolean)
@@ -80,10 +82,12 @@ class DemoApi : Api {
             email ?: if (admin) "admin@rhythmandflow.test" else "alex@rhythmandflow.test", if (admin) "ADMIN" else "CUSTOMER", user.about)
         return AuthResponse("demo-token", user)
     }
+    private fun periodPrice(plan: Plan, billing: String) = if (billing == "ANNUAL") plan.annualPrice ?: plan.price * 12 else plan.price
     private fun activate(plan: Plan) {
         tier = plan.tier
-        val end = Instant.now().plus(Duration.ofDays(30)).toString()
-        sub = Subscription(1, plan.id, plan.name, plan.tier, plan.price, "ACTIVE", Instant.now().toString(), end, true)
+        val days = if (pendingBilling == "ANNUAL") 365L else 30L
+        val end = Instant.now().plus(Duration.ofDays(days)).toString()
+        sub = Subscription(1, plan.id, plan.name, plan.tier, periodPrice(plan, pendingBilling), "ACTIVE", Instant.now().toString(), end, true, pendingBilling, true)
         notifications.add(0, AppNotification(++nextId, "PAYMENT", "You're subscribed!", "Your ${plan.name} plan is active. Enjoy your practice.", "subscription", ago(0), false))
     }
 
@@ -149,18 +153,55 @@ class DemoApi : Api {
     override suspend fun subscriptions(): List<Subscription> {
         pause()
         sub?.let { s -> if (s.status == "PENDING" && ++checkoutPolls >= 2) activate(plans.first { it.id == s.planId }) }
-        return listOfNotNull(sub)
+        return listOfNotNull(sub, nextSub)
     }
     override suspend fun checkout(body: CheckoutRequest): CheckoutResponse {
         pause(); checkoutPolls = 0
         val p = plans.first { it.id == body.planId }
-        sub = Subscription(1, p.id, p.name, p.tier, p.price, "PENDING", null, null, false)
+        pendingBilling = if (body.billing.equals("ANNUAL", true) && p.annualPrice != null) "ANNUAL" else "MONTHLY"
+        sub = Subscription(1, p.id, p.name, p.tier, periodPrice(p, pendingBilling), "PENDING", null, null, false, pendingBilling, false)
         return CheckoutResponse(1, "https://sandbox.payfast.co.za/eng/process?demo=true")
+    }
+    override suspend fun changePreview(id: Int, planId: Int, billing: String?): PlanChangePreview {
+        pause()
+        val cur = sub?.takeIf { it.status == "ACTIVE" } ?: fail(400, "You need an active plan to change it.")
+        val p = plans.first { it.id == planId }
+        val b = if (billing.equals("ANNUAL", true) && p.annualPrice != null) "ANNUAL" else "MONTHLY"
+        if (p.id == cur.planId && b == cur.billing) fail(400, "That is the plan you already have.")
+        val newPrice = periodPrice(p, b)
+        val diff = (if (b == "ANNUAL") newPrice / 12 else newPrice) - (if (cur.billing == "ANNUAL") cur.price / 12 else cur.price)
+        val end = cur.endDate.orEmpty()
+        val impact = when {
+            p.tier > cur.tier -> "You keep ${cur.planName} until ${end.take(10)}. From then you move up to ${p.name} and get everything it includes, including its extra programmes."
+            p.tier < cur.tier -> "You keep ${cur.planName} until ${end.take(10)}. From then you move to ${p.name}, so programmes that need the higher plan will be locked."
+            else -> "You keep ${cur.planName} until ${end.take(10)}. From then you are billed ${if (b == "ANNUAL") "yearly" else "monthly"} for ${p.name}. Your access stays the same."
+        }
+        return PlanChangePreview(cur.planName, cur.price, cur.billing, p.name, newPrice, b, Math.round(diff * 100) / 100.0, end, impact)
+    }
+    override suspend fun changePlan(id: Int, body: CheckoutRequest): CheckoutResponse {
+        pause()
+        val cur = sub?.takeIf { it.status == "ACTIVE" } ?: fail(400, "You need an active plan to change it.")
+        val p = plans.first { it.id == body.planId }
+        val b = if (body.billing.equals("ANNUAL", true) && p.annualPrice != null) "ANNUAL" else "MONTHLY"
+        sub = cur.copy(status = "CANCELLED")
+        val days = if (b == "ANNUAL") 365L else 30L
+        val start = Instant.parse(cur.endDate)
+        nextSub = Subscription(2, p.id, p.name, p.tier, periodPrice(p, b), "ACTIVE", start.toString(), start.plus(Duration.ofDays(days)).toString(), false, b, true)
+        return CheckoutResponse(2, "https://sandbox.payfast.co.za/eng/process?demo=true")
+    }
+    override suspend fun policies(): List<Policy> {
+        pause()
+        return listOf(
+            Policy("subscription-cancellation", "Subscription Cancellation Policy", "We understand that your needs and circumstances may change. Our subscription cancellation process is designed to be straightforward, transparent, and fair.\n\n1. How to cancel your subscription\nYou may request cancellation through your account settings in the Rhythm & Flow app, where available."),
+            Policy("subscription-renewal", "Subscription Renewal Policy", "Monthly subscriptions are billed in advance and ordinarily renew each month on the relevant billing date until cancelled."),
+            Policy("event-cancellation", "Event Cancellation Policy", "For cancellation requests received at least 48 hours before the event, the customer can choose a refund or account credit for the full event fee."),
+            Policy("online-technical", "Online Classes: Technical Issues and Disruptions", "Rhythm & Flow will make reasonable efforts to ensure that online classes are delivered as advertised."),
+        )
     }
     override suspend fun cancelSubscription(id: Int): CancelResult {
         pause()
         val s = sub ?: fail(409, "No active subscription found.")
-        sub = s.copy(status = "CANCELLED")
+        sub = s.copy(status = "CANCELLED", renewing = false)
         return CancelResult("Your subscription is cancelled and PayFast won't charge you again. You keep access until ${s.endDate?.take(10)}.", true)
     }
     override suspend fun simulatePayment(id: Int): Response<Unit> { pause(); sub?.let { activate(plans.first { p -> p.id == it.planId }) }; return ok() }
@@ -324,23 +365,27 @@ class DemoApi : Api {
     private fun checkPlan(id: Int?, b: PlanUpsert) {
         if (b.name.isBlank()) fail(400, "Enter a plan name.")
         if (b.price < 1) fail(400, "The price must be at least R1.")
+        if (b.annualPrice != null && b.annualPrice < 5) fail(400, "The yearly price must be at least R5, or left empty for a monthly-only plan.")
+        if (b.launchPrice != null && b.launchPrice < 5) fail(400, "The launch price must be at least R5, or left empty for no launch offer.")
+        if (b.launchPrice != null && b.launchPrice >= b.price) fail(400, "The launch price must be lower than the normal monthly price.")
+        if (b.launchPrice != null && b.launchEndsAt.isNullOrBlank()) fail(400, "Choose the day the launch price ends.")
         if (plans.any { it.id != id && it.name.equals(b.name.trim(), true) }) fail(400, "A plan with that name already exists.")
     }
     override suspend fun adminPlans(): List<AdminPlan> {
         pause()
-        return plans.sortedBy { it.price }.map { AdminPlan(it.id, it.name, it.description, it.price, it.billingFrequency, it.tier, it.features, if (it.id in hiddenPlans) "INACTIVE" else "ACTIVE") }
+        return plans.sortedBy { it.price }.map { AdminPlan(it.id, it.name, it.description, it.price, it.billingFrequency, it.tier, it.features, if (it.id in hiddenPlans) "INACTIVE" else "ACTIVE", it.annualPrice, it.launchPrice, it.launchEndsAt, it.trialDays) }
     }
     override suspend fun adminCreatePlan(body: PlanUpsert): Int {
         pause(); checkPlan(null, body)
         val id = ++nextId
-        plans.add(Plan(id, body.name.trim(), body.description.orEmpty(), body.price, "MONTHLY", body.tier, splitFeatures(body.features)))
+        plans.add(Plan(id, body.name.trim(), body.description.orEmpty(), body.price, "MONTHLY", body.tier, splitFeatures(body.features), body.annualPrice, body.launchPrice, body.launchEndsAt, body.trialDays))
         if (body.status == "INACTIVE") hiddenPlans.add(id)
         return id
     }
     override suspend fun adminUpdatePlan(id: Int, body: PlanUpsert): Response<Unit> {
         pause(); checkPlan(id, body)
         val i = plans.indexOfFirst { it.id == id }
-        if (i >= 0) plans[i] = plans[i].copy(name = body.name.trim(), description = body.description.orEmpty(), price = body.price, tier = body.tier, features = splitFeatures(body.features))
+        if (i >= 0) plans[i] = plans[i].copy(name = body.name.trim(), description = body.description.orEmpty(), price = body.price, tier = body.tier, features = splitFeatures(body.features), annualPrice = body.annualPrice, launchPrice = body.launchPrice, launchEndsAt = body.launchEndsAt, trialDays = body.trialDays)
         if (body.status == "INACTIVE") hiddenPlans.add(id) else hiddenPlans.remove(id)
         return ok()
     }

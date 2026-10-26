@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace RhythmFlow.Api.Dtos;
 
@@ -28,7 +28,7 @@ public record PlanDto(
 /// <summary>Price is what one billing period costs. Renewing is true while PayFast will charge again; the next charge or expiry date is EndDate.</summary>
 public record SubscriptionDto(
     int Id, int PlanId, string PlanName, int Tier, decimal Price, string Status, DateTime? StartDate, DateTime? EndDate, bool GrantsAccess,
-    string Billing = "MONTHLY", bool Renewing = false);
+    string Billing = "MONTHLY", bool Renewing = false, bool InTrial = false);
 public record CheckoutRequest(int PlanId, string? Billing = null);
 /// <summary>Shown before a plan change is confirmed: what it costs, when it starts and what happens to access.</summary>
 public record PlanChangePreviewDto(

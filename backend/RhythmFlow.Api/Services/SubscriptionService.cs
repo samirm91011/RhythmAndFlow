@@ -78,7 +78,8 @@ public class SubscriptionService(
     public static SubscriptionDto ToDto(Subscription s) => new(
         s.Id, s.PlanId, s.Plan!.Name, s.Plan.Tier, PlanPricing.RecurringPrice(s.Plan, PlanPricing.NormaliseBilling(s.Billing)), s.Status,
         s.StartDate, s.EndDate, EntitlementService.GrantsAccess(s), PlanPricing.NormaliseBilling(s.Billing),
-        Renewing: s.Status == SubscriptionStatus.Active && !string.IsNullOrEmpty(s.PayFastReference));
+        Renewing: s.Status == SubscriptionStatus.Active && !string.IsNullOrEmpty(s.PayFastReference),
+        InTrial: s.Status == SubscriptionStatus.Active && s.AwaitingFirstCharge && s.TrialDays > 0);
 
     /// <summary>The person's payments, newest first, each with a receipt number (RF-000123) they can quote to support.</summary>
     public async Task<List<PaymentDto>> PaymentsAsync(Guid userId)

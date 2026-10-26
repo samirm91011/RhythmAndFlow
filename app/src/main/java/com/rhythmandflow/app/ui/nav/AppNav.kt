@@ -294,7 +294,7 @@ private fun MainGraph(
 
             // ---- Subscriptions & bookings ----
             composable("plans") {
-                PlansScreen(session, onBack = back, onPayment = { id -> nav.navigate("payment/$id") }, notify = notify)
+                PlansScreen(session, onBack = back, onPayment = { id -> nav.navigate("payment/$id") }, onPolicies = { nav.navigate("policies") }, notify = notify)
             }
             composable("payment/{id}", listOf(navArgument("id") { type = NavType.IntType })) { e ->
                 PaymentScreen(
@@ -304,7 +304,13 @@ private fun MainGraph(
             }
             composable("payments") { PaymentHistoryScreen(onBack = back) }
             composable("admin/users") { AdminUsersScreen(onBack = back, notify = notify) }
-            composable("subscription") { SubscriptionScreen(session, onBack = back, onPlans = { nav.navigate("plans") }, onPayments = { nav.navigate("payments") }, notify = notify) }
+            composable("subscription") {
+                SubscriptionScreen(
+                    session, onBack = back, onPlans = { nav.navigate("plans") }, onPayments = { nav.navigate("payments") },
+                    onPolicies = { nav.navigate("policies") }, notify = notify,
+                )
+            }
+            composable("policies") { PoliciesScreen(onBack = back) }
             composable("bookings") { BookingsScreen(onBack = back, onBrowse = { nav.goTab("classes") }, notify = notify) }
 
             // ---- Profile ----

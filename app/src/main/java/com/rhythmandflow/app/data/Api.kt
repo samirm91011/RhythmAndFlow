@@ -34,6 +34,10 @@ interface Api {
     @GET("api/subscriptions") suspend fun subscriptions(): List<Subscription>
     @POST("api/subscriptions/checkout") suspend fun checkout(@Body body: CheckoutRequest): CheckoutResponse
     @POST("api/subscriptions/{id}/cancel") suspend fun cancelSubscription(@Path("id") id: Int): CancelResult
+    @GET("api/subscriptions/{id}/change-preview")
+    suspend fun changePreview(@Path("id") id: Int, @Query("planId") planId: Int, @Query("billing") billing: String?): PlanChangePreview
+    @POST("api/subscriptions/{id}/change") suspend fun changePlan(@Path("id") id: Int, @Body body: CheckoutRequest): CheckoutResponse
+    @GET("api/policies") suspend fun policies(): List<Policy>
     @POST("api/dev/simulate-payment/{id}") suspend fun simulatePayment(@Path("id") id: Int): Response<Unit>
 
     // ---- Content ----
