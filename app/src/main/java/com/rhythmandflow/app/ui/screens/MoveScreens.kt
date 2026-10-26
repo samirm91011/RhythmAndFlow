@@ -29,7 +29,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Accessibility
+import androidx.compose.material.icons.filled.Air
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.SportsGymnastics
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Lock
@@ -98,21 +101,41 @@ import com.rhythmandflow.app.ui.viewmodel.container
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val categories = listOf("All", "Yoga", "Barre", "Dance", "Stretch", "Meditation")
+/** The approved categories, in the order members see them. The names must match what is saved on each lesson. */
+val categoryNames = listOf("Yoga", "Barre & Pilates", "Dance", "Stretch & Mobility", "Strength & Conditioning", "Meditation", "Breathwork")
 
+private val categories = listOf("All") + categoryNames
+
+/** The client's own wording for each category (feedback of 20 Oct 2026). Used everywhere a category is explained. */
+val categoryDescriptions = mapOf(
+    "Yoga" to "Mindful practices for strength, flexibility, balance and body awareness. Sometimes includes breathwork and meditations.",
+    "Barre & Pilates" to "Barre is ballet-inspired movement to develop control, alignment, strength and endurance. Pilates classes will be mat Pilates focused on developing strength, control, alignment and mind-body connection.",
+    "Dance" to "Expressive movement for musicality, coordination, confidence, fitness and enjoyment. Includes styles like Ballet, Jazz, Contemporary, Hip Hop, Latin, Heels, etc.",
+    "Stretch & Mobility" to "Practices that support range of motion, flexibility, ease of movement and recovery.",
+    "Strength & Conditioning" to "Accessible movement to build strength, stability and physical capacity. Can include the use of at-home equipment such as weights or resistance bands for increased difficulty.",
+    "Meditation" to "Guided practices for attention, calm and self-awareness.",
+    "Breathwork" to "Breathing practices to support focus, relaxation and an intentional pause.",
+)
+
+// The first names are the old ones, so lessons saved before the rename still show the right icon until they are updated.
 fun categoryIcon(category: String): ImageVector = when (category) {
     "Yoga" -> Icons.Default.SelfImprovement
+    "Barre & Pilates", "Barre" -> Icons.Default.SportsGymnastics
     "Dance" -> Icons.Default.MusicNote
-    "Barre" -> Icons.Default.DirectionsRun
+    "Stretch & Mobility", "Stretch" -> Icons.Default.Accessibility
+    "Strength & Conditioning" -> Icons.Default.FitnessCenter
     "Meditation" -> Icons.Default.Spa
+    "Breathwork" -> Icons.Default.Air
     else -> Icons.Default.SelfImprovement
 }
 
 private fun categoryColors(category: String): List<Color> = when (category) {
     "Dance" -> listOf(Brand.Tangerine, Color(0xFFEE8E6E))
-    "Barre" -> listOf(Color(0xFF2B3A37), Brand.Teal)
-    "Stretch" -> listOf(Brand.Teal, Color(0xFF7DB8AD))
+    "Barre & Pilates", "Barre" -> listOf(Color(0xFF2B3A37), Brand.Teal)
+    "Stretch & Mobility", "Stretch" -> listOf(Brand.Teal, Color(0xFF7DB8AD))
+    "Strength & Conditioning" -> listOf(Color(0xFF8A3B2E), Color(0xFFC5604A))
     "Meditation" -> listOf(Color(0xFF3D4F6B), Color(0xFF7C94B8))
+    "Breathwork" -> listOf(Color(0xFF3F7F99), Color(0xFF9AD0DE))
     else -> listOf(Brand.TealDeep, Brand.Teal)
 }
 
@@ -141,6 +164,10 @@ fun MoveScreen(onLesson: (Int) -> Unit, onProgramme: (Int) -> Unit) {
         Column(Modifier.padding(horizontal = 20.dp)) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 categories.forEach { c -> SelectChip(c, category == c, onClick = { vm.setCategory(c) }) }
+            }
+            categoryDescriptions[category]?.let {
+                VSpace(8)
+                Text(it, style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
             }
             VSpace(10)
             RfTextField(query, vm::setQuery, "Search practices…", Icons.Default.Search)

@@ -26,7 +26,7 @@ public class PlanChangeAndPaymentHistoryTests
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => svc.CheckoutAsync(user.Id, rhythm.Id));
 
-        Assert.Contains("cancel it first", ex.Message);
+        Assert.Contains("Change plan", ex.Message);
         Assert.Equal(1, await t.Db.Subscriptions.CountAsync());   // nothing new was created
     }
 

@@ -13,7 +13,7 @@ public class EntitlementService(AppDbContext db)
         var now = DateTime.UtcNow;
         var tiers = await db.Subscriptions
             .Where(s => s.UserId == userId &&
-                ((s.Status == SubscriptionStatus.Active && (s.EndDate == null || s.EndDate > now)) ||
+                ((s.Status == SubscriptionStatus.Active && (s.StartDate == null || s.StartDate <= now) && (s.EndDate == null || s.EndDate > now)) ||
                  (s.Status == SubscriptionStatus.Cancelled && s.EndDate != null && s.EndDate > now)))
             .Select(s => s.Plan!.Tier)
             .ToListAsync();
@@ -22,7 +22,7 @@ public class EntitlementService(AppDbContext db)
 
     // Active subscriptions, or cancelled ones that are still inside the period already paid for.
     private static bool GrantsAccessExpr(Subscription s, DateTime now) =>
-        (s.Status == SubscriptionStatus.Active && (s.EndDate == null || s.EndDate > now)) ||
+        (s.Status == SubscriptionStatus.Active && (s.StartDate == null || s.StartDate <= now) && (s.EndDate == null || s.EndDate > now)) ||
         (s.Status == SubscriptionStatus.Cancelled && s.EndDate != null && s.EndDate > now);
 
     public static bool GrantsAccess(Subscription s) => GrantsAccessExpr(s, DateTime.UtcNow);

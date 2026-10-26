@@ -44,4 +44,36 @@ public class SchemaUpgradeTests
 
         await Assert.ThrowsAsync<DbUpdateException>(() => t.Db.SaveChangesAsync());
     }
+
+    private static Lesson Lesson(int programmeId, string category) =>
+        new() { ProgrammeId = programmeId, Title = category + " lesson", Category = category, DurationSeconds = 60, VideoReference = "https://x/y.mp4" };
+
+    [Fact]
+    public async Task Lessons_saved_under_the_old_category_names_are_renamed()
+    {
+        using var t = new TestDb();
+        var prog = new FitnessProgramme { Name = "P", MinTier = 1 };
+        t.Db.Programmes.Add(prog); await t.Db.SaveChangesAsync();
+        t.Db.Lessons.AddRange(Lesson(prog.Id, "Barre"), Lesson(prog.Id, "Stretch"), Lesson(prog.Id, "Yoga"), Lesson(prog.Id, "Breathwork"));
+        await t.Db.SaveChangesAsync();
+
+        await SchemaUpgrades.ApplyAsync(t.Db);
+
+        var cats = (await t.Db.Lessons.AsNoTracking().Select(l => l.Category).ToListAsync()).OrderBy(c => c).ToArray();
+        Assert.Equal(["Barre & Pilates", "Breathwork", "Stretch & Mobility", "Yoga"], cats);
+    }
+
+    [Fact]
+    public async Task The_category_rename_can_run_again_and_leaves_new_names_alone()
+    {
+        using var t = new TestDb();
+        var prog = new FitnessProgramme { Name = "P", MinTier = 1 };
+        t.Db.Programmes.Add(prog); await t.Db.SaveChangesAsync();
+        t.Db.Lessons.Add(Lesson(prog.Id, "Barre & Pilates")); await t.Db.SaveChangesAsync();
+
+        await SchemaUpgrades.ApplyAsync(t.Db);
+        await SchemaUpgrades.ApplyAsync(t.Db);
+
+        Assert.Equal("Barre & Pilates", (await t.Db.Lessons.AsNoTracking().SingleAsync()).Category);
+    }
 }

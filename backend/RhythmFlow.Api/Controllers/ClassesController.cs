@@ -10,7 +10,7 @@ namespace RhythmFlow.Api.Controllers;
 
 /// <summary>Class schedule and bookings. No subscription is needed to book (BR-13).</summary>
 [ApiController, Authorize]
-public class ClassesController(BookingService bookings) : ApiController
+public class ClassesController(BookingService bookings, EventBookingService events) : ApiController
 {
     [HttpGet("api/classes")]
     public Task<List<ClassDto>> Upcoming() => bookings.UpcomingAsync(UserId);
@@ -31,6 +31,46 @@ public class ClassesController(BookingService bookings) : ApiController
         var (ok, error) = await bookings.CancelAsync(UserId, id);
         return ok ? NoContent() : Conflict(new { error });
     }
+
+    // ---- Paid events (tickets) ----
+
+    /// <summary>What a ticket would cost me right now, after any account credit.</summary>
+    [HttpGet("api/classes/{id:int}/quote")]
+    public Task<TicketQuoteDto> Quote(int id) => events.QuoteAsync(UserId, id);
+
+    /// <summary>Buys a ticket: returns a PayFast link, or a confirmed booking if account credit covered the price.</summary>
+    [HttpPost("api/classes/{id:int}/ticket")]
+    public async Task<ActionResult<TicketResponse>> Ticket(int id, TicketRequest? req)
+    {
+        var (result, error) = await events.TicketAsync(UserId, id, req?.UseCredit ?? true);
+        return result is not null ? Ok(result) : Conflict(new { error });
+    }
+
+    [HttpPost("api/classes/{id:int}/waitlist")]
+    public async Task<IActionResult> Waitlist(int id)
+    {
+        var (ok, error) = await events.JoinWaitlistAsync(UserId, id);
+        return ok ? NoContent() : Conflict(new { error });
+    }
+
+    /// <summary>Cancels a paid ticket: a refund or credit choice (full if 48 hours or more ahead, otherwise a request).</summary>
+    [HttpPost("api/bookings/{id:int}/cancel-ticket")]
+    public async Task<ActionResult<ActionResultDto>> CancelTicket(int id, CancelRequestDto req)
+    {
+        var (result, error) = await events.CancelAsync(UserId, id, req.Choice, req.Note);
+        return result is not null ? Ok(result) : Conflict(new { error });
+    }
+
+    /// <summary>The answer after the studio cancelled or moved an event: KEEP, REFUND or CREDIT.</summary>
+    [HttpPost("api/bookings/{id:int}/choice")]
+    public async Task<ActionResult<ActionResultDto>> Choose(int id, ChoiceRequest req)
+    {
+        var (result, error) = await events.ChooseAsync(UserId, id, req.Choice);
+        return result is not null ? Ok(result) : Conflict(new { error });
+    }
+
+    [HttpGet("api/credits")]
+    public Task<CreditsDto> Credits() => events.CreditsAsync(UserId);
 }
 
 [ApiController, Authorize]
@@ -69,7 +109,7 @@ public class JournalController(AppDbContext db) : ApiController
 /// <summary>Administrator functions. Every action requires the ADMIN role (BR-15, FR-22).</summary>
 [ApiController, Authorize(Roles = Roles.Admin)]
 [Route("api/admin")]
-public class AdminController(AppDbContext db, NotificationService notifications, UserAdminService users, ProgrammeAdminService programmes, AdminOverviewService overview, PlanAdminService plansAdmin, ScheduleAdminService schedule) : ApiController
+public class AdminController(AppDbContext db, NotificationService notifications, EventBookingService events, UserAdminService users, ProgrammeAdminService programmes, AdminOverviewService overview, PlanAdminService plansAdmin, ScheduleAdminService schedule) : ApiController
 {
     // ---- Who is booked, who holds a plan ----
     [HttpGet("bookings")]
@@ -124,7 +164,7 @@ public class AdminController(AppDbContext db, NotificationService notifications,
             active.Count,
             await db.Classes.CountAsync(c => c.Status == "SCHEDULED" && c.StartTime > now),
             await db.Bookings.CountAsync(b => b.Status == BookingStatus.Booked && b.Class!.StartTime > now),
-            active.Sum(s => s.Plan!.Price),
+            active.Sum(s => PlanPricing.MonthlyEquivalent(s)),
             await db.ErrorLogs.CountAsync(e => e.Status == "NEW"));
     }
 
@@ -178,18 +218,15 @@ public class AdminController(AppDbContext db, NotificationService notifications,
         var list = await db.Classes.OrderByDescending(c => c.StartTime).Take(100).ToListAsync();
         var counts = await db.Bookings.Where(b => b.Status == BookingStatus.Booked).GroupBy(b => b.ClassId)
             .Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
-        return list.Select(c => BookingService.ToDto(c, counts.GetValueOrDefault(c.Id), false)).ToList();
+        return list.Select(c => BookingService.ToDto(c, counts.GetValueOrDefault(c.Id), false) with
+            { JoinLink = c.JoinLink, PracticalNote = c.PracticalNote, SalesCloseHours = c.SalesCloseHours }).ToList();
     }
 
     [HttpPost("classes")]
     public async Task<ActionResult<int>> CreateClass(ClassUpsert r)
     {
-        if (r.EndTime <= r.StartTime) return BadRequest(new { error = "End time must be after start time." });
-        var c = new ClassSession();
-        Apply(c, r);
-        db.Classes.Add(c);
-        await db.SaveChangesAsync();
-        return c.Id;
+        var (ok, id, error) = await schedule.CreateClassAsync(r);
+        return ok ? id : BadRequest(new { error });
     }
 
     [HttpPut("classes/{id:int}")]
@@ -206,21 +243,38 @@ public class AdminController(AppDbContext db, NotificationService notifications,
         var c = await db.Classes.FindAsync(id);
         if (c is null) return NotFound();
         c.Status = "CANCELLED";
-        var affected = await db.Bookings.Where(b => b.ClassId == id && b.Status == BookingStatus.Booked).ToListAsync();
-        foreach (var b in affected) b.Status = BookingStatus.Cancelled;
-        // Tell everyone who had a place so they are not left waiting for a class that is not happening.
-        notifications.Stage(affected.Select(b => b.UserId), "CLASS", "Class cancelled",
-            $"Sorry, {c.Name} on {c.StartTime:ddd d MMM} has been cancelled.", "classes");
         await db.SaveChangesAsync();
-        await notifications.PushStagedAsync();
+        // Everyone who had a place is told. People who paid are offered a full refund or account credit, their choice.
+        await events.CancelEventAsync(c);
         return NoContent();
     }
 
-    private static void Apply(ClassSession c, ClassUpsert r)
+    // ---- Paid events: late cancellation requests and refunds to process ----
+    [HttpGet("event-requests")]
+    public Task<List<AdminEventRequestDto>> EventRequests() => events.RequestsAsync();
+
+    [HttpPost("bookings/{id:int}/resolve")]
+    public async Task<IActionResult> ResolveRequest(int id, ResolveRequestRequest r)
     {
-        c.Name = r.Name.Trim(); c.Description = r.Description?.Trim() ?? ""; c.CoachName = r.CoachName.Trim();
-        c.Location = r.Location.Trim(); c.StartTime = r.StartTime.ToUniversalTime(); c.EndTime = r.EndTime.ToUniversalTime();
-        c.Capacity = r.Capacity;
+        var (ok, error) = await events.ResolveRequestAsync(id, r.Approve, r.Amount);
+        return ok ? NoContent() : BadRequest(new { error });
+    }
+
+    [HttpGet("refunds")]
+    public Task<List<AdminRefundDto>> Refunds() => events.RefundsAsync();
+
+    [HttpPost("bookings/{id:int}/refunded")]
+    public async Task<IActionResult> Refunded(int id)
+    {
+        var (ok, error) = await events.MarkRefundedAsync(id);
+        return ok ? NoContent() : BadRequest(new { error });
+    }
+
+    [HttpPost("classes/{id:int}/send-links")]
+    public async Task<IActionResult> SendLinks(int id)
+    {
+        await events.SendJoinLinksAsync(id);
+        return NoContent();
     }
 
     // ---- Plans ----

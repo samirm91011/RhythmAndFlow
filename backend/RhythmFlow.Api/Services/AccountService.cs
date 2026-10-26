@@ -27,6 +27,7 @@ public class AccountService(AppDbContext db, SubscriptionService subs)
         var bookings = await db.Bookings.AsNoTracking().Include(b => b.Class).Where(b => b.UserId == userId).ToListAsync();
         var journal = await db.Journal.AsNoTracking().Where(j => j.UserId == userId).ToListAsync();
         var notifications = await db.Notifications.AsNoTracking().Where(n => n.UserId == userId).ToListAsync();
+        var credits = await db.Credits.AsNoTracking().Where(c => c.UserId == userId).ToListAsync();
 
         return new
         {
@@ -42,7 +43,8 @@ public class AccountService(AppDbContext db, SubscriptionService subs)
             {
                 lesson = p.Lesson?.Title, p.WatchTimeSeconds, p.CompletionPercentage, p.Completed, p.LastWatchedAt,
             }),
-            bookings = bookings.Select(b => new { @class = b.Class?.Name, startTime = b.Class?.StartTime, b.Status, b.BookingDate }),
+            bookings = bookings.Select(b => new { @class = b.Class?.Name, startTime = b.Class?.StartTime, b.Status, b.BookingDate, paid = b.AmountPaid + b.CreditApplied }),
+            credits = credits.Select(c => new { c.Amount, c.Remaining, c.IssuedAt, c.ExpiresAt, c.Reason }),
             journal = journal.OrderBy(j => j.CreatedAt).Select(j => new { j.Kind, j.Mood, j.Text, j.CreatedAt }),
             notifications = notifications.OrderBy(n => n.CreatedAt).Select(n => new { n.Kind, n.Title, n.Body, n.CreatedAt }),
         };
@@ -73,6 +75,7 @@ public class AccountService(AppDbContext db, SubscriptionService subs)
         db.Notifications.RemoveRange(db.Notifications.Where(n => n.UserId == userId));
         db.PasswordResets.RemoveRange(db.PasswordResets.Where(r => r.UserId == userId));
         db.DeviceTokens.RemoveRange(db.DeviceTokens.Where(t => t.UserId == userId));
+        db.Credits.RemoveRange(db.Credits.Where(c => c.UserId == userId));
         foreach (var log in await db.ErrorLogs.Where(l => l.UserId == userId).ToListAsync())
         {
             log.UserId = null;

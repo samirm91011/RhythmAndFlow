@@ -34,6 +34,10 @@ interface Api {
     @GET("api/subscriptions") suspend fun subscriptions(): List<Subscription>
     @POST("api/subscriptions/checkout") suspend fun checkout(@Body body: CheckoutRequest): CheckoutResponse
     @POST("api/subscriptions/{id}/cancel") suspend fun cancelSubscription(@Path("id") id: Int): CancelResult
+    @GET("api/subscriptions/{id}/change-preview")
+    suspend fun changePreview(@Path("id") id: Int, @Query("planId") planId: Int, @Query("billing") billing: String?): PlanChangePreview
+    @POST("api/subscriptions/{id}/change") suspend fun changePlan(@Path("id") id: Int, @Body body: CheckoutRequest): CheckoutResponse
+    @GET("api/policies") suspend fun policies(): List<Policy>
     @POST("api/dev/simulate-payment/{id}") suspend fun simulatePayment(@Path("id") id: Int): Response<Unit>
 
     // ---- Content ----
@@ -53,6 +57,12 @@ interface Api {
     @GET("api/bookings") suspend fun bookings(): List<Booking>
     @POST("api/classes/{id}/book") suspend fun book(@Path("id") id: Int): Booking
     @POST("api/bookings/{id}/cancel") suspend fun cancelBooking(@Path("id") id: Int): Response<Unit>
+    @POST("api/classes/{id}/ticket") suspend fun buyTicket(@Path("id") id: Int, @Body body: TicketRequest): TicketResponse
+    @GET("api/classes/{id}/quote") suspend fun ticketQuote(@Path("id") id: Int): TicketQuote
+    @POST("api/classes/{id}/waitlist") suspend fun joinWaitlist(@Path("id") id: Int): Response<Unit>
+    @POST("api/bookings/{id}/cancel-ticket") suspend fun cancelTicket(@Path("id") id: Int, @Body body: CancelRequestBody): ActionResult
+    @POST("api/bookings/{id}/choice") suspend fun chooseAfterChange(@Path("id") id: Int, @Body body: ChoiceBody): ActionResult
+    @GET("api/credits") suspend fun credits(): Credits
 
     // ---- Notifications ----
     @GET("api/notifications") suspend fun notifications(
@@ -86,6 +96,11 @@ interface Api {
     @GET("api/admin/classes") suspend fun adminClasses(): List<ClassItem>
     @POST("api/admin/classes") suspend fun adminCreateClass(@Body body: ClassUpsert): Int
     @POST("api/admin/classes/{id}/cancel") suspend fun adminCancelClass(@Path("id") id: Int): Response<Unit>
+    @GET("api/admin/event-requests") suspend fun adminEventRequests(): List<AdminEventRequest>
+    @POST("api/admin/bookings/{id}/resolve") suspend fun adminResolveRequest(@Path("id") id: Int, @Body body: ResolveRequestBody): Response<Unit>
+    @GET("api/admin/refunds") suspend fun adminRefunds(): List<AdminRefund>
+    @POST("api/admin/bookings/{id}/refunded") suspend fun adminMarkRefunded(@Path("id") id: Int): Response<Unit>
+    @POST("api/admin/classes/{id}/send-links") suspend fun adminSendLinks(@Path("id") id: Int): Response<Unit>
     @GET("api/admin/plans") suspend fun adminPlans(): List<AdminPlan>
     @POST("api/admin/plans") suspend fun adminCreatePlan(@Body body: PlanUpsert): Int
     @PUT("api/admin/plans/{id}") suspend fun adminUpdatePlan(@Path("id") id: Int, @Body body: PlanUpsert): Response<Unit>

@@ -64,7 +64,8 @@ fun AdminHomeScreen(name: String, onNavigate: (String) -> Unit, onCustomerView: 
                     if (s.openErrors > 0) AdminLink("Needs attention", "${s.openErrors} open problem(s) in the error log") { onNavigate("admin/errors") }
                 }
                 Text("Manage", style = MaterialTheme.typography.titleMedium)
-                AdminLink("Classes", "Schedule, edit and cancel classes, see who is booked") { onNavigate("admin/classes") }
+                AdminLink("Classes & events", "Schedule classes, workshops and retreats, set ticket prices, see who is booked") { onNavigate("admin/classes") }
+                AdminLink("Event requests & refunds", "Late cancellation requests and refunds to pay on PayFast") { onNavigate("admin/events") }
                 AdminLink("Lessons & videos", "Add, edit or remove lessons") { onNavigate("admin/lessons") }
                 AdminLink("Programmes", "Add, edit or hide programmes") { onNavigate("admin/programmes") }
                 AdminLink("Subscription plans", "Add plans, change prices, hide a plan") { onNavigate("admin/plans") }
@@ -136,12 +137,13 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
             }
             RfTextField(title, { title = it }, "Title")
             RfTextField(description, { description = it }, "Description", singleLine = false, minLines = 2)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Yoga", "Barre", "Dance", "Stretch", "Meditation").chunked(3).first().forEach { c -> SelectChip(c, category == c, { category = c }) }
+            Text("Category", style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
+            categoryNames.chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pair.forEach { c -> SelectChip(c, category == c, { category = c }) }
+                }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Stretch", "Meditation").forEach { c -> SelectChip(c, category == c, { category = c }) }
-            }
+            categoryDescriptions[category]?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Brand.Muted) }
             RfTextField(seconds, { seconds = it.filter(Char::isDigit) }, "Length in seconds", keyboardType = KeyboardType.Number)
             RfTextField(url, { url = it }, "Video address (https://…)", keyboardType = KeyboardType.Uri)
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -221,8 +223,24 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
     var cancel by remember { mutableStateOf<Int?>(null) }
     var editingId by remember { mutableStateOf<Int?>(null) }
     var description by remember { mutableStateOf("All levels welcome.") }
+    // Event details: what it is, what a ticket costs, how people join it
+    var kind by remember { mutableStateOf("CLASS") }
+    var format by remember { mutableStateOf("IN_PERSON") }
+    var price by remember { mutableStateOf("") }
+    var posterUrl by remember { mutableStateOf("") }
+    var closeHours by remember { mutableStateOf("24") }
+    var opensOn by remember { mutableStateOf("") }
+    var earlyHours by remember { mutableStateOf("") }
+    var platform by remember { mutableStateOf("Zoom") }
+    var joinLink by remember { mutableStateOf("") }
+    var practicalNote by remember { mutableStateOf("") }
+    var waitlist by remember { mutableStateOf(false) }
     val scroll = rememberScrollState()
-    fun clearForm() { editingId = null; name = ""; date = ""; time = ""; location = ""; minutes = "60"; capacity = "20"; description = "All levels welcome." }
+    fun clearForm() {
+        editingId = null; name = ""; date = ""; time = ""; location = ""; minutes = "60"; capacity = "20"; description = "All levels welcome."
+        kind = "CLASS"; format = "IN_PERSON"; price = ""; posterUrl = ""; closeHours = "24"; opensOn = ""; earlyHours = ""
+        platform = "Zoom"; joinLink = ""; practicalNote = ""; waitlist = false
+    }
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Classes", onBack = onBack)
@@ -266,17 +284,59 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
                 Box(Modifier.weight(1f)) { RfTextField(minutes, { minutes = it.filter(Char::isDigit) }, "Minutes", keyboardType = KeyboardType.Number) }
                 Box(Modifier.weight(1f)) { RfTextField(capacity, { capacity = it.filter(Char::isDigit) }, "Capacity", keyboardType = KeyboardType.Number) }
             }
-            if (editingId != null) Text("Anyone already booked is told if the time or place changes.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+            Text("What is it?", style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("CLASS" to "Class", "WORKSHOP" to "Workshop").forEach { (k, label) -> SelectChip(label, kind == k, onClick = { kind = k }) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("RETREAT" to "Retreat", "COACHING" to "Coaching").forEach { (k, label) -> SelectChip(label, kind == k, onClick = { kind = k }) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SelectChip("In person", format == "IN_PERSON", onClick = { format = "IN_PERSON" })
+                SelectChip("Online", format == "ONLINE", onClick = { format = "ONLINE" })
+            }
+            RfTextField(price, { price = it.filter(Char::isDigit) }, "Ticket price in rand, VAT included (empty = free booking)", keyboardType = KeyboardType.Number)
+            if ((price.toIntOrNull() ?: 0) > 0) {
+                RfTextField(posterUrl, { posterUrl = it }, "Poster image address (https://…). 1200 x 630 px works best", keyboardType = KeyboardType.Uri)
+                RfTextField(closeHours, { closeHours = it.filter(Char::isDigit) }, "Ticket sales close this many hours before the start", keyboardType = KeyboardType.Number)
+                RfTextField(opensOn, { opensOn = it }, "Ticket sales open on (yyyy-MM-dd, optional)", keyboardType = KeyboardType.Ascii)
+                RfTextField(earlyHours, { earlyHours = it.filter(Char::isDigit) }, "Members of the second plan can buy this many hours earlier", keyboardType = KeyboardType.Number)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(checked = waitlist, onCheckedChange = { waitlist = it }, colors = SwitchDefaults.colors(checkedTrackColor = Brand.TealDeep))
+                    HSpace(10); Text("Waiting list when sold out")
+                }
+            }
+            if (format == "ONLINE") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SelectChip("Zoom", platform == "Zoom", onClick = { platform = "Zoom" })
+                    SelectChip("Google Meet", platform == "Google Meet", onClick = { platform = "Google Meet" })
+                }
+                RfTextField(joinLink, { joinLink = it }, "Joining link (https://…)", keyboardType = KeyboardType.Uri)
+                Text("Ticket holders get the link in a separate email. You can add it later.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+            }
+            RfTextField(practicalNote, { practicalNote = it }, "Practical note for the confirmation email (optional, replaces the standard one)", singleLine = false, minLines = 2)
+            if (editingId != null) Text("Anyone already booked is told if the time or place changes. People who bought a ticket choose to keep it or take a refund or credit.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
             PrimaryButton(if (editingId == null) "Add class" else "Save changes", enabled = name.isNotBlank() && location.isNotBlank() && date.isNotBlank() && time.isNotBlank(), onClick = {
                 val start = localToUtcIso(date, time)
                 val mins = minutes.toIntOrNull() ?: 0
                 val cap = capacity.toIntOrNull() ?: 0
+                val ticket = price.toIntOrNull() ?: 0
+                val opensIso = if (opensOn.isBlank()) null else localToUtcIso(opensOn, "00:00")
                 when {
                     start == null -> notify("Check the date (yyyy-mm-dd) and time (HH:mm).")
                     mins < 5 || cap < 1 -> notify("Enter the class length and capacity.")
+                    ticket in 1..4 -> notify("A ticket price must be free or at least R5.")
+                    opensOn.isNotBlank() && opensIso == null -> notify("Enter the day ticket sales open as yyyy-MM-dd.")
                     else -> scope.launch {
                         val end = Instant.parse(start).plusSeconds(mins * 60L).toString()
-                        val body = ClassUpsert(name.trim(), description, coach.trim(), location.trim(), start, end, cap)
+                        val body = ClassUpsert(
+                            name.trim(), description, coach.trim(), location.trim(), start, end, cap,
+                            kind = kind, format = format, price = ticket.toDouble(),
+                            posterUrl = posterUrl.trim().ifBlank { null }, salesCloseHours = closeHours.toIntOrNull() ?: 24,
+                            salesOpenAt = opensIso, memberEarlyHours = earlyHours.toIntOrNull() ?: 0,
+                            joinPlatform = if (format == "ONLINE") platform else null, joinLink = joinLink.trim().ifBlank { null },
+                            practicalNote = practicalNote.trim().ifBlank { null }, waitlistEnabled = waitlist && ticket > 0,
+                        )
                         val id = editingId
                         val err = if (id == null) vm.createClass(body) else vm.updateClass(id, body)
                         if (err == null) clearForm()
@@ -293,6 +353,7 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
                         Column(Modifier.weight(1f)) {
                             Text(c.name, style = MaterialTheme.typography.titleSmall)
                             Text("${formatDayTime(c.startTime)} · ${c.capacity - c.spotsLeft}/${c.capacity} booked", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                            if (c.price > 0 || c.format == "ONLINE") Text("${if (c.price > 0) formatRand(c.price) + " ticket · " else ""}${if (c.format == "ONLINE") "Online" else "In person"}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
                             Text("Tap to see who is booked", style = MaterialTheme.typography.labelSmall, color = Brand.TealDeep)
                         }
                         if (c.status == "SCHEDULED") {
@@ -304,8 +365,15 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
                                     date = s?.toLocalDate()?.toString().orEmpty(); time = s?.let { "%02d:%02d".format(it.hour, it.minute) }.orEmpty()
                                     minutes = if (s != null && e != null) java.time.Duration.between(s, e).toMinutes().toString() else "60"
                                     capacity = c.capacity.toString()
+                                    kind = c.kind; format = c.format; price = c.price.takeIf { it > 0 }?.toInt()?.toString().orEmpty()
+                                    posterUrl = c.posterUrl.orEmpty(); closeHours = (c.salesCloseHours ?: 24).toString()
+                                    opensOn = parseInstant(c.salesOpenAt)?.toLocalDate()?.toString().orEmpty()
+                                    earlyHours = c.memberEarlyHours.takeIf { it > 0 }?.toString().orEmpty()
+                                    platform = c.joinPlatform ?: "Zoom"; joinLink = c.joinLink.orEmpty(); practicalNote = c.practicalNote.orEmpty()
+                                    waitlist = c.waitlistEnabled
                                     scope.launch { scroll.animateScrollTo(0) }
                                 }) { Text("Edit", color = Brand.TealDeep) }
+                                if (c.format == "ONLINE" && c.price > 0) TextButton(onClick = { scope.launch { notify(vm.sendLinks(c.id) ?: "Joining links sent to everyone who has not had one.") } }) { Text("Send links", color = Brand.TealDeep) }
                                 TextButton(onClick = { cancel = c.id }) { Text("Cancel", color = Brand.Error) }
                             }
                         } else InfoPill("Cancelled", color = Brand.LightGrey, textColor = Brand.Muted)
@@ -317,7 +385,7 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
     cancel?.let { id ->
         AlertDialog(
             onDismissRequest = { cancel = null },
-            title = { Text("Cancel this class?") }, text = { Text("Everyone who booked will lose their reservation.") },
+            title = { Text("Cancel this class?") }, text = { Text("Everyone who booked is told. People who paid for a ticket are offered a full refund or account credit, their choice.") },
             confirmButton = { TextButton(onClick = { cancel = null; scope.launch { notify(vm.cancelClass(id) ?: "Class cancelled.") } }) { Text("Cancel class", color = Brand.Error) } },
             dismissButton = { TextButton(onClick = { cancel = null }) { Text("Keep it") } },
         )
@@ -341,6 +409,9 @@ fun AdminPlansScreen(onBack: () -> Unit, notify: (String) -> Unit) {
                         Column(Modifier.weight(1f)) {
                             Text(p.name, style = MaterialTheme.typography.titleMedium)
                             Text("${formatRand(p.price)} / month · access level ${p.tier}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                            p.annualPrice?.let { Text("${formatRand(it)} / year", style = MaterialTheme.typography.bodySmall, color = Brand.Muted) }
+                            p.launchPrice?.let { Text("Launch: ${formatRand(it)} first month, until ${formatDate(p.launchEndsAt)}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted) }
+                            if (p.trialDays > 0) Text("${p.trialDays}-day free trial", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
                             if (p.status != "ACTIVE") {
                                 VSpace(4)
                                 InfoPill("Hidden from customers", color = Brand.LightGrey, textColor = Brand.Muted)
@@ -381,6 +452,10 @@ private fun PlanFormDialog(
     var tier by remember { mutableStateOf(initial?.tier ?: 1) }
     var features by remember { mutableStateOf(initial?.features?.joinToString("\n").orEmpty()) }
     var visible by remember { mutableStateOf(initial?.status != "INACTIVE") }
+    var annual by remember { mutableStateOf(initial?.annualPrice?.toInt()?.toString().orEmpty()) }
+    var launch by remember { mutableStateOf(initial?.launchPrice?.toInt()?.toString().orEmpty()) }
+    var launchEnds by remember { mutableStateOf(parseInstant(initial?.launchEndsAt)?.toLocalDate()?.toString().orEmpty()) }
+    var trialDays by remember { mutableStateOf(initial?.trialDays?.takeIf { it > 0 }?.toString().orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
 
@@ -398,6 +473,12 @@ private fun PlanFormDialog(
                 }
                 Text("A plan unlocks every programme at its level or below.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
                 RfTextField(features, { features = it }, "What's included (one per line)", singleLine = false, minLines = 3)
+                Text("Billing options (all optional)", style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
+                RfTextField(annual, { annual = it.filter(Char::isDigit) }, "Price for a whole year (R). Leave empty for monthly only", keyboardType = KeyboardType.Number)
+                RfTextField(launch, { launch = it.filter(Char::isDigit) }, "Launch price for the first month (R)", keyboardType = KeyboardType.Number)
+                RfTextField(launchEnds, { launchEnds = it }, "Launch price ends on (yyyy-MM-dd)", keyboardType = KeyboardType.Ascii)
+                RfTextField(trialDays, { trialDays = it.filter(Char::isDigit).take(2) }, "Free trial days (empty = no trial)", keyboardType = KeyboardType.Number)
+                Text("The launch price and the free trial are only for people who have never held a plan.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(checked = visible, onCheckedChange = { visible = it }, colors = SwitchDefaults.colors(checkedTrackColor = Brand.TealDeep))
                     HSpace(10); Text("Visible to customers")
@@ -410,9 +491,18 @@ private fun PlanFormDialog(
             TextButton(enabled = !saving, onClick = {
                 val amount = price.toDoubleOrNull()
                 if (name.isBlank() || amount == null || amount < 1) { error = "Enter a name and a price of at least R1."; return@TextButton }
+                val launchAmount = launch.toDoubleOrNull()
+                val endsIso = if (launchAmount == null) null else localToUtcIso(launchEnds, "23:59")
+                if (launchAmount != null && endsIso == null) { error = "Enter the day the launch price ends as yyyy-MM-dd, for example 2026-11-30."; return@TextButton }
                 saving = true; error = null
                 scope.launch {
-                    val problem = onSave(PlanUpsert(name.trim(), description.trim(), amount, tier, features.trim(), if (visible) "ACTIVE" else "INACTIVE"))
+                    val problem = onSave(
+                        PlanUpsert(
+                            name.trim(), description.trim(), amount, tier, features.trim(), if (visible) "ACTIVE" else "INACTIVE",
+                            annualPrice = annual.toDoubleOrNull(), launchPrice = launchAmount, launchEndsAt = endsIso,
+                            trialDays = trialDays.toIntOrNull() ?: 0,
+                        ),
+                    )
                     saving = false
                     if (problem == null) onSaved() else error = problem
                 }
@@ -420,4 +510,64 @@ private fun PlanFormDialog(
         },
         dismissButton = { TextButton(enabled = !saving, onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+/** Late cancellation requests to decide, and refunds waiting to be paid on PayFast. */
+@Composable
+fun AdminEventsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
+    val vm = appViewModel(key = "admin") { AdminViewModel(it) }
+    val scope = rememberCoroutineScope()
+    var requests by remember { mutableStateOf<List<com.rhythmandflow.app.data.AdminEventRequest>?>(null) }
+    var refunds by remember { mutableStateOf<List<com.rhythmandflow.app.data.AdminRefund>?>(null) }
+    val amounts = remember { mutableStateMapOf<Int, String>() }
+    suspend fun refresh() { requests = vm.eventRequests(); refunds = vm.refunds() }
+    LaunchedEffect(Unit) { refresh() }
+
+    Column(Modifier.fillMaxSize()) {
+        ScreenHeader("Event requests & refunds", onBack = onBack)
+        if (requests == null || refunds == null) LoadingBox()
+        else Column(Modifier.vScroll().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Late cancellation requests", style = MaterialTheme.typography.titleLarge)
+            Text("These came in less than 48 hours before the event. You can agree up to half of the fee, or decline.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+            if (requests!!.isEmpty()) Text("Nothing waiting.", color = Brand.Muted)
+            requests!!.forEach { r ->
+                SoftCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(r.eventName, style = MaterialTheme.typography.titleMedium)
+                        Text("${r.fullName} · ${r.email}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                        Text("${formatDayTime(r.startTime)} · paid ${formatRand(r.totalPaid)} · ${r.reference}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                        Text("Asked for: ${if (r.choice == "REFUND") "a refund" else "account credit"}. You can agree up to ${formatRand(r.maxAmount)}.", style = MaterialTheme.typography.bodyMedium)
+                        RfTextField(amounts[r.bookingId] ?: r.maxAmount.toInt().toString(), { amounts[r.bookingId] = it.filter(Char::isDigit) }, "Amount to agree (R)", keyboardType = KeyboardType.Number)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            PrimaryButton("Approve", onClick = {
+                                val amount = (amounts[r.bookingId] ?: r.maxAmount.toInt().toString()).toDoubleOrNull()
+                                scope.launch { notify(vm.resolveRequest(r.bookingId, true, amount) ?: "Approved. The customer has been told."); refresh() }
+                            }, modifier = Modifier.weight(1f))
+                            SecondaryButton("Decline", onClick = {
+                                scope.launch { notify(vm.resolveRequest(r.bookingId, false, null) ?: "Declined. The customer has been told."); refresh() }
+                            }, modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+            VSpace(8)
+            Text("Refunds to pay on PayFast", style = MaterialTheme.typography.titleLarge)
+            Text("Pay each refund from your PayFast dashboard, then mark it here so the customer is told it has been sent.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+            if (refunds!!.isEmpty()) Text("Nothing to pay.", color = Brand.Muted)
+            refunds!!.forEach { r ->
+                SoftCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("${formatRand(r.amount)} to ${r.fullName}", style = MaterialTheme.typography.titleMedium)
+                        Text("${r.eventName} · ${r.reference}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                        Text(r.email, style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                        r.payFastPaymentId?.let { Text("PayFast payment: $it", style = MaterialTheme.typography.bodySmall, color = Brand.Muted) }
+                        SecondaryButton("I've paid this refund", onClick = {
+                            scope.launch { notify(vm.markRefunded(r.bookingId) ?: "Marked as refunded. The customer has been told."); refresh() }
+                        })
+                    }
+                }
+            }
+            VSpace(16)
+        }
+    }
 }
