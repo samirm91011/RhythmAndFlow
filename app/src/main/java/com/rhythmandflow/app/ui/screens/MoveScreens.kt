@@ -106,6 +106,17 @@ val categoryNames = listOf("Yoga", "Barre & Pilates", "Dance", "Stretch & Mobili
 
 private val categories = listOf("All") + categoryNames
 
+/** The client's own wording for each category (feedback of 20 Oct 2026). Used everywhere a category is explained. */
+val categoryDescriptions = mapOf(
+    "Yoga" to "Mindful practices for strength, flexibility, balance and body awareness. Sometimes includes breathwork and meditations.",
+    "Barre & Pilates" to "Barre is ballet-inspired movement to develop control, alignment, strength and endurance. Pilates classes will be mat Pilates focused on developing strength, control, alignment and mind-body connection.",
+    "Dance" to "Expressive movement for musicality, coordination, confidence, fitness and enjoyment. Includes styles like Ballet, Jazz, Contemporary, Hip Hop, Latin, Heels, etc.",
+    "Stretch & Mobility" to "Practices that support range of motion, flexibility, ease of movement and recovery.",
+    "Strength & Conditioning" to "Accessible movement to build strength, stability and physical capacity. Can include the use of at-home equipment such as weights or resistance bands for increased difficulty.",
+    "Meditation" to "Guided practices for attention, calm and self-awareness.",
+    "Breathwork" to "Breathing practices to support focus, relaxation and an intentional pause.",
+)
+
 // The first names are the old ones, so lessons saved before the rename still show the right icon until they are updated.
 fun categoryIcon(category: String): ImageVector = when (category) {
     "Yoga" -> Icons.Default.SelfImprovement
@@ -153,6 +164,10 @@ fun MoveScreen(onLesson: (Int) -> Unit, onProgramme: (Int) -> Unit) {
         Column(Modifier.padding(horizontal = 20.dp)) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 categories.forEach { c -> SelectChip(c, category == c, onClick = { vm.setCategory(c) }) }
+            }
+            categoryDescriptions[category]?.let {
+                VSpace(8)
+                Text(it, style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
             }
             VSpace(10)
             RfTextField(query, vm::setQuery, "Search practices…", Icons.Default.Search)

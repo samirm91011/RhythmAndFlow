@@ -142,6 +142,7 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
                     pair.forEach { c -> SelectChip(c, category == c, { category = c }) }
                 }
             }
+            categoryDescriptions[category]?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Brand.Muted) }
             RfTextField(seconds, { seconds = it.filter(Char::isDigit) }, "Length in seconds", keyboardType = KeyboardType.Number)
             RfTextField(url, { url = it }, "Video address (https://…)", keyboardType = KeyboardType.Uri)
             Row(verticalAlignment = Alignment.CenterVertically) {
