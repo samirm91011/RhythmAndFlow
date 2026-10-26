@@ -322,6 +322,25 @@ class ClassesViewModel(private val c: AppContainer) : ViewModel() {
         is Outcome.Ok -> { load(); null }
         is Outcome.Fail -> { load(); r.message }
     }
+
+    // ---- Paid events ----
+
+    /** Starts buying a ticket. The result says whether to send the customer to PayFast or the booking is already confirmed. */
+    suspend fun buyTicket(classId: Int, useCredit: Boolean = true): Outcome<TicketResponse> = repo.buyTicket(classId, useCredit).also { load() }
+
+    suspend fun quote(classId: Int): TicketQuote? = (repo.ticketQuote(classId) as? Outcome.Ok)?.value
+
+    suspend fun joinWaitlist(classId: Int): String? = when (val r = repo.joinWaitlist(classId)) {
+        is Outcome.Ok -> { load(); null }
+        is Outcome.Fail -> r.message
+    }
+
+    suspend fun cancelTicket(bookingId: Int, choice: String?, note: String?): Outcome<ActionResult> =
+        repo.cancelTicket(bookingId, choice, note).also { load() }
+
+    suspend fun choose(bookingId: Int, choice: String): Outcome<ActionResult> = repo.chooseAfterChange(bookingId, choice).also { load() }
+
+    suspend fun credits(): Credits? = (repo.credits() as? Outcome.Ok)?.value
 }
 
 // ============================================================ Home / journal / profile
@@ -432,6 +451,22 @@ class AdminViewModel(private val c: AppContainer) : ViewModel() {
     suspend fun createPlan(p: PlanUpsert) = after(repo.adminCreatePlan(p))
     suspend fun updateClass(id: Int, c: ClassUpsert) = after(repo.adminUpdateClass(id, c))
     suspend fun updateLesson(id: Int, l: LessonUpsert) = after(repo.adminUpdateLesson(id, l))
+
+    // ---- Paid events: late cancellation requests and refunds waiting for the administrator ----
+    suspend fun eventRequests(): List<AdminEventRequest> = (repo.adminEventRequests() as? Outcome.Ok)?.value ?: emptyList()
+    suspend fun refunds(): List<AdminRefund> = (repo.adminRefunds() as? Outcome.Ok)?.value ?: emptyList()
+    suspend fun resolveRequest(id: Int, approve: Boolean, amount: Double?): String? = when (val r = repo.adminResolveRequest(id, approve, amount)) {
+        is Outcome.Ok -> null
+        is Outcome.Fail -> r.message
+    }
+    suspend fun markRefunded(id: Int): String? = when (val r = repo.adminMarkRefunded(id)) {
+        is Outcome.Ok -> null
+        is Outcome.Fail -> r.message
+    }
+    suspend fun sendLinks(id: Int): String? = when (val r = repo.adminSendLinks(id)) {
+        is Outcome.Ok -> null
+        is Outcome.Fail -> r.message
+    }
 }
 
 // ============================================================ Notifications

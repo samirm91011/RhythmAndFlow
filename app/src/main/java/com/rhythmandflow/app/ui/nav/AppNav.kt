@@ -259,7 +259,15 @@ private fun MainGraph(
             }
             composable("progress") { ProgressScreen(onBack = back, onLesson = { nav.navigate("lesson/$it") }) }
             composable("admin/programmes") { AdminProgrammesScreen(onBack = back, notify = notify) }
-            composable("classes") { ClassesScreen(onBookings = { nav.navigate("bookings") }, notify = notify) }
+            composable("classes") {
+                ClassesScreen(
+                    onBookings = { nav.navigate("bookings") }, onPayment = { id -> nav.navigate("ticket-payment/$id") },
+                    onPolicies = { nav.navigate("policies") }, notify = notify,
+                )
+            }
+            composable("ticket-payment/{id}", listOf(navArgument("id") { type = NavType.IntType })) { e ->
+                TicketPaymentScreen(e.arguments!!.getInt("id"), onDone = { nav.navigate("bookings") { popUpTo("classes") } }, onBack = back)
+            }
             composable("journal") { JournalScreen(onLesson = { nav.navigate("lesson/$it") }, notify = notify) }
             composable("you") { YouScreen(session, onNavigate = go, onLesson = { nav.navigate("lesson/$it") }) }
 
@@ -311,7 +319,7 @@ private fun MainGraph(
                 )
             }
             composable("policies") { PoliciesScreen(onBack = back) }
-            composable("bookings") { BookingsScreen(onBack = back, onBrowse = { nav.goTab("classes") }, notify = notify) }
+            composable("bookings") { BookingsScreen(onBack = back, onBrowse = { nav.goTab("classes") }, onPolicies = { nav.navigate("policies") }, notify = notify) }
 
             // ---- Profile ----
             composable("edit_profile") { EditProfileScreen(session, onBack = back, notify = notify) }
@@ -332,6 +340,7 @@ private fun MainGraph(
             composable("admin/bookings") { AdminBookingsScreen(onBack = back, onClass = { nav.navigate("admin/class/$it") }) }
             composable("admin/subscriptions") { AdminSubscriptionsScreen(onBack = back) }
             composable("admin/plans") { AdminPlansScreen(onBack = back, notify = notify) }
+            composable("admin/events") { AdminEventsScreen(onBack = back, notify = notify) }
         }
           }
         }

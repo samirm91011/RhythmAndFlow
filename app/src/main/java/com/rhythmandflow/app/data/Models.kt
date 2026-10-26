@@ -155,6 +155,25 @@ data class ClassItem(
     val spotsLeft: Int,
     val bookedByMe: Boolean,
     val status: String,
+    /** CLASS, WORKSHOP, RETREAT or COACHING. */
+    val kind: String = "CLASS",
+    /** IN_PERSON or ONLINE. */
+    val format: String = "IN_PERSON",
+    /** Ticket price in rand, VAT included. 0 is a free booking. */
+    val price: Double = 0.0,
+    val posterUrl: String? = null,
+    val salesOpenAt: String? = null,
+    val salesClosesAt: String? = null,
+    val memberEarlyHours: Int = 0,
+    val canBuyNow: Boolean = true,
+    val buyBlockedReason: String? = null,
+    val onWaitlist: Boolean = false,
+    val waitlistEnabled: Boolean = false,
+    val joinPlatform: String? = null,
+    /** Only sent to administrators, who edit them. */
+    val joinLink: String? = null,
+    val practicalNote: String? = null,
+    val salesCloseHours: Int? = null,
 )
 
 data class Booking(
@@ -167,7 +186,42 @@ data class Booking(
     val endTime: String,
     val status: String,
     val canCancel: Boolean,
+    val reference: String = "",
+    val kind: String = "CLASS",
+    val format: String = "IN_PERSON",
+    /** Cash plus credit paid for the ticket. 0 for a free booking. */
+    val totalPaid: Double = 0.0,
+    val joinPlatform: String? = null,
+    val joinLink: String? = null,
+    /** EVENT_CANCELLED or EVENT_RESCHEDULED: the customer has to choose what happens next. */
+    val choiceNeeded: String? = null,
+    /** PENDING, APPROVED or DECLINED for a cancellation asked for less than 48 hours ahead. */
+    val requestStatus: String? = null,
+    /** True while there are at least 48 hours left: a refund or credit for the full fee. */
+    val freeCancellation: Boolean = false,
+    val refundStatus: String? = null,
 )
+
+data class TicketRequest(val useCredit: Boolean = true)
+/** If confirmed is false, send the customer to paymentUrl (PayFast). */
+data class TicketResponse(
+    val bookingId: Int, val reference: String, val confirmed: Boolean, val paymentUrl: String?,
+    val amountDue: Double, val creditApplied: Double, val message: String,
+)
+data class TicketQuote(val price: Double, val creditAvailable: Double, val creditApplied: Double, val amountDue: Double, val canBuy: Boolean, val reason: String?)
+data class CancelRequestBody(val choice: String?, val note: String?)
+data class ChoiceBody(val choice: String)
+data class ActionResult(val message: String, val status: String)
+data class CreditItem(val id: Int, val amount: Double, val remaining: Double, val issuedAt: String, val expiresAt: String, val reason: String)
+data class Credits(val balance: Double, val items: List<CreditItem>)
+data class AdminEventRequest(
+    val bookingId: Int, val reference: String, val fullName: String, val email: String, val eventName: String, val startTime: String,
+    val totalPaid: Double, val maxAmount: Double, val choice: String?, val requestedAt: String?,
+)
+data class AdminRefund(
+    val bookingId: Int, val reference: String, val fullName: String, val email: String, val eventName: String, val amount: Double, val payFastPaymentId: String?,
+)
+data class ResolveRequestBody(val approve: Boolean, val amount: Double?)
 
 data class AppNotification(val id: Int, val kind: String, val title: String, val body: String, val route: String?, val createdAt: String, val read: Boolean)
 data class MarkReadRequest(val ids: List<Int>?)
@@ -224,6 +278,17 @@ data class ClassUpsert(
     val startTime: String,
     val endTime: String,
     val capacity: Int,
+    val kind: String? = null,
+    val format: String? = null,
+    val price: Double = 0.0,
+    val posterUrl: String? = null,
+    val salesCloseHours: Int = 24,
+    val salesOpenAt: String? = null,
+    val memberEarlyHours: Int = 0,
+    val joinPlatform: String? = null,
+    val joinLink: String? = null,
+    val practicalNote: String? = null,
+    val waitlistEnabled: Boolean = false,
 )
 
 data class PlanUpsert(

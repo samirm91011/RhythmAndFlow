@@ -60,7 +60,9 @@ public record ClassDto(
     string Kind = "CLASS", string Format = "IN_PERSON", decimal Price = 0, string? PosterUrl = null,
     DateTime? SalesOpenAt = null, DateTime? SalesClosesAt = null, int MemberEarlyHours = 0,
     bool CanBuyNow = true, string? BuyBlockedReason = null, bool OnWaitlist = false, bool WaitlistEnabled = false,
-    string? JoinPlatform = null);
+    string? JoinPlatform = null,
+    // Only filled in for administrators, who edit these.
+    string? JoinLink = null, string? PracticalNote = null, int? SalesCloseHours = null);
 /// <summary>
 /// One of my bookings. TotalPaid is cash plus credit. FreeCancellation is true while there are at least 48 hours left.
 /// ChoiceNeeded is set when the studio cancelled or moved the event and the customer must choose what happens next.

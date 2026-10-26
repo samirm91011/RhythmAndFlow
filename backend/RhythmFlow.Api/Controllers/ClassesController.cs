@@ -218,7 +218,8 @@ public class AdminController(AppDbContext db, NotificationService notifications,
         var list = await db.Classes.OrderByDescending(c => c.StartTime).Take(100).ToListAsync();
         var counts = await db.Bookings.Where(b => b.Status == BookingStatus.Booked).GroupBy(b => b.ClassId)
             .Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
-        return list.Select(c => BookingService.ToDto(c, counts.GetValueOrDefault(c.Id), false)).ToList();
+        return list.Select(c => BookingService.ToDto(c, counts.GetValueOrDefault(c.Id), false) with
+            { JoinLink = c.JoinLink, PracticalNote = c.PracticalNote, SalesCloseHours = c.SalesCloseHours }).ToList();
     }
 
     [HttpPost("classes")]

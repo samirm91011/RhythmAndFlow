@@ -32,12 +32,17 @@ public class BookingService(AppDbContext db, Microsoft.Extensions.Options.IOptio
         var waiting = (await db.Bookings.Where(b => b.UserId == userId && ids.Contains(b.ClassId) && b.Status == BookingStatus.Waitlisted)
             .Select(b => b.ClassId).ToListAsync()).ToHashSet();
         var tier = await new EntitlementService(db).GetUserTierAsync(userId);
+        // A spot offered to me from the waiting list is held for me, so it does not count against me.
+        var offered = (await db.Bookings.Where(b => b.UserId == userId && ids.Contains(b.ClassId) && b.Status == BookingStatus.Waitlisted && b.HoldUntil > now)
+            .Select(b => b.ClassId).ToListAsync()).ToHashSet();
         return classes.Select(c =>
         {
             var taken = counts.GetValueOrDefault(c.Id);
-            var dto = ToDto(c, taken, mine.Contains(c.Id));
+            var dto = ToDto(c, offered.Contains(c.Id) ? taken - 1 : taken, mine.Contains(c.Id));
             if (c.Price <= 0) return dto;
-            var blocked = mine.Contains(c.Id) ? null : EventBookingService.BuyBlockedReason(c, tier, now, taken);
+            var blocked = mine.Contains(c.Id) ? null : EventBookingService.BuyBlockedReason(c, tier, now, offered.Contains(c.Id) ? 0 : taken);
+            // On the waiting list without an offer means "wait", not "buy".
+            if (waiting.Contains(c.Id) && !offered.Contains(c.Id)) blocked ??= "You're on the waiting list.";
             return dto with { CanBuyNow = blocked is null, BuyBlockedReason = blocked, OnWaitlist = waiting.Contains(c.Id) };
         }).ToList();
     }

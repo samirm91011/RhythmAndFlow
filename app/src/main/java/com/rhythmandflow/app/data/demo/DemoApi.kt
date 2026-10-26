@@ -45,9 +45,22 @@ class DemoApi : Api {
 
     private val classes = mutableListOf(
         mkClass(1, "Morning Flow", 1, 7, 20, 3), mkClass(2, "Dance with Joy", 2, 12, 20, 12), mkClass(3, "Barre & Stretch", 3, 17, 20, 0),
+        mkClass(7, "Breathwork Workshop", 8, 18, 12, 12).copy(
+            description = "A guided evening of breathing practices for focus, relaxation and an intentional pause.", kind = "WORKSHOP", format = "ONLINE",
+            location = "Online", price = 250.0, waitlistEnabled = true, joinPlatform = "Zoom",
+        ),
         mkClass(4, "Yoga Reset", 4, 8, 15, 15), mkClass(5, "Weekend Wind-Down", 5, 9, 20, 18), mkClass(6, "Mobility for Life", 6, 10, 20, 20),
     )
     private val booked = mutableMapOf<Int, Int>()          // bookingId -> classId
+    private val paidTotal = mutableMapOf<Int, Double>()    // bookingId -> what was paid for a ticket
+    private val waiting = mutableSetOf<Int>()              // class ids I am on the waiting list for
+    private var credit = 0.0
+    private val demoRequests = mutableListOf(
+        AdminEventRequest(901, "RF-E000901", "Thandi Mokoena", "thandi@example.com", "Breathwork Workshop", Instant.now().plus(Duration.ofHours(20)).toString(), 250.0, 125.0, "REFUND", ago(90)),
+    )
+    private val demoRefunds = mutableListOf(
+        AdminRefund(902, "RF-E000902", "Alex Demo", "alex@rhythmandflow.test", "Sunrise Retreat", 1800.0, "PF-1234567"),
+    )
     private val journal = mutableListOf(
         JournalEntry(1, "REFLECTION", "Calmer", "Felt tight this morning, a slow flow helped a lot.", ago(26 * 60)),
         JournalEntry(2, "GRATITUDE", "", "My body for carrying me through the week.", ago(50 * 60)),
@@ -258,13 +271,60 @@ class DemoApi : Api {
     }
 
     // ---- classes & bookings
-    private fun classDto(c: ClassItem): ClassItem = c.copy(bookedByMe = booked.containsValue(c.id))
+    private fun classDto(c: ClassItem): ClassItem = c.copy(bookedByMe = booked.containsValue(c.id), onWaitlist = c.id in waiting,
+        canBuyNow = c.price > 0 && c.spotsLeft > 0 && c.id !in waiting,
+        buyBlockedReason = if (c.price > 0 && c.spotsLeft == 0) "This event is sold out." else null)
     override suspend fun classes(): List<ClassItem> { pause(); return classes.map(::classDto) }
     private fun bookingDto(id: Int, classId: Int): Booking {
         val c = classes.first { it.id == classId }
-        return Booking(id, c.id, c.name, c.coachName, c.location, c.startTime, c.endTime, "BOOKED", true)
+        val paid = paidTotal[id] ?: 0.0
+        val hoursLeft = Duration.between(Instant.now(), Instant.parse(c.startTime)).toHours()
+        return Booking(
+            id, c.id, c.name, c.coachName, c.location, c.startTime, c.endTime, "BOOKED", true,
+            reference = if (paid > 0) "RF-E%06d".format(id) else "", kind = c.kind, format = c.format, totalPaid = paid,
+            joinPlatform = if (c.format == "ONLINE") c.joinPlatform else null, joinLink = if (c.format == "ONLINE" && paid > 0) "https://zoom.us/j/0000000000" else null,
+            freeCancellation = paid > 0 && hoursLeft >= 48,
+        )
     }
     override suspend fun bookings(): List<Booking> { pause(); return booked.map { (id, cid) -> bookingDto(id, cid) } }
+    override suspend fun buyTicket(id: Int, body: TicketRequest): TicketResponse {
+        pause()
+        val c = classes.first { it.id == id }
+        if (booked.containsValue(id)) fail(409, "You already have a ticket for this event.")
+        if (c.spotsLeft == 0) fail(409, "This event is sold out.")
+        val useCredit = if (body.useCredit) minOf(credit, c.price) else 0.0
+        credit -= useCredit
+        classes[classes.indexOf(c)] = c.copy(spotsLeft = c.spotsLeft - 1)
+        val bid = ++nextId; booked[bid] = id; paidTotal[bid] = c.price
+        notifications.add(0, AppNotification(++nextId, "BOOKING", "Booking confirmed", "You're booked for ${c.name}. Reference RF-E%06d.".format(bid), "bookings", ago(0), false))
+        return TicketResponse(bid, "RF-E%06d".format(bid), true, null, c.price - useCredit, useCredit, "You're booked. We've emailed your confirmation.")
+    }
+    override suspend fun ticketQuote(id: Int): TicketQuote {
+        pause()
+        val c = classes.first { it.id == id }
+        val use = minOf(credit, c.price)
+        return TicketQuote(c.price, credit, use, c.price - use, true, null)
+    }
+    override suspend fun joinWaitlist(id: Int): Response<Unit> { pause(); waiting.add(id); return ok() }
+    override suspend fun cancelTicket(id: Int, body: CancelRequestBody): ActionResult {
+        pause()
+        val cid = booked.remove(id) ?: fail(409, "Booking not found.")
+        val c = classes.first { it.id == cid }; classes[classes.indexOf(c)] = c.copy(spotsLeft = c.spotsLeft + 1)
+        val paid = paidTotal.remove(id) ?: 0.0
+        if (body.choice == "CREDIT") credit += paid
+        return ActionResult(if (body.choice == "CREDIT") "Cancelled. ${formatDemoRand(paid)} has been added to your account credit." else "Cancelled. We'll refund ${formatDemoRand(paid)} to your original payment method.", "CANCELLED")
+    }
+    override suspend fun chooseAfterChange(id: Int, body: ChoiceBody): ActionResult { pause(); return ActionResult("Done.", "BOOKED") }
+    override suspend fun credits(): Credits {
+        pause()
+        return Credits(credit, if (credit > 0) listOf(CreditItem(1, credit, credit, ago(10), Instant.now().plus(Duration.ofDays(365)).toString(), "Cancelled at least 48 hours before the event")) else emptyList())
+    }
+    private fun formatDemoRand(v: Double) = if (v % 1.0 == 0.0) "R${v.toInt()}" else "R${"%.2f".format(java.util.Locale.US, v)}"
+    override suspend fun adminEventRequests(): List<AdminEventRequest> { pause(); return demoRequests.toList() }
+    override suspend fun adminResolveRequest(id: Int, body: ResolveRequestBody): Response<Unit> { pause(); demoRequests.removeAll { it.bookingId == id }; return ok() }
+    override suspend fun adminRefunds(): List<AdminRefund> { pause(); return demoRefunds.toList() }
+    override suspend fun adminMarkRefunded(id: Int): Response<Unit> { pause(); demoRefunds.removeAll { it.bookingId == id }; return ok() }
+    override suspend fun adminSendLinks(id: Int): Response<Unit> { pause(); return ok() }
     override suspend fun book(id: Int): Booking {
         pause()
         val c = classes.first { it.id == id }
@@ -355,7 +415,10 @@ class DemoApi : Api {
         if (Instant.parse(body.endTime) <= Instant.parse(body.startTime)) fail(400, "End time must be after start time.")
         if (body.capacity < taken) fail(400, "$taken people are already booked, so the capacity can't be lower than $taken.")
         classes[i] = c.copy(name = body.name, description = body.description.orEmpty(), coachName = body.coachName, location = body.location,
-            startTime = body.startTime, endTime = body.endTime, capacity = body.capacity, spotsLeft = body.capacity - taken)
+            startTime = body.startTime, endTime = body.endTime, capacity = body.capacity, spotsLeft = body.capacity - taken,
+            kind = body.kind ?: "CLASS", format = body.format ?: "IN_PERSON", price = body.price, posterUrl = body.posterUrl,
+            salesOpenAt = body.salesOpenAt, memberEarlyHours = body.memberEarlyHours, waitlistEnabled = body.waitlistEnabled,
+            joinPlatform = body.joinPlatform, joinLink = body.joinLink, practicalNote = body.practicalNote, salesCloseHours = body.salesCloseHours)
         return ok()
     }
     override suspend fun adminCreateClass(body: ClassUpsert): Int { pause(); return ++nextId }

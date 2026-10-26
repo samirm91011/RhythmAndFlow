@@ -100,6 +100,12 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     suspend fun subscriptions() = call { api.subscriptions() }
     suspend fun checkout(planId: Int, billing: String? = null) = call { api.checkout(CheckoutRequest(planId, billing)) }
     suspend fun changePreview(subId: Int, planId: Int, billing: String?) = call { api.changePreview(subId, planId, billing) }
+    suspend fun buyTicket(classId: Int, useCredit: Boolean = true) = call { api.buyTicket(classId, TicketRequest(useCredit)) }
+    suspend fun ticketQuote(classId: Int) = call { api.ticketQuote(classId) }
+    suspend fun joinWaitlist(classId: Int) = callUnit { api.joinWaitlist(classId) }
+    suspend fun cancelTicket(id: Int, choice: String?, note: String?) = call { api.cancelTicket(id, CancelRequestBody(choice, note)) }
+    suspend fun chooseAfterChange(id: Int, choice: String) = call { api.chooseAfterChange(id, ChoiceBody(choice)) }
+    suspend fun credits() = call { api.credits() }
     suspend fun changePlan(subId: Int, planId: Int, billing: String?) = call { api.changePlan(subId, CheckoutRequest(planId, billing)) }
     suspend fun policies() = call { api.policies() }
     suspend fun cancelSubscription(id: Int) = call { api.cancelSubscription(id) }
@@ -143,6 +149,11 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     suspend fun adminSubscriptions() = call { api.adminSubscriptions() }
     suspend fun adminAttendees(classId: Int) = call { api.adminAttendees(classId) }
     suspend fun adminCreateClass(c: ClassUpsert) = call { api.adminCreateClass(c) }
+    suspend fun adminEventRequests() = call { api.adminEventRequests() }
+    suspend fun adminResolveRequest(id: Int, approve: Boolean, amount: Double?) = callUnit { api.adminResolveRequest(id, ResolveRequestBody(approve, amount)) }
+    suspend fun adminRefunds() = call { api.adminRefunds() }
+    suspend fun adminMarkRefunded(id: Int) = callUnit { api.adminMarkRefunded(id) }
+    suspend fun adminSendLinks(id: Int) = callUnit { api.adminSendLinks(id) }
     suspend fun adminCancelClass(id: Int) = callUnit { api.adminCancelClass(id) }
     suspend fun adminCreateLesson(l: LessonUpsert) = call { api.adminCreateLesson(l) }
     suspend fun adminLessons() = call { api.adminLessons() }

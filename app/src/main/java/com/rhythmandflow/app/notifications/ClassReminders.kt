@@ -49,7 +49,8 @@ object ReminderScheduler {
         val now = Instant.now()
         val keep = mutableSetOf<String>()
         for (b in bookings) {
-            if (b.status != "BOOKED") continue
+            // Paid events get their 24-hour and 1-hour reminders from the server (with the joining link), so skip them here.
+            if (b.status != "BOOKED" || b.totalPaid > 0) continue
             val start = runCatching { Instant.parse(b.startTime) }.getOrNull() ?: continue
             val wait = Duration.between(now, start.minus(Duration.ofMinutes(LEAD_MINUTES)))
             if (wait.isNegative) continue   // less than an hour away: too late for a "1 hour before" reminder
