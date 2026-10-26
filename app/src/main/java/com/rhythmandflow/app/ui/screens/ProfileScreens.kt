@@ -43,7 +43,7 @@ import com.rhythmandflow.app.ui.viewmodel.container
 import kotlinx.coroutines.launch
 
 private val intentions = listOf("Move more", "Reduce stress", "Improve sleep", "Build confidence", "Create balance", "Nourish my body", "Connect with myself", "Make time for myself")
-private val practices = listOf("Yoga", "Dance", "Barre", "Meditation", "Breathwork", "Stretch", "Walking", "Strength")
+private val practices = categoryNames
 
 @Composable
 fun YouScreen(session: SessionViewModel, onNavigate: (String) -> Unit, onLesson: (Int) -> Unit) {

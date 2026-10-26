@@ -136,11 +136,11 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
             }
             RfTextField(title, { title = it }, "Title")
             RfTextField(description, { description = it }, "Description", singleLine = false, minLines = 2)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Yoga", "Barre", "Dance", "Stretch", "Meditation").chunked(3).first().forEach { c -> SelectChip(c, category == c, { category = c }) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Stretch", "Meditation").forEach { c -> SelectChip(c, category == c, { category = c }) }
+            Text("Category", style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
+            categoryNames.chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pair.forEach { c -> SelectChip(c, category == c, { category = c }) }
+                }
             }
             RfTextField(seconds, { seconds = it.filter(Char::isDigit) }, "Length in seconds", keyboardType = KeyboardType.Number)
             RfTextField(url, { url = it }, "Video address (https://…)", keyboardType = KeyboardType.Uri)

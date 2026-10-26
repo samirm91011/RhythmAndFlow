@@ -29,7 +29,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Accessibility
+import androidx.compose.material.icons.filled.Air
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.SportsGymnastics
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Lock
@@ -98,21 +101,30 @@ import com.rhythmandflow.app.ui.viewmodel.container
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val categories = listOf("All", "Yoga", "Barre", "Dance", "Stretch", "Meditation")
+/** The approved categories, in the order members see them. The names must match what is saved on each lesson. */
+val categoryNames = listOf("Yoga", "Barre & Pilates", "Dance", "Stretch & Mobility", "Strength & Conditioning", "Meditation", "Breathwork")
 
+private val categories = listOf("All") + categoryNames
+
+// The first names are the old ones, so lessons saved before the rename still show the right icon until they are updated.
 fun categoryIcon(category: String): ImageVector = when (category) {
     "Yoga" -> Icons.Default.SelfImprovement
+    "Barre & Pilates", "Barre" -> Icons.Default.SportsGymnastics
     "Dance" -> Icons.Default.MusicNote
-    "Barre" -> Icons.Default.DirectionsRun
+    "Stretch & Mobility", "Stretch" -> Icons.Default.Accessibility
+    "Strength & Conditioning" -> Icons.Default.FitnessCenter
     "Meditation" -> Icons.Default.Spa
+    "Breathwork" -> Icons.Default.Air
     else -> Icons.Default.SelfImprovement
 }
 
 private fun categoryColors(category: String): List<Color> = when (category) {
     "Dance" -> listOf(Brand.Tangerine, Color(0xFFEE8E6E))
-    "Barre" -> listOf(Color(0xFF2B3A37), Brand.Teal)
-    "Stretch" -> listOf(Brand.Teal, Color(0xFF7DB8AD))
+    "Barre & Pilates", "Barre" -> listOf(Color(0xFF2B3A37), Brand.Teal)
+    "Stretch & Mobility", "Stretch" -> listOf(Brand.Teal, Color(0xFF7DB8AD))
+    "Strength & Conditioning" -> listOf(Color(0xFF8A3B2E), Color(0xFFC5604A))
     "Meditation" -> listOf(Color(0xFF3D4F6B), Color(0xFF7C94B8))
+    "Breathwork" -> listOf(Color(0xFF3F7F99), Color(0xFF9AD0DE))
     else -> listOf(Brand.TealDeep, Brand.Teal)
 }
 

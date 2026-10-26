@@ -10,6 +10,16 @@ namespace RhythmFlow.Api.Data;
 /// </summary>
 public static class SchemaUpgrades
 {
+    /// <summary>
+    /// The client approved new category names (the app's Move filter and every lesson use them). Lessons saved under the old names
+    /// are renamed here. Safe to repeat: once renamed, nothing matches the old names any more.
+    /// </summary>
+    private static readonly string[] CategoryRenames =
+    [
+        """UPDATE "Lessons" SET "Category" = 'Barre & Pilates' WHERE "Category" = 'Barre'""",
+        """UPDATE "Lessons" SET "Category" = 'Stretch & Mobility' WHERE "Category" = 'Stretch'""",
+    ];
+
     public static async Task ApplyAsync(AppDbContext db)
     {
         string[] statements;
@@ -29,6 +39,7 @@ public static class SchemaUpgrades
                 """,
                 """CREATE UNIQUE INDEX IF NOT EXISTS "IX_DeviceTokens_Token" ON "DeviceTokens" ("Token")""",
                 """CREATE INDEX IF NOT EXISTS "IX_DeviceTokens_UserId" ON "DeviceTokens" ("UserId")""",
+                .. CategoryRenames,
             ];
         }
         else if (db.Database.IsSqlite())
@@ -47,6 +58,7 @@ public static class SchemaUpgrades
                 """,
                 """CREATE UNIQUE INDEX IF NOT EXISTS "IX_DeviceTokens_Token" ON "DeviceTokens" ("Token")""",
                 """CREATE INDEX IF NOT EXISTS "IX_DeviceTokens_UserId" ON "DeviceTokens" ("UserId")""",
+                .. CategoryRenames,
             ];
         }
         else return;

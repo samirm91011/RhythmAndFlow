@@ -22,21 +22,22 @@ class DemoApi : Api {
     private var nextId = 100
 
     private val plans = mutableListOf(
-        Plan(1, "Flow", "Start moving with the essentials.", 99.0, "MONTHLY", 1, listOf("Move & Release programme", "Dance with Joy programme", "Progress tracking", "Class booking")),
-        Plan(2, "Rhythm", "Everything in Flow plus deeper practices.", 199.0, "MONTHLY", 2, listOf("Everything in Flow", "Mindful Mobility programme", "Meditation library", "Priority class booking")),
-        Plan(3, "Rhythm & Flow Unlimited", "The full Rhythm & Flow experience.", 299.0, "MONTHLY", 3, listOf("Everything in Rhythm", "Full Body Flow masterclasses", "New content first", "Mentorship Q&A access")),
+        Plan(1, "Move & Breathe", "Your space to move, pause and reconnect with yourself, at your own pace.", 149.0, "MONTHLY", 1, listOf("Full on-demand video library", "Yoga, barre, dance, mobility and stretching", "Meditation, breathwork and strength classes", "Beginner, intermediate and advanced options")),
+        Plan(2, "Move, Breathe & Grow", "Build a more intentional practice through movement, mindful breathing and guided programmes.", 249.0, "MONTHLY", 2, listOf("Everything in Move & Breathe", "Access to all structured programmes", "Guided journeys combining movement, mobility, relaxation and wellbeing", "A more structured way to build consistency")),
     )
 
     private data class L(val id: Int, val prog: Int, val progName: String, val minTier: Int, val title: String, val desc: String, val cat: String, val secs: Int, val preview: Boolean)
     private val lessonsData = mutableListOf(
         L(1, 1, "Move & Release", 1, "Full Body Flow", "A gentle flow to move, breathe and reconnect with your body.", "Yoga", 600, true),
-        L(2, 1, "Move & Release", 1, "Move & Release", "Release tension and feel lighter.", "Stretch", 900, false),
+        L(2, 1, "Move & Release", 1, "Move & Release", "Release tension and feel lighter.", "Stretch & Mobility", 900, false),
         L(3, 2, "Dance with Joy", 1, "Dance with Joy", "Feel-good movement for your mood.", "Dance", 1500, true),
-        L(4, 2, "Dance with Joy", 1, "Barre Basics", "Build strength and grace at the barre.", "Barre", 1200, false),
-        L(5, 3, "Mindful Mobility", 2, "Gentle Mobility", "Ease into stretching and mobility work.", "Stretch", 900, false),
-        L(6, 3, "Mindful Mobility", 2, "6-Minute Reset", "A short guided meditation to breathe and reset.", "Meditation", 360, false),
-        L(7, 4, "Full Body Flow Masterclass", 3, "Sunrise Flow", "A longer morning flow to start your day.", "Yoga", 2100, false),
-        L(8, 4, "Full Body Flow Masterclass", 3, "Dance Cardio Burn", "High energy dance for a full body workout.", "Dance", 1800, false),
+        L(4, 2, "Dance with Joy", 1, "Barre Basics", "Build strength and grace at the barre.", "Barre & Pilates", 1200, false),
+        L(5, 3, "Mindful Mobility", 1, "Gentle Mobility", "Ease into stretching and mobility work.", "Stretch & Mobility", 900, false),
+        L(6, 3, "Mindful Mobility", 1, "6-Minute Reset", "A short guided meditation to breathe and reset.", "Meditation", 360, false),
+        L(7, 4, "7-Day Flow Plan", 2, "Day 1: Sunrise Flow", "A longer morning flow to start your day.", "Yoga", 2100, false),
+        L(8, 4, "7-Day Flow Plan", 2, "Day 2: Dance Cardio Burn", "High energy dance for a full body workout.", "Dance", 1800, false),
+        L(9, 3, "Mindful Mobility", 1, "Strength Basics", "Build strength and stability with simple at-home moves.", "Strength & Conditioning", 1200, false),
+        L(10, 3, "Mindful Mobility", 1, "Box Breathing", "A short breathing practice for focus and calm.", "Breathwork", 300, false),
     )
     private val watched = mutableMapOf(1 to 240)   // Alex is part-way through the first lesson, so Home shows "continue"
 
@@ -168,8 +169,8 @@ class DemoApi : Api {
     private val demoProgrammes = mutableListOf(
         AdminProgramme(1, "Move & Release", "Gentle practices to release tension and feel lighter.", 1, true, 2),
         AdminProgramme(2, "Dance with Joy", "Feel-good dance movement for every level.", 1, true, 2),
-        AdminProgramme(3, "Mindful Mobility", "Stretch, restore and move well for life.", 2, true, 2),
-        AdminProgramme(4, "Full Body Flow Masterclass", "Longer, deeper flows with Deni.", 3, true, 2),
+        AdminProgramme(3, "Mindful Mobility", "Stretch, restore and move well for life.", 1, true, 4),
+        AdminProgramme(4, "7-Day Flow Plan", "A guided journey combining movement, breathing and rest.", 2, true, 2),
     )
     override suspend fun programmes(): List<Programme> {
         pause()

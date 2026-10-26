@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using RhythmFlow.Api.Domain;
 
@@ -18,48 +18,48 @@ public static class SeedData
 
         if (!await db.Plans.AnyAsync())
         {
+            // The client's two memberships. Prices are launch prices and can be changed in Admin tools.
             db.Plans.AddRange(
                 new SubscriptionPlan
                 {
-                    Name = "Flow", Price = 99, Tier = 1, Description = "Start moving with the essentials.",
-                    Features = "Move & Release programme|Dance with Joy programme|Progress tracking|Class booking",
+                    Name = "Move & Breathe", Price = 149, Tier = 1,
+                    Description = "Your space to move, pause and reconnect with yourself, at your own pace.",
+                    Features = "Full on-demand video library|Yoga, barre, dance, mobility and stretching|Meditation, breathwork and strength classes|Beginner, intermediate and advanced options",
                 },
                 new SubscriptionPlan
                 {
-                    Name = "Rhythm", Price = 199, Tier = 2, Description = "Everything in Flow plus deeper practices.",
-                    Features = "Everything in Flow|Mindful Mobility programme|Meditation library|Priority class booking",
-                },
-                new SubscriptionPlan
-                {
-                    Name = "Rhythm & Flow Unlimited", Price = 299, Tier = 3, Description = "The full Rhythm & Flow experience.",
-                    Features = "Everything in Rhythm|Full Body Flow masterclasses|New content first|Mentorship Q&A access",
+                    Name = "Move, Breathe & Grow", Price = 249, Tier = 2,
+                    Description = "Build a more intentional practice through movement, mindful breathing and guided programmes that nurture your wellbeing.",
+                    Features = "Everything in Move & Breathe|Access to all structured programmes|Guided journeys combining movement, mobility, relaxation and wellbeing|A more structured way to establish consistency and explore new practices",
                 });
         }
-
         if (!await db.Programmes.AnyAsync())
         {
             var move = new FitnessProgramme { Name = "Move & Release", Description = "Gentle practices to release tension and feel lighter.", MinTier = 1 };
             var dance = new FitnessProgramme { Name = "Dance with Joy", Description = "Feel-good dance movement for every level.", MinTier = 1 };
-            var mobility = new FitnessProgramme { Name = "Mindful Mobility", Description = "Stretch, restore and move well for life.", MinTier = 2 };
-            var masters = new FitnessProgramme { Name = "Full Body Flow Masterclass", Description = "Longer, deeper flows with Deni.", MinTier = 3 };
+            var mobility = new FitnessProgramme { Name = "Mindful Mobility", Description = "Stretch, restore and move well for life.", MinTier = 1 };
+            // A structured programme: only the second membership opens it.
+            var masters = new FitnessProgramme { Name = "7-Day Flow Plan", Description = "A structured week of movement, breathing and rest.", MinTier = 2 };
             db.Programmes.AddRange(move, dance, mobility, masters);
 
             // Public sample clips stand in for the client's real videos. Replace via the admin screens.
             move.Lessons.AddRange([
                 L(1, "Full Body Flow", "A gentle flow to move, breathe and reconnect with your body.", "Yoga", 15, ClipA, preview: true),
-                L(2, "Move & Release", "Release tension and feel lighter.", "Stretch", 15, ClipB),
+                L(2, "Move & Release", "Release tension and feel lighter.", "Stretch & Mobility", 15, ClipB),
             ]);
             dance.Lessons.AddRange([
                 L(1, "Dance with Joy", "Feel good movement for your mood.", "Dance", 60, ClipC, preview: true),
-                L(2, "Barre Basics", "Build strength and grace at the barre.", "Barre", 15, ClipA),
+                L(2, "Barre Basics", "Build strength and grace at the barre.", "Barre & Pilates", 15, ClipA),
             ]);
             mobility.Lessons.AddRange([
-                L(1, "Gentle Mobility", "Ease into stretching and mobility work.", "Stretch", 15, ClipB),
+                L(1, "Gentle Mobility", "Ease into stretching and mobility work.", "Stretch & Mobility", 15, ClipB),
                 L(2, "6-Minute Reset", "A short guided meditation to breathe and reset.", "Meditation", 15, ClipA),
+                L(3, "Strength Basics", "Build strength and stability with simple at-home moves.", "Strength & Conditioning", 15, ClipC),
+                L(4, "Box Breathing", "A short breathing practice for focus and calm.", "Breathwork", 15, ClipB),
             ]);
             masters.Lessons.AddRange([
-                L(1, "Sunrise Flow", "A longer morning flow to start your day.", "Yoga", 15, ClipB),
-                L(2, "Dance Cardio Burn", "High energy dance for a full body workout.", "Dance", 60, ClipC),
+                L(1, "Day 1: Sunrise Flow", "A longer morning flow to start your day.", "Yoga", 15, ClipB),
+                L(2, "Day 2: Dance Cardio Burn", "High energy dance for a full body workout.", "Dance", 60, ClipC),
             ]);
         }
 

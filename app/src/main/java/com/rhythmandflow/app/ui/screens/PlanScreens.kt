@@ -48,7 +48,8 @@ fun PlansScreen(session: SessionViewModel, onBack: () -> Unit, onPayment: (Int) 
                 }
                 state.plans.forEachIndexed { i, plan ->
                     PlanCard(
-                        plan = plan, popular = plan.tier == 2, isCurrent = current?.planId == plan.id,
+                        plan = plan, popular = false,   // no plan is labelled "most popular" until the client says so
+                        isCurrent = current?.planId == plan.id,
                         busy = busyPlan == plan.id,
                         onSubscribe = {
                             busyPlan = plan.id
