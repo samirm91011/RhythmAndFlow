@@ -63,7 +63,14 @@ id "$DEPLOY_USER" >/dev/null 2>&1 || adduser --disabled-password --gecos "" "$DE
 usermod -aG docker "$DEPLOY_USER"
 mkdir -p "/home/$DEPLOY_USER/.ssh" "$APP_DIR/backups"
 if [ -s /root/.ssh/authorized_keys ]; then
-  cp /root/.ssh/authorized_keys "/home/$DEPLOY_USER/.ssh/authorized_keys"
+  # Add root's keys WITHOUT removing keys already there (such as the GitHub deploy key),
+  # so running this script again never locks the pipeline out.
+  touch "/home/$DEPLOY_USER/.ssh/authorized_keys"
+  while IFS= read -r key; do
+    if [ -n "$key" ] && ! grep -qxF "$key" "/home/$DEPLOY_USER/.ssh/authorized_keys"; then
+      echo "$key" >> "/home/$DEPLOY_USER/.ssh/authorized_keys"
+    fi
+  done < /root/.ssh/authorized_keys
 fi
 chown -R "$DEPLOY_USER:$DEPLOY_USER" "/home/$DEPLOY_USER/.ssh" "$APP_DIR"
 chmod 700 "/home/$DEPLOY_USER/.ssh"
