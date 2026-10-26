@@ -9,6 +9,9 @@ public class SubscriptionService(
     AppDbContext db, PayFastService payFast, IPayFastApi payFastApi, NotificationService notifications, ILogger<SubscriptionService> log)
 {
     /// <summary>How many days before a charge or an end date the customer is reminded. A year is a bigger surprise than a month.</summary>
+    /// <summary>Dates in messages are shown in South African time (UTC+2, no daylight saving), the same as the app, so a plan that ends just after midnight there does not read a day early.</summary>
+    public static string Day(DateTime? utc) => utc is null ? "" : utc.Value.AddHours(2).ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
+
     public const int AnnualReminderDays = 14;
     public const int MonthlyReminderDays = 3;
     public const int TrialReminderDays = 2;
@@ -107,11 +110,11 @@ public class SubscriptionService(
         if (!ok) return (false, null, error);
 
         await notifications.AddAsync(userId, "SUBSCRIPTION", "Subscription cancelled",
-            $"Your {sub.Plan!.Name} plan won't renew. You keep access until {sub.EndDate:d MMM yyyy}.", "subscription");
+            $"Your {sub.Plan!.Name} plan won't renew. You keep access until {Day(sub.EndDate)}.", "subscription");
 
         var text = cancelledWithPayFast
-            ? $"Your subscription is cancelled and PayFast won't charge you again. You keep access until {sub.EndDate:d MMM yyyy}."
-            : $"Your subscription is cancelled. You keep access until {sub.EndDate:d MMM yyyy}.";
+            ? $"Your subscription is cancelled and PayFast won't charge you again. You keep access until {Day(sub.EndDate)}."
+            : $"Your subscription is cancelled. You keep access until {Day(sub.EndDate)}.";
         return (true, new CancelResultDto(text, cancelledWithPayFast), null);
     }
 
@@ -149,11 +152,11 @@ public class SubscriptionService(
 
         string impact;
         if (newPlan!.Tier > sub.Plan!.Tier)
-            impact = $"You keep {sub.Plan.Name} until {effective:d MMM yyyy}. From then you move up to {newPlan.Name} and get everything it includes, including its extra programmes.";
+            impact = $"You keep {sub.Plan.Name} until {Day(effective)}. From then you move up to {newPlan.Name} and get everything it includes, including its extra programmes.";
         else if (newPlan.Tier < sub.Plan.Tier)
-            impact = $"You keep {sub.Plan.Name} until {effective:d MMM yyyy}. From then you move to {newPlan.Name}, so programmes that need the higher plan will be locked.";
+            impact = $"You keep {sub.Plan.Name} until {Day(effective)}. From then you move to {newPlan.Name}, so programmes that need the higher plan will be locked.";
         else
-            impact = $"You keep {sub.Plan.Name} until {effective:d MMM yyyy}. From then you are billed {(billing == PlanPricing.Annual ? "yearly" : "monthly")} for {newPlan.Name}. Your access stays the same.";
+            impact = $"You keep {sub.Plan.Name} until {Day(effective)}. From then you are billed {(billing == PlanPricing.Annual ? "yearly" : "monthly")} for {newPlan.Name}. Your access stays the same.";
 
         return (new PlanChangePreviewDto(sub.Plan.Name, curPrice, curBilling, newPlan.Name, newPrice, billing,
             Math.Round(diff, 2), effective, impact), null);
@@ -172,7 +175,7 @@ public class SubscriptionService(
         var pending = await NewPendingAsync(userId, newPlan!, billing, plannedStart: sub!.EndDate);
         await db.SaveChangesAsync();
         await notifications.AddAsync(userId, "SUBSCRIPTION", "Plan change started",
-            $"Finish setting up {newPlan!.Name} on the PayFast page. It starts on {sub.EndDate:d MMM yyyy}; until then you keep {sub.Plan!.Name}.", "subscription");
+            $"Finish setting up {newPlan!.Name} on the PayFast page. It starts on {Day(sub.EndDate)}; until then you keep {sub.Plan!.Name}.", "subscription");
         return (new CheckoutResponse(pending.Id, payFast.BuildPaymentUrl(user, newPlan, pending)), null);
     }
 
@@ -228,8 +231,8 @@ public class SubscriptionService(
                     await db.SaveChangesAsync();
                     await notifications.AddAsync(sub.UserId, "SUBSCRIPTION", sub.TrialDays > 0 ? "Your free trial has started" : "Your new plan is set up",
                         sub.TrialDays > 0
-                            ? $"Enjoy {sub.Plan.Name} free until {sub.EndDate:d MMM yyyy}. After that {Rand(recurring)} is charged each {PlanPricing.PeriodWord(billing)} unless you cancel."
-                            : $"{sub.Plan.Name} starts on {sub.StartDate:d MMM yyyy} and then renews each {PlanPricing.PeriodWord(billing)}.", "subscription");
+                            ? $"Enjoy {sub.Plan.Name} free until {Day(sub.EndDate)}. After that {Rand(recurring)} is charged each {PlanPricing.PeriodWord(billing)} unless you cancel."
+                            : $"{sub.Plan.Name} starts on {Day(sub.StartDate)} and then renews each {PlanPricing.PeriodWord(billing)}.", "subscription");
                     return true;
                 }
                 var expected = firstPayment ? sub.InitialAmount ?? recurring : recurring;
@@ -267,7 +270,7 @@ public class SubscriptionService(
                 await notifications.AddAsync(sub.UserId, "PAYMENT",
                     firstPayment ? "You're subscribed!" : "Payment received",
                     firstPayment ? $"Your {sub.Plan.Name} plan is active. Enjoy your practice."
-                                 : $"Thanks! Your {sub.Plan.Name} plan renews until {sub.EndDate:d MMM yyyy}.", "subscription");
+                                 : $"Thanks! Your {sub.Plan.Name} plan renews until {Day(sub.EndDate)}.", "subscription");
                 return true;
             case "FAILED":
                 db.Payments.Add(new Payment { SubscriptionId = sub.Id, Amount = amountGross, Status = "FAILED", TransactionReference = pfPaymentId });
@@ -283,7 +286,7 @@ public class SubscriptionService(
                 {
                     sub.Status = SubscriptionStatus.Cancelled;
                     await notifications.AddAsync(sub.UserId, "SUBSCRIPTION", "Subscription cancelled",
-                        $"Your plan won't renew. You keep access until {sub.EndDate:d MMM yyyy}.", "subscription");
+                        $"Your plan won't renew. You keep access until {Day(sub.EndDate)}.", "subscription");
                 }
                 await db.SaveChangesAsync();
                 return true;
@@ -365,17 +368,17 @@ public class SubscriptionService(
                     (o.Status == SubscriptionStatus.Pending || o.Status == SubscriptionStatus.Active));
                 if (replaced) { s.ReminderForEnd = s.EndDate; sent++; continue; }
                 title = "Your access ends soon";
-                body = $"Your {s.Plan!.Name} access ends on {s.EndDate:d MMM yyyy}. Choose a plan to keep going.";
+                body = $"Your {s.Plan!.Name} access ends on {Day(s.EndDate)}. Choose a plan to keep going.";
             }
             else if (s.AwaitingFirstCharge && s.TrialDays > 0)
             {
                 title = "Your free trial ends soon";
-                body = $"Your free trial ends on {s.EndDate:d MMM yyyy}, then R{Rand(price)} is charged. Cancel in My subscription before then if you don't want to continue.";
+                body = $"Your free trial ends on {Day(s.EndDate)}, then R{Rand(price)} is charged. Cancel in My subscription before then if you don't want to continue.";
             }
             else
             {
                 title = billing == PlanPricing.Annual ? "Your yearly plan renews soon" : "Your plan renews soon";
-                body = $"Your {s.Plan!.Name} plan renews on {s.EndDate:d MMM yyyy} for R{Rand(price)}. Cancel in My subscription before then if you don't want it to continue.";
+                body = $"Your {s.Plan!.Name} plan renews on {Day(s.EndDate)} for R{Rand(price)}. Cancel in My subscription before then if you don't want it to continue.";
             }
             await notifications.AddAsync(s.UserId, "SUBSCRIPTION", title, body, "subscription");
             s.ReminderForEnd = s.EndDate;
