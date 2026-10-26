@@ -21,6 +21,23 @@ public static class BookingStatus
     public const string Booked = "BOOKED";
     public const string Cancelled = "CANCELLED";
     public const string Completed = "COMPLETED";
+    /// <summary>A ticket is held for a short time while the customer pays on PayFast.</summary>
+    public const string PendingPayment = "PENDING_PAYMENT";
+    /// <summary>On the waiting list for a sold-out event. A spot that opens is held for the first person for a while (HoldUntil).</summary>
+    public const string Waitlisted = "WAITLISTED";
+    /// <summary>The studio cancelled the event; the customer is choosing a refund or account credit.</summary>
+    public const string EventCancelled = "EVENT_CANCELLED";
+}
+
+public static class EventKinds
+{
+    public const string Class = "CLASS";
+    public const string Workshop = "WORKSHOP";
+    public const string Retreat = "RETREAT";
+    public const string Coaching = "COACHING";
+    public static readonly string[] All = [Class, Workshop, Retreat, Coaching];
+    public const string Online = "ONLINE";
+    public const string InPerson = "IN_PERSON";
 }
 
 public class User
@@ -149,6 +166,25 @@ public class ClassSession
     public DateTime EndTime { get; set; }
     public int Capacity { get; set; } = 20;
     public string Status { get; set; } = "SCHEDULED";
+    /// <summary>CLASS, WORKSHOP, RETREAT or COACHING. Decides the practical note in the booking confirmation.</summary>
+    public string Kind { get; set; } = EventKinds.Class;
+    /// <summary>IN_PERSON (Location is the venue) or ONLINE.</summary>
+    public string Format { get; set; } = EventKinds.InPerson;
+    /// <summary>Ticket price in rand, VAT included. 0 means a free booking, as before.</summary>
+    public decimal Price { get; set; }
+    public string? PosterUrl { get; set; }
+    /// <summary>Ticket sales close this many hours before the start.</summary>
+    public int SalesCloseHours { get; set; } = 24;
+    /// <summary>When ticket sales open to everyone. Null means they are already open.</summary>
+    public DateTime? SalesOpenAt { get; set; }
+    /// <summary>Members of the second plan can buy this many hours before SalesOpenAt.</summary>
+    public int MemberEarlyHours { get; set; }
+    /// <summary>Zoom or Google Meet, for an online event.</summary>
+    public string? JoinPlatform { get; set; }
+    public string? JoinLink { get; set; }
+    /// <summary>Replaces the standard "what to bring" paragraph in the confirmation when set.</summary>
+    public string? PracticalNote { get; set; }
+    public bool WaitlistEnabled { get; set; }
 }
 
 public class Booking
@@ -159,6 +195,43 @@ public class Booking
     public ClassSession? Class { get; set; }
     public DateTime BookingDate { get; set; } = DateTime.UtcNow;
     public string Status { get; set; } = BookingStatus.Booked;
+    /// <summary>The part of the ticket price that goes through PayFast (price minus any account credit).</summary>
+    public decimal AmountDue { get; set; }
+    /// <summary>The part of the price paid with account credit.</summary>
+    public decimal CreditApplied { get; set; }
+    /// <summary>Which credits were used, as "id:amount;id:amount", so they can be given back if the payment is abandoned.</summary>
+    public string? CreditUses { get; set; }
+    /// <summary>Cash actually received through PayFast.</summary>
+    public decimal AmountPaid { get; set; }
+    public string? PayFastPaymentId { get; set; }
+    /// <summary>A pending ticket, or an offered waiting-list spot, is held until this moment.</summary>
+    public DateTime? HoldUntil { get; set; }
+    /// <summary>EVENT_CANCELLED or EVENT_RESCHEDULED: the customer has to choose what happens next.</summary>
+    public string? ChoiceNeeded { get; set; }
+    /// <summary>REQUESTED (waiting for an administrator to refund it on PayFast) or REFUNDED.</summary>
+    public string? RefundStatus { get; set; }
+    public decimal RefundAmount { get; set; }
+    /// <summary>A cancellation asked for less than 48 hours before the event: PENDING, APPROVED or DECLINED.</summary>
+    public string? RequestStatus { get; set; }
+    /// <summary>REFUND or CREDIT: what the customer asked for.</summary>
+    public string? RequestChoice { get; set; }
+    public DateTime? RequestedAt { get; set; }
+    public DateTime? LinkSentAt { get; set; }
+    public bool DayReminderSent { get; set; }
+    public bool HourReminderSent { get; set; }
+}
+
+/// <summary>Money the studio owes a customer as credit towards a future event. Valid for 12 months from the day it is issued.</summary>
+public class AccountCredit
+{
+    public int Id { get; set; }
+    public Guid UserId { get; set; }
+    public decimal Amount { get; set; }
+    public decimal Remaining { get; set; }
+    public DateTime IssuedAt { get; set; } = DateTime.UtcNow;
+    public DateTime ExpiresAt { get; set; }
+    public string Reason { get; set; } = "";
+    public int? BookingId { get; set; }
 }
 
 public class JournalEntry

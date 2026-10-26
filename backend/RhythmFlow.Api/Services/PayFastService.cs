@@ -73,6 +73,43 @@ public class PayFastService(Microsoft.Extensions.Options.IOptions<PayFastOptions
         return $"{ProcessHost}/eng/process?{query}&signature={sig}";
     }
 
+    /// <summary>Once-off payment link for an event ticket. The m_payment_id starts with "E" so the notification can be told apart from a subscription's.</summary>
+    public string BuildEventPaymentUrl(User user, ClassSession cls, Booking booking)
+    {
+        var first = user.FullName.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        var amount = booking.AmountDue.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+        var fields = new List<KeyValuePair<string, string>>
+        {
+            new("merchant_id", _o.MerchantId),
+            new("merchant_key", _o.MerchantKey),
+            new("return_url", _o.PublicBaseUrl.TrimEnd('/') + _o.ReturnPath),
+            new("cancel_url", _o.PublicBaseUrl.TrimEnd('/') + _o.CancelPath),
+            new("notify_url", _o.PublicBaseUrl.TrimEnd('/') + "/api/payfast/itn"),
+            new("name_first", first.ElementAtOrDefault(0) ?? ""),
+            new("name_last", first.ElementAtOrDefault(1) ?? ""),
+            new("email_address", user.Email),
+            new("m_payment_id", EventPaymentId(booking.Id)),
+            new("amount", amount),
+            new("item_name", Truncate($"Rhythm & Flow - {cls.Name}", 100)),
+            new("item_description", Truncate($"Ticket for {cls.Name}", 255)),
+        };
+        var query = ToQueryString(fields.Where(f => !string.IsNullOrEmpty(f.Value)));
+        if (_o.Sandbox && string.IsNullOrEmpty(_o.Passphrase))
+            return $"{ProcessHost}/eng/process?{query}";
+        return $"{ProcessHost}/eng/process?{query}&signature={Md5(AppendPassphrase(query))}";
+    }
+
+    public static string EventPaymentId(int bookingId) => "E" + bookingId;
+
+    /// <summary>Reads the booking number from an event payment's m_payment_id ("E123"), or returns false for a subscription's.</summary>
+    public static bool TryParseEventPaymentId(string value, out int bookingId)
+    {
+        bookingId = 0;
+        return value.Length > 1 && value[0] == 'E' && int.TryParse(value.AsSpan(1), out bookingId);
+    }
+
+    private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
+
     /// <summary>Verifies the signature of an ITN: all posted fields except "signature", in posted order.</summary>
     public bool VerifySignature(IEnumerable<KeyValuePair<string, string>> posted, string signature)
     {

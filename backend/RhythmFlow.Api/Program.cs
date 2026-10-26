@@ -26,6 +26,7 @@ builder.Services.Configure<JwtOptions>(cfg.GetSection("Jwt"));
 builder.Services.Configure<MediaOptions>(cfg.GetSection("Media"));
 builder.Services.Configure<PayFastOptions>(cfg.GetSection("PayFast"));
 builder.Services.Configure<BookingOptions>(cfg.GetSection("Booking"));
+builder.Services.Configure<EventOptions>(cfg.GetSection("Events"));
 builder.Services.Configure<SmtpOptions>(cfg.GetSection("Smtp"));
 builder.Services.Configure<AdminOptions>(cfg.GetSection("Admin"));
 
@@ -39,6 +40,7 @@ builder.Services.AddScoped<EntitlementService>();
 builder.Services.AddScoped<ProgressService>();
 builder.Services.AddScoped<SubscriptionService>();
 builder.Services.AddScoped<BookingService>();
+builder.Services.AddScoped<EventBookingService>();
 builder.Services.AddSingleton<MediaTokenService>();
 builder.Services.AddSingleton<PayFastService>();
 builder.Services.AddSingleton<IPayFastApi, PayFastApiClient>();
@@ -167,7 +169,8 @@ app.MapOpenApi();                               // /openapi/v1.json
 app.MapScalarApiReference("/docs", o => o.WithTitle("Rhythm & Flow API"));  // interactive docs: /docs
 app.MapGet("/health", () => Results.Ok(new { status = "ok", time = DateTime.UtcNow }));
 
-// Mark overdue subscriptions once an hour.
+// Housekeeping every ten minutes: mark overdue subscriptions and send renewal reminders; release unpaid ticket holds, offer
+// waiting-list places, and send the 24-hour and 1-hour event reminders.
 _ = Task.Run(async () =>
 {
     while (true)
@@ -178,7 +181,13 @@ _ = Task.Run(async () =>
             await scope.ServiceProvider.GetRequiredService<SubscriptionService>().SweepExpiredAsync();
         }
         catch (Exception ex) { app.Logger.LogError(ex, "Subscription sweep failed"); }
-        await Task.Delay(TimeSpan.FromHours(1));
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<EventBookingService>().SweepAsync(DateTime.UtcNow);
+        }
+        catch (Exception ex) { app.Logger.LogError(ex, "Event sweep failed"); }
+        await Task.Delay(TimeSpan.FromMinutes(10));
     }
 });
 

@@ -19,6 +19,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<AppNotification> Notifications => Set<AppNotification>();
     public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
     public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
+    public DbSet<AccountCredit> Credits => Set<AccountCredit>();
 
     // Store and read every timestamp as UTC so the API always serialises them with a trailing "Z".
     protected override void ConfigureConventions(ModelConfigurationBuilder c)
@@ -68,9 +69,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.CompletionPercentage).HasPrecision(5, 2);
             e.HasIndex(x => new { x.UserId, x.LessonId }).IsUnique();
         });
+        b.Entity<ClassSession>().Property(x => x.Price).HasPrecision(10, 2);
+        b.Entity<AccountCredit>(e =>
+        {
+            e.Property(x => x.Amount).HasPrecision(10, 2);
+            e.Property(x => x.Remaining).HasPrecision(10, 2);
+            e.HasIndex(x => x.UserId);
+        });
         b.Entity<Booking>(e =>
         {
             e.Property(x => x.Status).HasMaxLength(20);
+            e.Property(x => x.AmountDue).HasPrecision(10, 2);
+            e.Property(x => x.CreditApplied).HasPrecision(10, 2);
+            e.Property(x => x.AmountPaid).HasPrecision(10, 2);
+            e.Property(x => x.RefundAmount).HasPrecision(10, 2);
             e.HasIndex(x => x.UserId);
             e.HasIndex(x => x.ClassId);
             // A user can hold at most one live booking per class, even if two requests arrive at the same moment.

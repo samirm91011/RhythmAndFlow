@@ -52,7 +52,7 @@ public class SubscriptionsController(SubscriptionService subs) : ApiController
 /// <summary>Receives PayFast's server-to-server notification (ITN). The app is never trusted to say a payment succeeded.</summary>
 [ApiController]
 public class PayFastController(
-    SubscriptionService subs, PayFastService payFast, IHttpClientFactory http,
+    SubscriptionService subs, EventBookingService events, PayFastService payFast, IHttpClientFactory http,
     Microsoft.Extensions.Configuration.IConfiguration cfg, ILogger<PayFastController> log) : ControllerBase
 {
     [AllowAnonymous, HttpPost("api/payfast/itn")]
@@ -74,10 +74,13 @@ public class PayFastController(
                 new StringContent(body, System.Text.Encoding.UTF8, "application/x-www-form-urlencoded"), ct);
             if ((await resp.Content.ReadAsStringAsync(ct)).Trim() != "VALID") { log.LogWarning("ITN rejected: PayFast did not validate"); return BadRequest(); }
         }
-        // 4. Amount is checked against the plan price inside ApplyPaymentResultAsync
-        if (!int.TryParse(Get("m_payment_id"), out var subId) ||
-            !decimal.TryParse(Get("amount_gross"), NumberStyles.Number, CultureInfo.InvariantCulture, out var amount))
-            return BadRequest();
+        // 4. Amount is checked against the plan price or the ticket price inside the apply methods
+        if (!decimal.TryParse(Get("amount_gross"), NumberStyles.Number, CultureInfo.InvariantCulture, out var amount)) return BadRequest();
+
+        // An event ticket's payment id starts with "E"; a subscription's is just its number.
+        if (PayFastService.TryParseEventPaymentId(Get("m_payment_id"), out var bookingId))
+            return await events.ApplyPaymentResultAsync(bookingId, Get("payment_status"), amount, Get("pf_payment_id")) ? Ok() : BadRequest();
+        if (!int.TryParse(Get("m_payment_id"), out var subId)) return BadRequest();
 
         var ok = await subs.ApplyPaymentResultAsync(subId, Get("payment_status"), amount, Get("pf_payment_id"), Get("token"));
         return ok ? Ok() : BadRequest();

@@ -50,12 +50,28 @@ public record ProgressDto(int LessonId, int WatchTimeSeconds, decimal Completion
 public record ProgressSummaryDto(int CompletedLessons, int InProgressLessons, int SessionsThisMonth, int MinutesWatched);
 
 // ---- Classes / bookings ----
+/// <summary>
+/// A class, workshop, retreat or coaching session. Price 0 is a free booking. For a paid event CanBuyNow says whether this person can
+/// buy a ticket right now and BuyBlockedReason says why not (sales not open yet, closed, sold out).
+/// </summary>
 public record ClassDto(
     int Id, string Name, string Description, string CoachName, string Location, DateTime StartTime, DateTime EndTime,
-    int Capacity, int SpotsLeft, bool BookedByMe, string Status);
+    int Capacity, int SpotsLeft, bool BookedByMe, string Status,
+    string Kind = "CLASS", string Format = "IN_PERSON", decimal Price = 0, string? PosterUrl = null,
+    DateTime? SalesOpenAt = null, DateTime? SalesClosesAt = null, int MemberEarlyHours = 0,
+    bool CanBuyNow = true, string? BuyBlockedReason = null, bool OnWaitlist = false, bool WaitlistEnabled = false,
+    string? JoinPlatform = null);
+/// <summary>
+/// One of my bookings. TotalPaid is cash plus credit. FreeCancellation is true while there are at least 48 hours left.
+/// ChoiceNeeded is set when the studio cancelled or moved the event and the customer must choose what happens next.
+/// JoinLink is only given for a confirmed online event.
+/// </summary>
 public record BookingDto(
     int Id, int ClassId, string ClassName, string CoachName, string Location, DateTime StartTime, DateTime EndTime,
-    string Status, bool CanCancel);
+    string Status, bool CanCancel,
+    string Reference = "", string Kind = "CLASS", string Format = "IN_PERSON", decimal TotalPaid = 0,
+    string? JoinPlatform = null, string? JoinLink = null, string? ChoiceNeeded = null, string? RequestStatus = null,
+    bool FreeCancellation = false, string? RefundStatus = null);
 
 // ---- Journal ----
 public record JournalRequest(
@@ -83,7 +99,18 @@ public record ClassUpsert(
     [Required, StringLength(150)] string Location,
     DateTime StartTime,
     DateTime EndTime,
-    [Range(1, 500)] int Capacity);
+    [Range(1, 500)] int Capacity,
+    string? Kind = null,
+    string? Format = null,
+    [Range(0, 100000)] decimal Price = 0,
+    [StringLength(1000)] string? PosterUrl = null,
+    [Range(0, 2000)] int SalesCloseHours = 24,
+    DateTime? SalesOpenAt = null,
+    [Range(0, 2000)] int MemberEarlyHours = 0,
+    [StringLength(30)] string? JoinPlatform = null,
+    [StringLength(1000)] string? JoinLink = null,
+    [StringLength(2000)] string? PracticalNote = null,
+    bool WaitlistEnabled = false);
 
 public record PlanUpsert(
     [Required, StringLength(100)] string Name,
@@ -161,3 +188,20 @@ public record AdminSubscriptionDto(
 
 public record CancelResultDto(string Message, bool CancelledWithPayFast);
 
+
+// ---- Event tickets, credits and refunds ----
+public record TicketRequest(bool UseCredit = true);
+/// <summary>Result of asking for a ticket. If Confirmed is false, send the customer to PaymentUrl (PayFast).</summary>
+public record TicketResponse(int BookingId, string Reference, bool Confirmed, string? PaymentUrl, decimal AmountDue, decimal CreditApplied, string Message);
+public record TicketQuoteDto(decimal Price, decimal CreditAvailable, decimal CreditApplied, decimal AmountDue, bool CanBuy, string? Reason);
+public record CancelRequestDto(string? Choice, [StringLength(500)] string? Note);
+public record ChoiceRequest([Required] string Choice);
+public record ActionResultDto(string Message, string Status);
+public record CreditDto(int Id, decimal Amount, decimal Remaining, DateTime IssuedAt, DateTime ExpiresAt, string Reason);
+public record CreditsDto(decimal Balance, List<CreditDto> Items);
+public record AdminEventRequestDto(
+    int BookingId, string Reference, string FullName, string Email, string EventName, DateTime StartTime,
+    decimal TotalPaid, decimal MaxAmount, string? Choice, DateTime? RequestedAt);
+public record AdminRefundDto(
+    int BookingId, string Reference, string FullName, string Email, string EventName, decimal Amount, string? PayFastPaymentId);
+public record ResolveRequestRequest(bool Approve, decimal? Amount);
