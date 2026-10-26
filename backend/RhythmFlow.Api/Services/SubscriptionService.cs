@@ -63,6 +63,7 @@ public class SubscriptionService(
         {
             UserId = userId, PlanId = plan.Id, Status = SubscriptionStatus.Pending, Billing = billing,
             InitialAmount = initial, TrialDays = trialDays, PlannedStart = plannedStart,
+            LockedPrice = recurring,   // a later price change on the plan will not change what this person pays
         };
         db.Subscriptions.Add(sub);
         return sub;
@@ -76,7 +77,7 @@ public class SubscriptionService(
     }
 
     public static SubscriptionDto ToDto(Subscription s) => new(
-        s.Id, s.PlanId, s.Plan!.Name, s.Plan.Tier, PlanPricing.RecurringPrice(s.Plan, PlanPricing.NormaliseBilling(s.Billing)), s.Status,
+        s.Id, s.PlanId, s.Plan!.Name, s.Plan.Tier, PlanPricing.PriceFor(s, s.Plan), s.Status,
         s.StartDate, s.EndDate, EntitlementService.GrantsAccess(s), PlanPricing.NormaliseBilling(s.Billing),
         Renewing: s.Status == SubscriptionStatus.Active && !string.IsNullOrEmpty(s.PayFastReference),
         InTrial: s.Status == SubscriptionStatus.Active && s.AwaitingFirstCharge && s.TrialDays > 0);
@@ -141,7 +142,7 @@ public class SubscriptionService(
         if (error is not null) return (null, error);
 
         var curBilling = PlanPricing.NormaliseBilling(sub!.Billing);
-        var curPrice = PlanPricing.RecurringPrice(sub.Plan!, curBilling);
+        var curPrice = PlanPricing.PriceFor(sub, sub.Plan!);
         var newPrice = PlanPricing.RecurringPrice(newPlan!, billing);
         var diff = PerMonth(newPrice, billing) - PerMonth(curPrice, curBilling);
         var effective = sub.EndDate!.Value;
@@ -217,7 +218,7 @@ public class SubscriptionService(
         switch (paymentStatus.ToUpperInvariant())
         {
             case "COMPLETE":
-                var recurring = PlanPricing.RecurringPrice(sub.Plan, billing);
+                var recurring = PlanPricing.PriceFor(sub, sub.Plan);
                 var firstPayment = sub.Status == SubscriptionStatus.Pending;
                 // A free start (trial or a plan that begins later) is confirmed with a 0.00 notice; it is not money, so it is not a payment record.
                 if (amountGross == 0)
@@ -355,7 +356,7 @@ public class SubscriptionService(
                 : billing == PlanPricing.Annual ? AnnualReminderDays : MonthlyReminderDays;
             if (s.EndDate > now.AddDays(days)) continue;
 
-            var price = PlanPricing.RecurringPrice(s.Plan!, billing);
+            var price = PlanPricing.PriceFor(s, s.Plan!);
             string title, body;
             if (s.Status == SubscriptionStatus.Cancelled)
             {

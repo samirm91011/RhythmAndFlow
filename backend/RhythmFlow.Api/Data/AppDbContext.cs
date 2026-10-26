@@ -57,6 +57,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.Property(x => x.Status).HasMaxLength(20);
             e.Property(x => x.InitialAmount).HasPrecision(10, 2);
+            e.Property(x => x.LockedPrice).HasPrecision(10, 2);
             e.HasIndex(x => x.UserId);
         });
         b.Entity<Payment>(e =>

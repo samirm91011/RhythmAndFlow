@@ -35,6 +35,7 @@ public static class SchemaUpgrades
         new("Subscriptions", "PlannedStart", "timestamp with time zone NULL", "TEXT NULL"),
         new("Subscriptions", "AwaitingFirstCharge", "boolean NOT NULL DEFAULT false", "INTEGER NOT NULL DEFAULT 0"),
         new("Subscriptions", "ReminderForEnd", "timestamp with time zone NULL", "TEXT NULL"),
+        new("Subscriptions", "LockedPrice", "numeric(10,2) NULL", "TEXT NULL"),
         // Paid events: what an event is, what it costs and how people join it
         new("Classes", "Kind", "text NOT NULL DEFAULT 'CLASS'", "TEXT NOT NULL DEFAULT 'CLASS'"),
         new("Classes", "Format", "text NOT NULL DEFAULT 'IN_PERSON'", "TEXT NOT NULL DEFAULT 'IN_PERSON'"),

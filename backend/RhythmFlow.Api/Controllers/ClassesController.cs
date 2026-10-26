@@ -164,7 +164,7 @@ public class AdminController(AppDbContext db, NotificationService notifications,
             active.Count,
             await db.Classes.CountAsync(c => c.Status == "SCHEDULED" && c.StartTime > now),
             await db.Bookings.CountAsync(b => b.Status == BookingStatus.Booked && b.Class!.StartTime > now),
-            active.Sum(s => PlanPricing.MonthlyEquivalent(s.Plan!, s.Billing)),
+            active.Sum(s => PlanPricing.MonthlyEquivalent(s)),
             await db.ErrorLogs.CountAsync(e => e.Status == "NEW"));
     }
 

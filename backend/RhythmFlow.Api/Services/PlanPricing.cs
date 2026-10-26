@@ -23,6 +23,14 @@ public static class PlanPricing
     public static decimal MonthlyEquivalent(SubscriptionPlan p, string? billing) =>
         Math.Round(NormaliseBilling(billing) == Annual ? RecurringPrice(p, Annual) / 12m : p.Price, 2);
 
+    /// <summary>The same, for a subscription, using the price that person is actually on.</summary>
+    public static decimal MonthlyEquivalent(Subscription s) =>
+        Math.Round(NormaliseBilling(s.Billing) == Annual ? PriceFor(s, s.Plan!) / 12m : PriceFor(s, s.Plan!), 2);
+
+    /// <summary>What one period costs this subscriber: the price fixed when they subscribed, or the plan's current price for older subscriptions.</summary>
+    public static decimal PriceFor(Subscription s, SubscriptionPlan plan) =>
+        s.LockedPrice ?? RecurringPrice(plan, NormaliseBilling(s.Billing));
+
     public static bool OffersAnnual(SubscriptionPlan p) => p.AnnualPrice is not null;
 
     public static DateTime AddPeriod(DateTime from, string billing) =>

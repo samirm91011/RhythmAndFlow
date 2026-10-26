@@ -35,7 +35,7 @@ public class PayFastService(Microsoft.Extensions.Options.IOptions<PayFastOptions
         var first = user.FullName.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
         var inv = System.Globalization.CultureInfo.InvariantCulture;
         var billing = PlanPricing.NormaliseBilling(sub.Billing);
-        var recurring = PlanPricing.RecurringPrice(plan, billing);
+        var recurring = sub.LockedPrice ?? PlanPricing.RecurringPrice(plan, billing);
         var amount = (sub.InitialAmount ?? recurring).ToString("0.00", inv);
         var recurringAmount = recurring.ToString("0.00", inv);
         var today = DateTime.UtcNow.Date;

@@ -122,7 +122,7 @@ public class DevController(SubscriptionService subs, Microsoft.Extensions.Hostin
         var sub = await db.Subscriptions.Include(s => s.Plan).FirstOrDefaultAsync(s => s.Id == subscriptionId && s.UserId == UserId);
         if (sub is null) return NotFound();
         var billing = PlanPricing.NormaliseBilling(sub.Billing);
-        var recurring = PlanPricing.RecurringPrice(sub.Plan!, billing);
+        var recurring = PlanPricing.PriceFor(sub, sub.Plan!);
         // The first notice carries the initial amount (0.00 for a free start); every later one carries the recurring price.
         var amount = sub.Status == Domain.SubscriptionStatus.Pending ? sub.InitialAmount ?? recurring : recurring;
         var ok = await subs.ApplyPaymentResultAsync(sub.Id, "COMPLETE", amount, "SIM-" + Guid.NewGuid().ToString("N")[..12], "SIM-TOKEN");

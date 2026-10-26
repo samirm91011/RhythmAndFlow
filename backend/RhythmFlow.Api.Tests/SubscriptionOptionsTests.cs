@@ -571,3 +571,55 @@ public class PolicyContentTests
         Assert.Null(PolicyContent.Find("nope"));
     }
 }
+
+public class LockedPriceTests
+{
+    private static (SubscriptionService svc, TestDb t) Build()
+    {
+        var t = new TestDb();
+        var payFast = new PayFastService(Options.Create(new PayFastOptions { MerchantId = "1", MerchantKey = "k", Passphrase = "p" }));
+        return (new SubscriptionService(t.Db, payFast, new FakePayFastApi(), new NotificationService(t.Db), NullLogger<SubscriptionService>.Instance), t);
+    }
+
+    [Fact]
+    public async Task Raising_the_plan_price_does_not_change_what_an_existing_subscriber_pays_and_their_renewal_is_still_accepted()
+    {
+        var (svc, t) = Build(); using var _ = t;
+        var plan = t.AddPlan(1, 149);
+        var user = t.AddUser();
+        await svc.CheckoutAsync(user.Id, plan.Id);
+        var sub = await t.Db.Subscriptions.SingleAsync();
+        Assert.Equal(149m, sub.LockedPrice);
+        Assert.True(await svc.ApplyPaymentResultAsync(sub.Id, "COMPLETE", 149m, "PF-1", "TOKEN"));
+
+        plan.Price = 179; t.Db.SaveChanges();                                           // the administrator raises the price
+
+        Assert.True(await svc.ApplyPaymentResultAsync(sub.Id, "COMPLETE", 149m, "PF-2", null));   // PayFast still takes R149 from them
+        Assert.False(await svc.ApplyPaymentResultAsync(sub.Id, "COMPLETE", 179m, "PF-3", null));  // not the new price
+        Assert.Equal(149m, Assert.Single(await svc.MineAsync(user.Id)).Price);
+    }
+
+    [Fact]
+    public async Task A_new_subscriber_after_the_price_change_pays_the_new_price()
+    {
+        var (svc, t) = Build(); using var _ = t;
+        var plan = t.AddPlan(1, 149);
+        plan.Price = 179; t.Db.SaveChanges();
+
+        var r = await svc.CheckoutAsync(t.AddUser().Id, plan.Id);
+
+        Assert.Equal(179m, (await t.Db.Subscriptions.SingleAsync()).LockedPrice);
+        Assert.Contains("&amount=179.00&", Uri.UnescapeDataString(r.PaymentUrl));
+    }
+
+    [Fact]
+    public async Task A_subscription_from_before_prices_were_locked_follows_the_plan_price()
+    {
+        var (svc, t) = Build(); using var _ = t;
+        var plan = t.AddPlan(1, 149);
+        var sub = t.AddSubscription(t.AddUser(), plan, SubscriptionStatus.Active, DateTime.UtcNow.AddDays(10));
+        Assert.Null(sub.LockedPrice);
+
+        Assert.True(await svc.ApplyPaymentResultAsync(sub.Id, "COMPLETE", 149m, "PF-1", null));
+    }
+}

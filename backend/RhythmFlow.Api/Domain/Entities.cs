@@ -100,6 +100,8 @@ public class Subscription
     public bool AwaitingFirstCharge { get; set; }
     /// <summary>The end date a renewal reminder was already sent for, so each reminder goes out once.</summary>
     public DateTime? ReminderForEnd { get; set; }
+    /// <summary>What each period costs this person, fixed when they subscribed. A later price change on the plan does not touch it. Null on older subscriptions, which fall back to the plan price.</summary>
+    public decimal? LockedPrice { get; set; }
 }
 
 public class Payment
