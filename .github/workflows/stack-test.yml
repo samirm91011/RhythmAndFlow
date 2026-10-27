@@ -49,6 +49,7 @@ jobs:
           ADMIN_EMAIL: ciadmin@example.com
           ADMIN_PASSWORD: CiAdmin-Password-1!
           RESET_CODE_CMD: docker compose -f deploy/docker-compose.test.yml logs --no-log-prefix api | grep -o 'reset code is [0-9]\{6\}' | tail -1 | grep -o '[0-9]\{6\}'
+          VERIFY_CODE_CMD: docker compose -f deploy/docker-compose.test.yml logs --no-log-prefix api | grep -o 'verification code is [0-9]\{6\}' | tail -1 | grep -o '[0-9]\{6\}'
         run: bash deploy/smoke-test.sh http://localhost:8080 --dev 2>&1 | tee smoke.txt; exit ${PIPESTATUS[0]}
 
       - name: Load test and memory under load

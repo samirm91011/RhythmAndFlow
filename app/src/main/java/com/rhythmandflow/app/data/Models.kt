@@ -15,6 +15,10 @@ data class User(
 
 data class AuthResponse(val token: String, val user: User)
 data class RegisterRequest(val fullName: String, val username: String, val email: String, val password: String)
+/** The answer to signing up. There is no token: the person confirms their email, then signs in. */
+data class RegisterResponse(val email: String, val verificationRequired: Boolean, val message: String)
+data class VerifyEmailRequest(val email: String, val code: String)
+data class ResendVerificationRequest(val email: String)
 data class LoginRequest(val identifier: String, val password: String)
 data class UpdateProfileRequest(val fullName: String, val email: String, val about: String?)
 data class ForgotPasswordRequest(val email: String)

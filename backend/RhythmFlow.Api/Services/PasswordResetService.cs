@@ -24,14 +24,14 @@ public class PasswordResetService(AppDbContext db, IEmailSender email, IOptions<
         if (user is null) return;
 
         var since = DateTime.UtcNow.AddHours(-1);
-        if (await db.PasswordResets.CountAsync(c => c.UserId == user.Id && c.CreatedAt > since) >= MaxRequestsPerHour)
+        if (await db.PasswordResets.CountAsync(c => c.UserId == user.Id && c.Purpose == "RESET" && c.CreatedAt > since) >= MaxRequestsPerHour)
         {
             log.LogWarning("Password reset rate limit hit for {UserId}", user.Id);
             return;
         }
 
         // Only the newest code works.
-        foreach (var old in await db.PasswordResets.Where(c => c.UserId == user.Id && c.UsedAt == null).ToListAsync())
+        foreach (var old in await db.PasswordResets.Where(c => c.UserId == user.Id && c.Purpose == "RESET" && c.UsedAt == null).ToListAsync())
             old.UsedAt = DateTime.UtcNow;
 
         var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
@@ -49,7 +49,7 @@ public class PasswordResetService(AppDbContext db, IEmailSender email, IOptions<
         var user = await db.Users.FirstOrDefaultAsync(u => u.Email == address && u.AccountStatus == "ACTIVE");
         if (user is null) return (false, generic);
 
-        var entry = await db.PasswordResets.Where(c => c.UserId == user.Id && c.UsedAt == null)
+        var entry = await db.PasswordResets.Where(c => c.UserId == user.Id && c.Purpose == "RESET" && c.UsedAt == null)
             .OrderByDescending(c => c.CreatedAt).FirstOrDefaultAsync();
         if (entry is null || entry.ExpiresAt < DateTime.UtcNow || entry.Attempts >= MaxAttempts) return (false, generic);
 
@@ -63,6 +63,7 @@ public class PasswordResetService(AppDbContext db, IEmailSender email, IOptions<
         }
 
         entry.UsedAt = DateTime.UtcNow;
+        user.EmailVerified = true;   // they just proved they can read this mailbox
         user.PasswordHash = Hasher.HashPassword(user, newPassword);
         user.SecurityStamp = Guid.NewGuid().ToString("N"); // signs the account out everywhere else
         await db.SaveChangesAsync();

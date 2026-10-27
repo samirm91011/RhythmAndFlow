@@ -57,17 +57,31 @@ class SessionViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
-    suspend fun login(identifier: String, password: String): String? =
+    /** Signs in. If the account's email was never confirmed, [LoginResult.confirmEmail] holds the address to confirm. */
+    data class LoginResult(val error: String? = null, val confirmEmail: String? = null)
+
+    suspend fun login(identifier: String, password: String): LoginResult =
         when (val r = repo.login(identifier.trim(), password)) {
-            is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value.user); onSignedIn(); null }
-            is Outcome.Fail -> r.message
+            is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value.user); onSignedIn(); LoginResult() }
+            is Outcome.Fail ->
+                if (r.code == 403 && r.raw?.contains("EMAIL_NOT_VERIFIED") == true)
+                    LoginResult(r.message, confirmEmail = Regex("\"email\"\\s*:\\s*\"([^\"]+)\"").find(r.raw)?.groupValues?.get(1) ?: identifier.trim())
+                else LoginResult(r.message)
         }
 
-    suspend fun register(name: String, username: String, email: String, password: String): String? =
-        when (val r = repo.register(name.trim(), username.trim(), email.trim(), password)) {
-            is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value.user); onSignedIn(); null }
-            is Outcome.Fail -> r.message
-        }
+    /** Creates the account. Nobody is signed in: on success the app shows the "enter your code" screen. */
+    suspend fun register(name: String, username: String, email: String, password: String): Outcome<RegisterResponse> =
+        repo.register(name.trim(), username.trim(), email.trim(), password)
+
+    suspend fun verifyEmail(email: String, code: String): String? = when (val r = repo.verifyEmail(email, code)) {
+        is Outcome.Ok -> null
+        is Outcome.Fail -> r.message
+    }
+
+    suspend fun resendVerification(email: String): String? = when (val r = repo.resendVerification(email)) {
+        is Outcome.Ok -> null
+        is Outcome.Fail -> r.message
+    }
 
     suspend fun updateProfile(name: String, email: String, about: String): String? =
         when (val r = repo.updateProfile(name.trim(), email.trim(), about.trim())) {

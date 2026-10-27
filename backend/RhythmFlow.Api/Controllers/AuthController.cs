@@ -19,12 +19,12 @@ public abstract class ApiController : ControllerBase
 
 [ApiController]
 [Route("api/auth")]
-public class AuthController(AppDbContext db, TokenService tokens) : ApiController
+public class AuthController(AppDbContext db, TokenService tokens, EmailVerificationService verification, IConfiguration cfg) : ApiController
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
     [HttpPost("register"), EnableRateLimiting("auth")]
-    public async Task<ActionResult<AuthResponse>> Register(RegisterRequest req)
+    public async Task<ActionResult<RegisterResponse>> Register(RegisterRequest req)
     {
         var email = req.Email.Trim().ToLowerInvariant();
         var username = req.Username.Trim();
@@ -32,11 +32,33 @@ public class AuthController(AppDbContext db, TokenService tokens) : ApiControlle
         if (await db.Users.AnyAsync(u => u.Username == username)) return Conflict(new { error = "That username is taken." });
 
         // Public registration can only create customers; admins are created by seeding or by another admin.
-        var user = new User { FullName = req.FullName.Trim(), Username = username, Email = email, Role = Roles.Customer };
+        // Registration never signs anyone in. The new customer must first prove they can read this mailbox, then sign in.
+        // (Auth:RequireEmailVerification=false is for a server that has no email set up; every account is then trusted straight away.)
+        var required = cfg.GetValue("Auth:RequireEmailVerification", true);
+        var user = new User { FullName = req.FullName.Trim(), Username = username, Email = email, Role = Roles.Customer, EmailVerified = !required };
         user.PasswordHash = Hasher.HashPassword(user, req.Password);
         db.Users.Add(user);
         await db.SaveChangesAsync();
-        return Ok(new AuthResponse(tokens.CreateToken(user), ToDto(user)));
+        if (!required) return Ok(new RegisterResponse(email, false, "Your account is ready. You can sign in now."));
+
+        await verification.SendCodeAsync(user);
+        return Ok(new RegisterResponse(email, true, "We've emailed you a 6-digit code. Enter it to confirm your email, then sign in."));
+    }
+
+    /// <summary>Checks the emailed code. On success the account can sign in; this call does not sign anyone in.</summary>
+    [HttpPost("verify-email"), EnableRateLimiting("auth")]
+    public async Task<IActionResult> VerifyEmail(VerifyEmailRequest req)
+    {
+        var (ok, error) = await verification.VerifyAsync(req.Email, req.Code);
+        return ok ? Ok(new { message = "Your email is confirmed. You can sign in now." }) : BadRequest(new { error });
+    }
+
+    /// <summary>Emails a new code. Always answers the same way so nobody can test which emails have accounts.</summary>
+    [HttpPost("resend-verification"), EnableRateLimiting("auth")]
+    public async Task<IActionResult> ResendVerification(ResendVerificationRequest req)
+    {
+        await verification.ResendAsync(req.Email);
+        return Ok(new { message = "If that email is waiting to be confirmed, we've sent a new 6-digit code. It expires in 15 minutes." });
     }
 
     [HttpPost("login"), EnableRateLimiting("auth")]
@@ -49,6 +71,14 @@ public class AuthController(AppDbContext db, TokenService tokens) : ApiControlle
         if (user is null || user.AccountStatus != "ACTIVE" ||
             Hasher.VerifyHashedPassword(user, user.PasswordHash, req.Password) == PasswordVerificationResult.Failed)
             return Unauthorized(new { error = "Incorrect username/email or password." });
+
+        // The right password but an email that was never confirmed: send a code if they have none live, and tell the app to
+        // show the "enter your code" screen. The code only reaches the owner of the mailbox.
+        if (!user.EmailVerified)
+        {
+            await verification.EnsureCodeAsync(user);
+            return StatusCode(403, new { error = "Please confirm your email first. We've sent a 6-digit code to " + user.Email + ".", code = "EMAIL_NOT_VERIFIED", email = user.Email });
+        }
         return Ok(new AuthResponse(tokens.CreateToken(user), ToDto(user)));
     }
 

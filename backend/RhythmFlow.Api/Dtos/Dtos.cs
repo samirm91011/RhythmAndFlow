@@ -15,6 +15,12 @@ public record LoginRequest(
 
 public record UserDto(Guid Id, string FullName, string Username, string Email, string Role, string About);
 public record AuthResponse(string Token, UserDto User);
+/// <summary>Sign-up no longer signs the person in. They confirm their email with a code first, then sign in.</summary>
+public record RegisterResponse(string Email, bool VerificationRequired, string Message);
+public record VerifyEmailRequest(
+    [Required, EmailAddress, StringLength(255)] string Email,
+    [Required, StringLength(10)] string Code);
+public record ResendVerificationRequest([Required, EmailAddress, StringLength(255)] string Email);
 public record UpdateProfileRequest(
     [Required, StringLength(100, MinimumLength = 2)] string FullName,
     [Required, EmailAddress, StringLength(255)] string Email,

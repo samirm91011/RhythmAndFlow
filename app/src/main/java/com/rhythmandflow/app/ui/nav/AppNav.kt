@@ -143,11 +143,27 @@ private fun AuthGraph(session: SessionViewModel, notify: (String) -> Unit) {
     val nav = rememberNavController()
     NavHost(nav, startDestination = "welcome") {
         composable("welcome") { WelcomeScreen(onStart = { nav.navigate("signin") }) }
-        composable("signin") { SignInScreen(session, onSignUp = { nav.navigate("signup") }, onForgot = { nav.navigate("forgot") }, notify = notify) }
+        composable("signin") {
+            SignInScreen(
+                session, onSignUp = { nav.navigate("signup") }, onForgot = { nav.navigate("forgot") },
+                onConfirmEmail = { email -> nav.navigate("verify/" + android.net.Uri.encode(email)) }, notify = notify,
+            )
+        }
+        composable("verify/{email}", listOf(navArgument("email") { type = NavType.StringType })) { e ->
+            VerifyEmailScreen(
+                email = e.arguments!!.getString("email").orEmpty(), session = session,
+                onBack = { nav.popBackStack("signin", false) }, onSignIn = { nav.popBackStack("signin", false) }, notify = notify,
+            )
+        }
         composable("forgot") {
             ForgotPasswordScreen(onBack = { nav.popBackStack() }, onDone = { msg -> nav.popBackStack("signin", false); notify(msg) })
         }
-        composable("signup") { SignUpScreen(session, onBack = { nav.popBackStack() }, onLogin = { nav.popBackStack("signin", false) }) }
+        composable("signup") {
+            SignUpScreen(
+                session, onBack = { nav.popBackStack() }, onLogin = { nav.popBackStack("signin", false) },
+                onCreated = { email -> nav.navigate("verify/" + android.net.Uri.encode(email)) { popUpTo("signin") } },
+            )
+        }
     }
 }
 

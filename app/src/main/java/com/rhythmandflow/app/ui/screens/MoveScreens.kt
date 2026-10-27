@@ -128,7 +128,7 @@ fun categoryIcon(category: String): ImageVector = when (category) {
     "Yoga" -> Icons.Default.SelfImprovement
     "Barre & Pilates", "Barre" -> Icons.Default.SportsGymnastics
     "Dance" -> Icons.Default.MusicNote
-    "Stretch & Mobility", "Stretch" -> Icons.Default.Accessibility
+    "Stretch & Mobility", "Stretch" -> StretchFigureIcon   // the line drawing the client chose
     "Strength & Conditioning" -> Icons.Default.FitnessCenter
     "Meditation" -> Icons.Default.Spa
     "Breathwork" -> Icons.Default.Air

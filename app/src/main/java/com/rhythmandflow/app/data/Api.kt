@@ -11,7 +11,9 @@ import retrofit2.http.Query
 
 interface Api {
     // ---- Auth ----
-    @POST("api/auth/register") suspend fun register(@Body body: RegisterRequest): AuthResponse
+    @POST("api/auth/register") suspend fun register(@Body body: RegisterRequest): RegisterResponse
+    @POST("api/auth/verify-email") suspend fun verifyEmail(@Body body: VerifyEmailRequest): MessageResponse
+    @POST("api/auth/resend-verification") suspend fun resendVerification(@Body body: ResendVerificationRequest): MessageResponse
     @POST("api/auth/login") suspend fun login(@Body body: LoginRequest): AuthResponse
     @GET("api/auth/me") suspend fun me(): User
     @PUT("api/auth/me") suspend fun updateProfile(@Body body: UpdateProfileRequest): User

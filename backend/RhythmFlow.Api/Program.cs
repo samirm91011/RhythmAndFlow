@@ -86,6 +86,7 @@ else
 builder.Services.AddSingleton<ErrorLogService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<PasswordResetService>();
+builder.Services.AddScoped<EmailVerificationService>();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<UserAdminService>();
 builder.Services.AddScoped<ProgrammeAdminService>();
@@ -188,6 +189,12 @@ _ = Task.Run(async () =>
             await scope.ServiceProvider.GetRequiredService<EventBookingService>().SweepAsync(DateTime.UtcNow);
         }
         catch (Exception ex) { app.Logger.LogError(ex, "Event sweep failed"); }
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<EmailVerificationService>().PurgeUnverifiedAsync(DateTime.UtcNow);
+        }
+        catch (Exception ex) { app.Logger.LogError(ex, "Unverified account clean-up failed"); }
         await Task.Delay(TimeSpan.FromMinutes(10));
     }
 });

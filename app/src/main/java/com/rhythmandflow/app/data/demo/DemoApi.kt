@@ -108,7 +108,16 @@ class DemoApi : Api {
     }
 
     // ---- auth
-    override suspend fun register(body: RegisterRequest): AuthResponse { pause(); return session(false, body.fullName, body.email, body.username) }
+    override suspend fun register(body: RegisterRequest): RegisterResponse {
+        pause()
+        return RegisterResponse(body.email, true, "We've emailed you a 6-digit code. Enter it to confirm your email, then sign in.")
+    }
+    override suspend fun verifyEmail(body: VerifyEmailRequest): MessageResponse {
+        pause()
+        if (body.code != "123456") fail(400, "That code isn't valid or has expired. Please ask for a new one.")
+        return MessageResponse("Your email is confirmed. You can sign in now.")
+    }
+    override suspend fun resendVerification(body: ResendVerificationRequest): MessageResponse { pause(); return MessageResponse("We've sent a new 6-digit code.") }
     override suspend fun login(body: LoginRequest): AuthResponse {
         pause()
         if (body.password == "wrong") fail(401, "Incorrect username/email or password.")
