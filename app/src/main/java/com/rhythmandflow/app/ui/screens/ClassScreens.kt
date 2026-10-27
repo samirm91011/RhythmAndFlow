@@ -143,7 +143,7 @@ fun ClassesScreen(onBookings: () -> Unit, onPayment: (Int) -> Unit, onPolicies: 
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(c.name, style = MaterialTheme.typography.titleMedium)
-                    Text("${formatDay(c.startTime)} · ${formatTime(c.startTime)} – ${formatTime(c.endTime)}", color = Brand.Muted)
+                    Text("${formatDay(c.startTime)} · ${formatTime(c.startTime)} – ${formatTime(c.endTime)} (SA time)", color = Brand.Muted)
                     Text("${formatRand(c.price)} including VAT.")
                     val q = quote
                     if (q != null && q.creditApplied > 0) {
@@ -200,13 +200,13 @@ private fun ClassCard(c: ClassItem, busy: Boolean, onBook: () -> Unit, onBuy: ()
                 }
             }
             VSpace(6)
-            DetailLine(Icons.Default.Event, "${formatDay(c.startTime)} · ${formatTime(c.startTime)} – ${formatTime(c.endTime)}")
+            DetailLine(Icons.Default.Event, "${formatDay(c.startTime)} · ${formatTime(c.startTime)} – ${formatTime(c.endTime)} (SA time)")
             DetailLine(Icons.Default.Person, c.coachName)
             DetailLine(Icons.Default.Place, if (c.format == "ONLINE") "Online${c.joinPlatform?.let { " on $it" }.orEmpty()}" else c.location)
             if (c.description.isNotBlank()) { VSpace(6); Text(c.description, style = MaterialTheme.typography.bodyMedium, color = Brand.Muted) }
             if (paid && c.memberEarlyHours > 0 && c.salesOpenAt != null) {
                 VSpace(4)
-                Text("Members can buy ${c.memberEarlyHours} hours before everyone else.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                Text("Members of the second plan can buy ${c.memberEarlyHours} hours before everyone else, and go first on the waiting list.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
             }
             VSpace(12)
             when {
@@ -286,6 +286,13 @@ fun TicketPaymentScreen(bookingId: Int, onDone: () -> Unit, onBack: () -> Unit) 
     }
 }
 
+/** A significant technical problem can be reported for an online class once it has started and for 48 hours after it ends. */
+private fun canReportProblem(b: Booking): Boolean = try {
+    val now = java.time.Instant.now()
+    b.format == "ONLINE" && b.status == "BOOKED" && now.isAfter(java.time.Instant.parse(b.startTime)) &&
+        now.isBefore(java.time.Instant.parse(b.endTime).plus(java.time.Duration.ofHours(48)))
+} catch (_: Exception) { false }
+
 @Composable
 fun BookingsScreen(onBack: () -> Unit, onBrowse: () -> Unit, onPolicies: () -> Unit, notify: (String) -> Unit) {
     val vm = appViewModel(key = "bookings") { ClassesViewModel(it) }
@@ -299,6 +306,8 @@ fun BookingsScreen(onBack: () -> Unit, onBrowse: () -> Unit, onPolicies: () -> U
     var note by remember { mutableStateOf("") }
     var working by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var report by remember { mutableStateOf<Booking?>(null) }
+    var reportText by remember { mutableStateOf("") }
     OnResume { vm.load(); scope.launch { credits = vm.credits() } }
 
     Column(Modifier.fillMaxSize()) {
@@ -335,7 +344,7 @@ fun BookingsScreen(onBack: () -> Unit, onBrowse: () -> Unit, onPolicies: () -> U
                                 }
                             }
                             VSpace(4)
-                            DetailLine(Icons.Default.Event, "${formatDay(b.startTime)} · ${formatTime(b.startTime)} – ${formatTime(b.endTime)}")
+                            DetailLine(Icons.Default.Event, "${formatDay(b.startTime)} · ${formatTime(b.startTime)} – ${formatTime(b.endTime)} (SA time)")
                             DetailLine(Icons.Default.Person, b.coachName)
                             DetailLine(Icons.Default.Place, if (b.format == "ONLINE") "Online${b.joinPlatform?.let { " on $it" }.orEmpty()}" else b.location)
                             if (b.totalPaid > 0) Text("Paid ${formatRand(b.totalPaid)} · Reference ${b.reference}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted, modifier = Modifier.padding(top = 4.dp))
@@ -368,6 +377,7 @@ fun BookingsScreen(onBack: () -> Unit, onBrowse: () -> Unit, onPolicies: () -> U
                                     if (b.joinLink != null) PrimaryButton("Open the joining link", onClick = {
                                         try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(b.joinLink))) } catch (e: Exception) { notify("Couldn't open the link.") }
                                     })
+                                    if (canReportProblem(b)) { VSpace(6); SecondaryButton("Report a problem", onClick = { reportText = ""; report = b }) }
                                     if (b.requestStatus == "PENDING") Text("We've received your cancellation request and will handle it fairly.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
                                     else if (b.canCancel) {
                                         VSpace(6)
@@ -419,6 +429,7 @@ fun BookingsScreen(onBack: () -> Unit, onBrowse: () -> Unit, onPolicies: () -> U
                         SelectChip("Account credit", choice == "CREDIT", onClick = { choice = "CREDIT" })
                         SelectChip("Refund", choice == "REFUND", onClick = { choice = "REFUND" })
                     }
+                    Text("Account credit can be used towards any other event for 12 months.", color = Brand.Muted, style = MaterialTheme.typography.bodySmall)
                     if (!b.freeCancellation) RfTextField(note, { note = it.take(500) }, "Anything we should know? (optional)", singleLine = false, minLines = 2)
                     Text(
                         "Read the cancellation policy", color = Brand.TealDeep, style = MaterialTheme.typography.bodyMedium,
@@ -440,6 +451,32 @@ fun BookingsScreen(onBack: () -> Unit, onBrowse: () -> Unit, onPolicies: () -> U
                 }) { Text(if (working) "Working…" else if (b.freeCancellation) "Cancel ticket" else "Send request", color = Brand.Error) }
             },
             dismissButton = { TextButton(enabled = !working, onClick = { cancelTicket = null }) { Text("Keep it") } },
+        )
+    }
+
+    report?.let { b ->
+        AlertDialog(
+            onDismissRequest = { if (!working) report = null },
+            title = { Text("Report a problem") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("${b.className}. Tell us what went wrong and about how long it lasted. We'll look into it and email you with what we can offer.")
+                    RfTextField(reportText, { reportText = it.take(1000) }, "What happened?", singleLine = false, minLines = 3)
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = !working && reportText.trim().length >= 10, onClick = {
+                    working = true
+                    scope.launch {
+                        when (val r = vm.reportIssue(b.id, reportText.trim())) {
+                            is Outcome.Ok -> { report = null; message = r.value.message }
+                            is Outcome.Fail -> notify(r.message)
+                        }
+                        working = false
+                    }
+                }) { Text(if (working) "Sending…" else "Send report") }
+            },
+            dismissButton = { TextButton(enabled = !working, onClick = { report = null }) { Text("Cancel") } },
         )
     }
 

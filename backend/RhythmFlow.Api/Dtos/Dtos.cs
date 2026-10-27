@@ -214,3 +214,5 @@ public record AdminEventRequestDto(
 public record AdminRefundDto(
     int BookingId, string Reference, string FullName, string Email, string EventName, decimal Amount, string? PayFastPaymentId);
 public record ResolveRequestRequest(bool Approve, decimal? Amount);
+public record ReportIssueRequest([Required, StringLength(1000)] string Description);
+public record GiveCreditRequest(decimal Amount, [StringLength(200)] string? Reason);

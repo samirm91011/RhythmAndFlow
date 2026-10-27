@@ -16,6 +16,8 @@ public class ScheduleAdminService(AppDbContext db, NotificationService notificat
         if (r.EndTime <= r.StartTime) return "End time must be after start time.";
         if (!string.IsNullOrWhiteSpace(r.Kind) && !EventKinds.All.Contains(r.Kind.Trim().ToUpperInvariant())) return "Choose class, workshop, retreat or coaching session.";
         if (!string.IsNullOrWhiteSpace(r.Format) && r.Format.Trim().ToUpperInvariant() is not (EventKinds.Online or EventKinds.InPerson)) return "Choose online or in person.";
+        // The client's feedback: retreats are held in person only.
+        if (r.Kind?.Trim().ToUpperInvariant() == EventKinds.Retreat && r.Format?.Trim().ToUpperInvariant() == EventKinds.Online) return "Retreats are held in person. Choose in person.";
         // PayFast does not take payments under R5.
         if (r.Price is > 0 and < 5) return "A ticket price must be R0 (free) or at least R5.";
         if (r.SalesCloseHours < 0) return "Ticket sales can't close before 0 hours ahead.";
@@ -100,6 +102,7 @@ public class ScheduleAdminService(AppDbContext db, NotificationService notificat
         var l = await db.Lessons.FindAsync(id);
         if (l is null) return (false, true, null);
         if (!await db.Programmes.AnyAsync(p => p.Id == r.ProgrammeId)) return (false, false, "Unknown programme.");
+        if (!LessonLevels.TryNormalise(r.Level, out var level)) return (false, false, LessonLevels.Refusal);
         var video = LessonVideo.Normalise(r.VideoProvider, r.VideoReference);
         if (!video.Ok) return (false, false, video.Error);
         r = r with { VideoProvider = video.Provider, VideoReference = video.Reference };
@@ -109,7 +112,7 @@ public class ScheduleAdminService(AppDbContext db, NotificationService notificat
             l.SequenceNumber = (await db.Lessons.Where(x => x.ProgrammeId == r.ProgrammeId).MaxAsync(x => (int?)x.SequenceNumber) ?? 0) + 1;
 
         l.ProgrammeId = r.ProgrammeId; l.Title = r.Title.Trim(); l.Description = r.Description?.Trim() ?? "";
-        l.Category = r.Category.Trim(); l.Level = string.IsNullOrWhiteSpace(r.Level) ? "All levels" : r.Level.Trim();
+        l.Category = r.Category.Trim(); l.Level = level;
         l.DurationSeconds = r.DurationSeconds; l.VideoProvider = r.VideoProvider.Trim(); l.VideoReference = r.VideoReference.Trim();
         l.IsPreview = r.IsPreview;
         await db.SaveChangesAsync();

@@ -108,6 +108,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** The approved categories, in the order members see them. The names must match what is saved on each lesson. */
+/** The three levels the client approved. Nothing else is saved on a lesson. */
+val levelNames = listOf("Beginner", "Intermediate", "Advanced")
+
 val categoryNames = listOf("Yoga", "Barre & Pilates", "Dance", "Stretch & Mobility", "Strength & Conditioning", "Meditation", "Breathwork")
 
 private val categories = listOf("All") + categoryNames

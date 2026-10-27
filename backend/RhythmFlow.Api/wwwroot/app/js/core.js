@@ -50,11 +50,16 @@ const ICONS = {
 const ic = (name, cls = "") => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name] || ""}"/></svg>`;
 
 /* ---------- formatting ---------- */
-const DAY = { weekday: "short", day: "numeric", month: "short" };
+/* Every date and time is shown in South African time (UTC+2, no daylight saving), as the client asked, wherever the person is. */
+const SA = { timeZone: "Africa/Johannesburg" };
+const DAY = Object.assign({ weekday: "short", day: "numeric", month: "short" }, SA);
 const fmtDay = (iso) => (iso ? new Date(iso).toLocaleDateString("en-GB", DAY).replace(",", "") : "");
-const fmtTime = (iso) => (iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }) : "");
+const fmtTime = (iso) => (iso ? new Date(iso).toLocaleTimeString("en-GB", Object.assign({ hour: "2-digit", minute: "2-digit", hour12: false }, SA)) : "");
 const fmtDayTime = (iso) => `${fmtDay(iso)} · ${fmtTime(iso)}`;
-const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "");
+const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString("en-GB", Object.assign({ day: "numeric", month: "short", year: "numeric" }, SA)) : "");
+/* an admin types dates and times in South African time too: +02:00 all year */
+const saIso = (date, time) => { const d = new Date(`${date}T${time}:00+02:00`); return isNaN(d) ? null : d.toISOString(); };
+const saParts = (iso) => { if (!iso) return { date: "", time: "" }; const d = new Date(new Date(iso).getTime() + 2 * 3600000).toISOString(); return { date: d.slice(0, 10), time: d.slice(11, 16) }; };
 const fmtRand = (n) => (Number(n) % 1 === 0 ? `R${Number(n)}` : `R${Number(n).toFixed(2)}`);
 const durLabel = (s) => (s < 90 ? `${s} secs` : `${Math.floor((s + 30) / 60)} mins`);
 function greeting() { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"; }

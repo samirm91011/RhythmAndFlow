@@ -1,4 +1,4 @@
-﻿package com.rhythmandflow.app.data.demo
+package com.rhythmandflow.app.data.demo
 
 import com.rhythmandflow.app.data.*
 import java.time.Duration
@@ -91,7 +91,7 @@ class DemoApi : Api {
     private fun lessonDto(l: L): Lesson {
         val locked = user.role != "ADMIN" && !(l.preview || tier >= l.minTier)
         val w = watched[l.id] ?: 0
-        return Lesson(l.id, l.prog, l.progName, l.title, l.desc, l.cat, "All levels", l.secs, null, l.preview, locked, (w * 100.0 / l.secs).coerceAtMost(100.0), w)
+        return Lesson(l.id, l.prog, l.progName, l.title, l.desc, l.cat, "Beginner", l.secs, null, l.preview, locked, (w * 100.0 / l.secs).coerceAtMost(100.0), w)
     }
     private fun session(admin: Boolean, name: String? = null, email: String? = null, username: String? = null): AuthResponse {
         user = User("demo-user", name ?: if (admin) "Rhythm Admin" else "Alex Demo", username ?: if (admin) "admin" else "alex",
@@ -330,6 +330,11 @@ class DemoApi : Api {
         return ActionResult(if (body.choice == "CREDIT") "Cancelled. ${formatDemoRand(paid)} has been added to your account credit." else "Cancelled. We'll refund ${formatDemoRand(paid)} to your original payment method.", "CANCELLED")
     }
     override suspend fun chooseAfterChange(id: Int, body: ChoiceBody): ActionResult { pause(); return ActionResult("Done.", "BOOKED") }
+    override suspend fun reportIssue(id: Int, body: ReportIssueBody): ActionResult {
+        pause()
+        if (body.description.trim().length < 10) fail(400, "Please tell us what happened and about how long it lasted.")
+        return ActionResult("Thank you. We've received your report and will email you with what we can offer.", "REPORTED")
+    }
     override suspend fun credits(): Credits {
         pause()
         return Credits(credit, if (credit > 0) listOf(CreditItem(1, credit, credit, ago(10), Instant.now().plus(Duration.ofDays(365)).toString(), "Cancelled at least 48 hours before the event")) else emptyList())
@@ -339,6 +344,7 @@ class DemoApi : Api {
     override suspend fun adminResolveRequest(id: Int, body: ResolveRequestBody): Response<Unit> { pause(); demoRequests.removeAll { it.bookingId == id }; return ok() }
     override suspend fun adminRefunds(): List<AdminRefund> { pause(); return demoRefunds.toList() }
     override suspend fun adminMarkRefunded(id: Int): Response<Unit> { pause(); demoRefunds.removeAll { it.bookingId == id }; return ok() }
+    override suspend fun adminGiveCredit(id: Int, body: GiveCreditBody): Response<Unit> { pause(); if (body.amount < 1) fail(400, "Enter an amount of at least R1."); return ok() }
     override suspend fun adminSendLinks(id: Int): Response<Unit> { pause(); return ok() }
     override suspend fun book(id: Int): Booking {
         pause()
@@ -407,7 +413,7 @@ class DemoApi : Api {
     override suspend fun adminLessons(): List<AdminLesson> {
         pause()
         return lessonsData.map {
-            AdminLesson(it.id, it.prog, it.progName, it.title, it.desc, it.cat, "All levels", it.secs, "Remote",
+            AdminLesson(it.id, it.prog, it.progName, it.title, it.desc, it.cat, "Beginner", it.secs, "Remote",
                 videoRefs[it.id] ?: "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4", it.preview)
         }
     }

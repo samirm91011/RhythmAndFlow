@@ -25,9 +25,9 @@ const DEMO = (() => {
     { id: 4, programmeId: 2, title: "Salsa starter", description: "Basic steps and hip rhythm.", category: "Dance", level: "Intermediate", durationSeconds: 1200, isPreview: false },
     { id: 5, programmeId: 2, title: "Barre burn", description: "Low-impact strength at the barre.", category: "Barre & Pilates", level: "Intermediate", durationSeconds: 1500, isPreview: false },
     { id: 6, programmeId: 2, title: "Full-body strength", description: "Strength and stability with simple moves.", category: "Strength & Conditioning", level: "Intermediate", durationSeconds: 1800, isPreview: false },
-    { id: 7, programmeId: 1, title: "Balancing breathwork", description: "Breathing practices to support focus and relaxation.", category: "Breathwork", level: "All levels", durationSeconds: 640, isPreview: false },
-    { id: 11, programmeId: 5, title: "10 Minute Stretch and Mobility Morning Routine", description: "A morning routine for flexibility, circulation and mental clarity.", category: "Stretch & Mobility", level: "All levels", durationSeconds: 596, isPreview: true, youtubeId: "NFixPh6y39U" },
-    { id: 12, programmeId: 5, title: "Mindfulness Check-In", description: "A short guided meditation.", category: "Meditation", level: "All levels", durationSeconds: 968, isPreview: true, youtubeId: "mdyAXSmZx3w" },
+    { id: 7, programmeId: 1, title: "Balancing breathwork", description: "Breathing practices to support focus and relaxation.", category: "Breathwork", level: "Beginner", durationSeconds: 640, isPreview: false },
+    { id: 11, programmeId: 5, title: "10 Minute Stretch and Mobility Morning Routine", description: "A morning routine for flexibility, circulation and mental clarity.", category: "Stretch & Mobility", level: "Beginner", durationSeconds: 596, isPreview: true, youtubeId: "NFixPh6y39U" },
+    { id: 12, programmeId: 5, title: "Mindfulness Check-In", description: "A short guided meditation.", category: "Meditation", level: "Beginner", durationSeconds: 968, isPreview: true, youtubeId: "mdyAXSmZx3w" },
   ].map((l) => Object.assign(l, { programmeName: programmes.find((p) => p.id === l.programmeId).name, thumbnailUrl: null }));
   const clip = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
   const state = {
@@ -153,6 +153,12 @@ const DEMO = (() => {
         return delay({ message: "You have left the waiting list.", status: "CANCELLED" });
       }
       case (m = /^POST \/api\/bookings\/(\d+)\/choice$/.exec(key)) !== null: return delay({ message: "Thanks, we've noted your choice.", status: "BOOKED" });
+      case (m = /^POST \/api\/bookings\/(\d+)\/report-issue$/.exec(key)) !== null:
+        if (String(body.description || "").trim().length < 10) fail("Please tell us what happened and about how long it lasted.", 400);
+        return delay({ message: "Thank you. We've received your report and will email you with what we can offer.", status: "REPORTED" });
+      case (m = /^POST \/api\/admin\/bookings\/(\d+)\/credit$/.exec(key)) !== null:
+        if (!(body.amount >= 1)) fail("Enter an amount of at least R1.", 400);
+        return delay(null);
       case key === "GET /api/journal": return delay(state.journal);
       case key === "POST /api/journal": { const e = { id: state.nextId++, kind: body.kind, mood: body.mood || "", text: body.text || "", createdAt: new Date().toISOString() }; state.journal.unshift(e); return delay(e); }
       case (m = /^DELETE \/api\/journal\/(\d+)$/.exec(key)) !== null: state.journal = state.journal.filter((e) => e.id !== Number(m[1])); return delay(null);

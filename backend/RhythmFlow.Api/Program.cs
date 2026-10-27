@@ -27,6 +27,7 @@ builder.Services.Configure<MediaOptions>(cfg.GetSection("Media"));
 builder.Services.Configure<PayFastOptions>(cfg.GetSection("PayFast"));
 builder.Services.Configure<BookingOptions>(cfg.GetSection("Booking"));
 builder.Services.Configure<EventOptions>(cfg.GetSection("Events"));
+EntitlementService.GraceDays = Math.Clamp(cfg.GetValue("Billing:GraceDays", 3), 0, 14);   // days of access while a failed renewal is retried
 builder.Services.Configure<SmtpOptions>(cfg.GetSection("Smtp"));
 builder.Services.Configure<AdminOptions>(cfg.GetSection("Admin"));
 

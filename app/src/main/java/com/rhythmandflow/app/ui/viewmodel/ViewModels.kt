@@ -358,6 +358,9 @@ class ClassesViewModel(private val c: AppContainer) : ViewModel() {
 
     suspend fun choose(bookingId: Int, choice: String): Outcome<ActionResult> = repo.chooseAfterChange(bookingId, choice).also { load() }
 
+    /** Tells the studio about a significant technical problem with an online class (within 48 hours of it). */
+    suspend fun reportIssue(bookingId: Int, description: String): Outcome<ActionResult> = repo.reportIssue(bookingId, description)
+
     suspend fun credits(): Credits? = (repo.credits() as? Outcome.Ok)?.value
 }
 
@@ -705,6 +708,12 @@ class AdminAttendeesViewModel(private val c: AppContainer, val classId: Int) : V
                 is Outcome.Fail -> AttendeesState(cls, false, people.message, _state.value.people)
             }
         }
+    }
+
+    /** Gives this person account credit for their ticket (for example after a technical problem). Returns a message if it was refused. */
+    suspend fun giveCredit(bookingId: Int, amount: Double, reason: String?): String? = when (val r = repo.adminGiveCredit(bookingId, amount, reason)) {
+        is Outcome.Ok -> null
+        is Outcome.Fail -> r.message
     }
 }
 

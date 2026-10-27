@@ -351,7 +351,7 @@ private fun MainGraph(
             composable("admin/lessons") { AdminLessonsScreen(onBack = back, notify = notify) }
             composable("admin/classes") { AdminClassesScreen(onBack = back, notify = notify, onAttendees = { nav.navigate("admin/class/$it") }) }
             composable("admin/class/{id}", listOf(navArgument("id") { type = NavType.IntType })) { e ->
-                AdminAttendeesScreen(e.arguments!!.getInt("id"), onBack = back)
+                AdminAttendeesScreen(e.arguments!!.getInt("id"), onBack = back, notify = notify)
             }
             composable("admin/bookings") { AdminBookingsScreen(onBack = back, onClass = { nav.navigate("admin/class/$it") }) }
             composable("admin/subscriptions") { AdminSubscriptionsScreen(onBack = back) }

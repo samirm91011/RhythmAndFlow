@@ -165,7 +165,7 @@ public static class SeedData
         foreach (var v in videos)
             programme.Lessons.Add(new Lesson
             {
-                Title = v.Title, Description = v.Description, Category = v.Category, Level = "All levels", DurationSeconds = v.Seconds,
+                Title = v.Title, Description = v.Description, Category = v.Category, Level = v.Id is "JfLKk17S8KQ" or "Y3ZCfwIV3js" ? "Intermediate" : "Beginner", DurationSeconds = v.Seconds,
                 SequenceNumber = ++n, VideoProvider = RhythmFlow.Api.Services.LessonVideo.YouTube, VideoReference = v.Id, IsPreview = true,
                 ThumbnailUrl = $"https://img.youtube.com/vi/{v.Id}/hqdefault.jpg",
             });

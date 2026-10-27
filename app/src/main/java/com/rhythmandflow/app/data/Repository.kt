@@ -109,6 +109,7 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     suspend fun joinWaitlist(classId: Int) = callUnit { api.joinWaitlist(classId) }
     suspend fun cancelTicket(id: Int, choice: String?, note: String?) = call { api.cancelTicket(id, CancelRequestBody(choice, note)) }
     suspend fun chooseAfterChange(id: Int, choice: String) = call { api.chooseAfterChange(id, ChoiceBody(choice)) }
+    suspend fun reportIssue(id: Int, description: String) = call { api.reportIssue(id, ReportIssueBody(description)) }
     suspend fun credits() = call { api.credits() }
     suspend fun changePlan(subId: Int, planId: Int, billing: String?) = call { api.changePlan(subId, CheckoutRequest(planId, billing)) }
     suspend fun policies() = call { api.policies() }
@@ -157,6 +158,7 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     suspend fun adminResolveRequest(id: Int, approve: Boolean, amount: Double?) = callUnit { api.adminResolveRequest(id, ResolveRequestBody(approve, amount)) }
     suspend fun adminRefunds() = call { api.adminRefunds() }
     suspend fun adminMarkRefunded(id: Int) = callUnit { api.adminMarkRefunded(id) }
+    suspend fun adminGiveCredit(id: Int, amount: Double, reason: String?) = callUnit { api.adminGiveCredit(id, GiveCreditBody(amount, reason)) }
     suspend fun adminSendLinks(id: Int) = callUnit { api.adminSendLinks(id) }
     suspend fun adminCancelClass(id: Int) = callUnit { api.adminCancelClass(id) }
     suspend fun adminCreateLesson(l: LessonUpsert) = call { api.adminCreateLesson(l) }

@@ -136,7 +136,7 @@ public class Lesson
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
     public string Category { get; set; } = "Yoga";
-    public string Level { get; set; } = "All levels";
+    public string Level { get; set; } = "Beginner";   // Beginner, Intermediate or Advanced (see LessonLevels)
     public int DurationSeconds { get; set; }
     public int SequenceNumber { get; set; }
     /// <summary>Where the video lives: "Remote" (proxied from VideoReference URL) or "Local" (file in media folder).</summary>

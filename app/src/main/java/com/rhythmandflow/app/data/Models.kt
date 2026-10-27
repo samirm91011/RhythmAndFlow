@@ -227,6 +227,8 @@ data class AdminRefund(
     val bookingId: Int, val reference: String, val fullName: String, val email: String, val eventName: String, val amount: Double, val payFastPaymentId: String?,
 )
 data class ResolveRequestBody(val approve: Boolean, val amount: Double?)
+data class ReportIssueBody(val description: String)
+data class GiveCreditBody(val amount: Double, val reason: String?)
 
 data class AppNotification(val id: Int, val kind: String, val title: String, val body: String, val route: String?, val createdAt: String, val read: Boolean)
 data class MarkReadRequest(val ids: List<Int>?)

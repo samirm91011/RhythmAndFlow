@@ -15,10 +15,9 @@ function chipPick(e, state) {
   return b.dataset.g;
 }
 const checkbox = (id, label, on) => `<label class="check"><input type="checkbox" id="${id}" ${on ? "checked" : ""}><span>${esc(label)}</span></label>`;
-const isoLocal = (date, time) => { const d = new Date(`${date}T${time}`); return isNaN(d) ? null : d.toISOString(); };
-const pad2 = (n) => String(n).padStart(2, "0");
-const dateOf = (iso) => { if (!iso) return ""; const d = new Date(iso); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
-const timeOf = (iso) => { if (!iso) return ""; const d = new Date(iso); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+const isoLocal = saIso;                       // South African time, whatever the admin's own device says
+const dateOf = (iso) => saParts(iso).date;
+const timeOf = (iso) => saParts(iso).time;
 const digits = (s) => String(s || "").replace(/\D/g, "");
 
 /* ---------------- Dashboard ---------------- */
@@ -47,6 +46,8 @@ route("/admin", async (el) => {
 }, { admin: true, tab: aTab("a-home") });
 
 /* ---------------- Classes and events ---------------- */
+/* the three levels the client approved */
+const LEVELS = ["Beginner", "Intermediate", "Advanced"];
 const KINDS = [["CLASS", "Class"], ["WORKSHOP", "Workshop"], ["RETREAT", "Retreat"], ["COACHING", "Coaching"]];
 route("/admin/classes", async (el) => {
   const blank = () => ({ id: null, name: "", coach: "Deni", location: "", date: "", time: "", minutes: "60", capacity: "20", description: "All levels welcome.", kind: "CLASS", format: "IN_PERSON", price: "", poster: "", closeHours: "24", opensOn: "", earlyHours: "", platform: "Zoom", joinLink: "", note: "", waitlist: false });
@@ -58,10 +59,11 @@ route("/admin/classes", async (el) => {
       <div class="row">${field("c_date", "Date", { type: "date", value: f.date })}${field("c_time", "Start time", { type: "time", value: f.time })}</div>
       <div class="row">${field("c_min", "Minutes", { inputmode: "numeric", value: f.minutes })}${field("c_cap", "Capacity", { inputmode: "numeric", value: f.capacity })}</div>
       ${field("c_desc", "Description", { area: true, value: f.description, max: 500 })}
-      <p class="small muted">What is it?</p>${chipRow("kind", KINDS, f.kind)}${chipRow("format", [["IN_PERSON", "In person"], ["ONLINE", "Online"]], f.format)}
+      <p class="small muted">What is it?</p>${chipRow("kind", KINDS, f.kind)}${chipRow("format", f.kind === "RETREAT" ? [["IN_PERSON", "In person"]] : [["IN_PERSON", "In person"], ["ONLINE", "Online"]], f.format)}${f.kind === "RETREAT" ? `<p class="small muted">Retreats are held in person.</p>` : ""}
       ${field("c_price", "Ticket price in rand, VAT included (empty = free booking)", { inputmode: "numeric", value: f.price })}
       ${paid ? `${field("c_poster", "Poster image address (https://…). 1200 x 630 px works best", { value: f.poster })}${field("c_close", "Ticket sales close this many hours before the start", { inputmode: "numeric", value: f.closeHours })}
         ${field("c_opens", "Ticket sales open on (optional)", { type: "date", value: f.opensOn })}${field("c_early", "Members of the second plan can buy this many hours earlier", { inputmode: "numeric", value: f.earlyHours })}
+        <p class="small muted">Priority booking: this works together with the 'sales open on' date above. Second-plan members can buy this many hours before that date, and they go first when a place opens on the waiting list.</p>
         ${checkbox("c_wait", "Waiting list when sold out", f.waitlist)}` : ""}
       ${f.format === "ONLINE" ? `${chipRow("platform", [["Zoom", "Zoom"], ["Google Meet", "Google Meet"]], f.platform)}${field("c_link", "Joining link (https://…)", { value: f.joinLink })}<p class="small muted">Ticket holders get the link in a separate email. You can add it later.</p>` : ""}
       ${field("c_note", "Practical note for the confirmation email (optional, replaces the standard one)", { area: true, value: f.note, max: 800 })}
@@ -86,7 +88,9 @@ route("/admin/classes", async (el) => {
   el.oninput = (e) => { if (e.target.id === "c_price") { const was = (parseInt(f.price, 10) || 0) > 0; read(); const now = (parseInt(f.price, 10) || 0) > 0; if (was !== now) { const id = e.target.id, pos = e.target.selectionStart; draw(); const n = $("#" + id); n.focus(); n.setSelectionRange(pos, pos); } } };
   el.onclick = async (e) => {
     try {
-      const g = (read(), chipPick(e, f)); if (g === "format") { draw(); return; }
+      const g = (read(), chipPick(e, f));
+      if (g === "kind" && f.kind === "RETREAT") f.format = "IN_PERSON";
+      if (g === "format" || g === "kind") { draw(); return; }
       if (g) return;
       const ed = e.target.closest("[data-edit]"), cn = e.target.closest("[data-cancel]"), ln = e.target.closest("[data-links]");
       if (e.target.id === "ccancel") { f = blank(); return draw(); }
@@ -122,8 +126,19 @@ route("/admin/classes", async (el) => {
 }, { admin: true, tab: aTab("a-classes") });
 
 route("/admin/attendees/:id", async (el, { id }) => {
-  const rows = await api("GET", `/api/admin/classes/${id}/attendees`);
-  el.innerHTML = `${topbar("Who is booked", { sub: `${rows.length} ${rows.length === 1 ? "person" : "people"}` })}` + (rows.length ? `<div class="list">${rows.map((a) => `<div class="card"><h3 style="font-size:19px">${esc(a.fullName)}</h3><p class="small muted">${esc(a.email)} · booked ${fmtDate(a.bookedAt)}</p><span class="pill ${a.status === "BOOKED" ? "" : "grey"}">${esc(a.status)}</span></div>`).join("")}</div>` : emptyBox("No one yet", "Nobody has booked this class so far.", "📅"));
+  const [rows, classes] = await Promise.all([api("GET", `/api/admin/classes/${id}/attendees`), api("GET", "/api/admin/classes")]);
+  const paid = (classes.find((c) => String(c.id) === id) || {}).price > 0;
+  el.innerHTML = `${topbar("Who is booked", { sub: `${rows.length} ${rows.length === 1 ? "person" : "people"}` })}` + (rows.length ? `<div class="list">${rows.map((a) => `<div class="card stack-sm"><h3 style="font-size:19px">${esc(a.fullName)}</h3><p class="small muted">${esc(a.email)} · booked ${fmtDate(a.bookedAt)}</p><div class="row between"><span class="pill ${a.status === "BOOKED" ? "" : "grey"}">${esc(a.status)}</span>${paid && a.status === "BOOKED" ? `<button class="linkbtn" data-credit="${a.bookingId}" data-name="${esc(a.fullName)}">Give account credit</button>` : ""}</div></div>`).join("")}</div>` : emptyBox("No one yet", "Nobody has booked this class so far.", "📅"));
+  el.onclick = async (e) => {
+    const c = e.target.closest("[data-credit]"); if (!c) return;
+    const v = await dialog({
+      title: "Give account credit", ok: "Give credit", cancel: "Cancel",
+      fields: `<p class="muted">${esc(c.dataset.name)} will be emailed. The credit is valid for 12 months and is used automatically on their next ticket. The most you can give is what they paid.</p>${field("camt", "Amount (R)", { inputmode: "numeric" })}${field("crs", "Reason", { value: "Online class problem" })}`,
+      check: (x) => (parseFloat(x.camt) >= 1 ? "" : "Enter an amount of at least R1."),
+    });
+    if (!v) return;
+    try { await api("POST", `/api/admin/bookings/${c.dataset.credit}/credit`, { amount: parseFloat(v.camt), reason: (v.crs || "").trim() || null }); toast("Credit added. The person has been told."); } catch (err) { toast(err.message); }
+  };
 }, { admin: true });
 
 /* ---------------- Event requests and refunds ---------------- */
@@ -152,7 +167,7 @@ route("/admin/events", async (el) => {
 
 /* ---------------- Lessons and programmes ---------------- */
 route("/admin/lessons", async (el) => {
-  const blank = () => ({ id: null, programmeId: null, title: "", description: "", category: "Yoga", seconds: "", provider: "Remote", url: "", preview: false, level: "All levels" });
+  const blank = () => ({ id: null, programmeId: null, title: "", description: "", category: "Yoga", seconds: "", provider: "Remote", url: "", preview: false, level: "Beginner" });
   let f = blank(); let [lessons, programmes] = await Promise.all([api("GET", "/api/admin/lessons"), api("GET", "/api/admin/programmes")]);
   if (!f.programmeId && programmes.length) f.programmeId = String(programmes[0].id);
   const draw = () => {
@@ -160,6 +175,7 @@ route("/admin/lessons", async (el) => {
       <p class="small muted">Programme</p>${chipRow("programmeId", programmes.map((p) => [p.id, p.name]), f.programmeId)}
       ${field("l_title", "Title", { value: f.title, cap: "sentences" })}${field("l_desc", "Description", { area: true, value: f.description, max: 600 })}
       <p class="small muted">Category</p>${chipRow("category", CATEGORIES.map((c) => [c.name, c.name]), catInfo(f.category).name)}<p class="small muted">${esc(catInfo(f.category).desc)}</p>
+      <p class="small muted">Level</p>${chipRow("level", LEVELS.map((l) => [l, l]), f.level)}
       ${field("l_sec", "Length in seconds", { inputmode: "numeric", value: f.seconds })}
       <p class="small muted">Where is the video?</p>${chipRow("provider", [["Remote", "Video file"], ["YouTube", "YouTube"]], f.provider)}
       ${field("l_url", f.provider === "YouTube" ? "YouTube link (https://youtu.be/…)" : "Video address (https://…)", { value: f.url })}
@@ -179,7 +195,7 @@ route("/admin/lessons", async (el) => {
       if (e.target.id === "lcancel") { f = Object.assign(blank(), { programmeId: String(programmes[0].id) }); return draw(); }
       if (ed) {
         const l = lessons.find((x) => String(x.id) === ed.dataset.edit); const yt = /youtube/i.test(l.videoProvider);
-        f = { id: l.id, programmeId: String(l.programmeId), title: l.title, description: l.description, category: l.category, seconds: String(l.durationSeconds), provider: yt ? "YouTube" : "Remote", url: yt ? `https://youtu.be/${l.videoReference}` : l.videoReference, preview: l.isPreview, level: l.level };
+        f = { id: l.id, programmeId: String(l.programmeId), title: l.title, description: l.description, category: l.category, seconds: String(l.durationSeconds), provider: yt ? "YouTube" : "Remote", url: yt ? `https://youtu.be/${l.videoReference}` : l.videoReference, preview: l.isPreview, level: LEVELS.includes(l.level) ? l.level : "Beginner" };
         draw(); window.scrollTo(0, 0); return;
       }
       if (del) {

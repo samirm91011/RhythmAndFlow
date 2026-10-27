@@ -150,6 +150,17 @@ public static class SchemaUpgrades
         else return;
 
         await ApplyClientPlanCopyAsync(db);
+        await ApplyLessonLevelsAsync(db);
+    }
+
+    /// <summary>
+    /// The client approved three levels: Beginner, Intermediate and Advanced. Lessons saved before that say "All levels", so they
+    /// become Beginner, except the two longer workouts from her channel, which are Intermediate. Safe to repeat.
+    /// </summary>
+    private static async Task ApplyLessonLevelsAsync(AppDbContext db)
+    {
+        await db.Database.ExecuteSqlRawAsync("""UPDATE "Lessons" SET "Level" = 'Intermediate' WHERE "Level" = 'All levels' AND "VideoReference" IN ('JfLKk17S8KQ', 'Y3ZCfwIV3js')""");
+        await db.Database.ExecuteSqlRawAsync("""UPDATE "Lessons" SET "Level" = 'Beginner' WHERE "Level" = 'All levels'""");
     }
 
     /// <summary>

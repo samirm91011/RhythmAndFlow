@@ -69,6 +69,14 @@ public class ClassesController(BookingService bookings, EventBookingService even
         return result is not null ? Ok(result) : Conflict(new { error });
     }
 
+    /// <summary>Report a significant technical problem with an online class (within 48 hours of it).</summary>
+    [HttpPost("api/bookings/{id:int}/report-issue")]
+    public async Task<ActionResult<ActionResultDto>> ReportIssue(int id, ReportIssueRequest req)
+    {
+        var (ok, error) = await events.ReportIssueAsync(UserId, id, req.Description);
+        return ok ? Ok(new ActionResultDto("Thank you. We've received your report and will email you with what we can offer.", "REPORTED")) : BadRequest(new { error });
+    }
+
     [HttpGet("api/credits")]
     public Task<CreditsDto> Credits() => events.CreditsAsync(UserId);
 }
@@ -173,6 +181,7 @@ public class AdminController(AppDbContext db, NotificationService notifications,
     public async Task<ActionResult<int>> CreateLesson(LessonUpsert r)
     {
         if (!await db.Programmes.AnyAsync(p => p.Id == r.ProgrammeId)) return BadRequest(new { error = "Unknown programme." });
+        if (!LessonLevels.TryNormalise(r.Level, out _)) return BadRequest(new { error = LessonLevels.Refusal });
         var video = LessonVideo.Normalise(r.VideoProvider, r.VideoReference);
         if (!video.Ok) return BadRequest(new { error = video.Error });
         r = r with { VideoProvider = video.Provider, VideoReference = video.Reference };
@@ -209,7 +218,7 @@ public class AdminController(AppDbContext db, NotificationService notifications,
     private static void Apply(Lesson l, LessonUpsert r)
     {
         l.ProgrammeId = r.ProgrammeId; l.Title = r.Title.Trim(); l.Description = r.Description?.Trim() ?? "";
-        l.Category = r.Category.Trim(); l.Level = string.IsNullOrWhiteSpace(r.Level) ? "All levels" : r.Level.Trim();
+        l.Category = r.Category.Trim(); LessonLevels.TryNormalise(r.Level, out var level); l.Level = level;
         l.DurationSeconds = r.DurationSeconds; l.VideoProvider = r.VideoProvider.Trim(); l.VideoReference = r.VideoReference.Trim();
         l.IsPreview = r.IsPreview;
     }
@@ -265,6 +274,14 @@ public class AdminController(AppDbContext db, NotificationService notifications,
 
     [HttpGet("refunds")]
     public Task<List<AdminRefundDto>> Refunds() => events.RefundsAsync();
+
+    /// <summary>Gives a participant account credit, for example after a technical problem with an online class.</summary>
+    [HttpPost("bookings/{id:int}/credit")]
+    public async Task<IActionResult> GiveCredit(int id, GiveCreditRequest r)
+    {
+        var (ok, error) = await events.GiveCreditAsync(id, r.Amount, r.Reason);
+        return ok ? NoContent() : BadRequest(new { error });
+    }
 
     [HttpPost("bookings/{id:int}/refunded")]
     public async Task<IActionResult> Refunded(int id)

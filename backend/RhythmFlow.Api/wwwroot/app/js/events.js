@@ -24,11 +24,14 @@ function classCard(c) {
   return `<div class="card stack-sm">${poster(c.posterUrl)}
     <div class="row between"><h3>${esc(c.name)}</h3>${status}</div>
     ${paid || c.kind !== "CLASS" || c.format === "ONLINE" ? `<div class="pills" style="margin:0">${c.kind !== "CLASS" ? `<span class="pill grey">${esc(KIND_LABEL[c.kind] || c.kind)}</span>` : ""}<span class="pill grey">${c.format === "ONLINE" ? "Online" : "In person"}</span>${paid ? `<span class="pill">${fmtRand(c.price)}</span>` : ""}</div>` : ""}
-    ${detail("classes", `${fmtDay(c.startTime)} · ${fmtTime(c.startTime)} – ${fmtTime(c.endTime)}`)}${detail("you", c.coachName)}${detail("place", placeOf(c))}
+    ${detail("classes", `${fmtDay(c.startTime)} · ${fmtTime(c.startTime)} – ${fmtTime(c.endTime)} (SA time)`)}${detail("you", c.coachName)}${detail("place", placeOf(c))}
     ${c.description ? `<p class="small muted">${esc(c.description)}</p>` : ""}
-    ${paid && c.memberEarlyHours > 0 && c.salesOpenAt ? `<p class="small muted">Members can buy ${c.memberEarlyHours} hours before everyone else.</p>` : ""}
+    ${paid && c.memberEarlyHours > 0 && c.salesOpenAt ? `<p class="small muted">Members of the second plan can buy ${c.memberEarlyHours} hours before everyone else, and go first on the waiting list.</p>` : ""}
     ${action}</div>`;
 }
+
+/* A significant technical problem can be reported for an online class once it has started and for 48 hours after it ends. */
+const canReport = (b) => b.format === "ONLINE" && b.status === "BOOKED" && Date.now() > new Date(b.startTime) && Date.now() < new Date(b.endTime).getTime() + 48 * 3600000;
 
 function bookingCard(b) {
   const pill = b.choiceNeeded ? `<span class="pill tang">Your choice</span>` : b.status === "WAITLISTED" ? `<span class="pill grey">Waiting list</span>`
@@ -42,12 +45,13 @@ function bookingCard(b) {
     body = `<button class="btn secondary" data-leave="${b.id}">Leave the waiting list</button>`;
   } else {
     body = `${b.joinLink && /^https?:\/\//i.test(b.joinLink) ? `<a class="btn" href="${esc(b.joinLink)}" target="_blank" rel="noopener">Open the joining link</a>` : ""}
+      ${canReport(b) ? `<button class="btn secondary" data-report="${b.id}">Report a problem</button>` : ""}
       ${b.requestStatus === "PENDING" ? `<p class="small muted">We've received your cancellation request and will handle it fairly.</p>`
         : b.canCancel ? `<button class="btn secondary" data-cancelticket="${b.id}">${b.totalPaid > 0 ? "Cancel ticket" : "Cancel booking"}</button>`
           : b.totalPaid <= 0 ? `<p class="small muted">Too close to the class start to cancel online.</p>` : ""}`;
   }
   return `<div class="card stack-sm"><div class="row between"><h3>${esc(b.className)}</h3>${pill}</div>
-    ${detail("classes", `${fmtDay(b.startTime)} · ${fmtTime(b.startTime)} – ${fmtTime(b.endTime)}`)}${detail("you", b.coachName)}${detail("place", placeOf(b))}
+    ${detail("classes", `${fmtDay(b.startTime)} · ${fmtTime(b.startTime)} – ${fmtTime(b.endTime)} (SA time)`)}${detail("you", b.coachName)}${detail("place", placeOf(b))}
     ${b.totalPaid > 0 ? `<p class="small muted">Paid ${fmtRand(b.totalPaid)} · Reference ${esc(b.reference)}</p>` : ""}
     ${b.refundStatus === "REQUESTED" ? `<p class="small" style="color:var(--teal-deep)">Refund on its way. We'll tell you when it's sent.</p>` : ""}
     ${body}</div>`;
@@ -72,7 +76,7 @@ route("/classes", async (el) => {
   const done = async (r) => { if (r && r.message) await dialog({ title: "Done", text: r.message, ok: "OK", cancel: "" }); await draw(); };
   el.onclick = async (e) => {
     const t = e.target.closest("[data-tab]"), book = e.target.closest("[data-book]"), buy = e.target.closest("[data-buy]"), wait = e.target.closest("[data-wait]");
-    const choice = e.target.closest("[data-choice]"), leave = e.target.closest("[data-leave]"), cancel = e.target.closest("[data-cancelticket]");
+    const choice = e.target.closest("[data-choice]"), leave = e.target.closest("[data-leave]"), cancel = e.target.closest("[data-cancelticket]"), report = e.target.closest("[data-report]");
     try {
       if (t) { tab = t.dataset.tab; await draw(); }
       else if (book) {
@@ -87,7 +91,7 @@ route("/classes", async (el) => {
         if (!q.canBuy) { toast(q.reason || "Tickets aren't available right now."); return; }
         const ok = await dialog({
           title: "Buy a ticket", ok: q.amountDue === 0 ? "Book with credit" : "Continue to payment", cancel: "Not now",
-          fields: `<p><b>${esc(c.name)}</b></p><p class="muted">${fmtDay(c.startTime)} · ${fmtTime(c.startTime)} – ${fmtTime(c.endTime)}</p><p>${fmtRand(c.price)} including VAT.</p>
+          fields: `<p><b>${esc(c.name)}</b></p><p class="muted">${fmtDay(c.startTime)} · ${fmtTime(c.startTime)} – ${fmtTime(c.endTime)} (SA time)</p><p>${fmtRand(c.price)} including VAT.</p>
             ${q.creditApplied > 0 ? `<p style="color:var(--teal-deep)">You have ${fmtRand(q.creditAvailable)} account credit. ${fmtRand(q.creditApplied)} will be used, so you pay ${fmtRand(q.amountDue)}.</p>` : ""}
             <p class="small muted">${POLICY_NOTE}</p><p class="small"><a href="#/policies">Read the cancellation policy</a></p>
             ${c.format === "ONLINE" ? `<p class="small muted">A separate email with the joining link will follow.</p>` : ""}`,
@@ -97,6 +101,13 @@ route("/classes", async (el) => {
         if (r.confirmed || !r.paymentUrl) { toast(r.message); tab = "mine"; await draw(); } else toPayFast(r.paymentUrl, "ticket", r.bookingId);   // payment happens on PayFast's own page
       } else if (choice) {
         const r = await api("POST", `/api/bookings/${choice.dataset.id}/choice`, { choice: choice.dataset.choice }); await done(r);
+      } else if (report) {
+        const v = await dialog({
+          title: "Report a problem", ok: "Send report", cancel: "Cancel",
+          fields: `<p class="muted">Tell us what went wrong and about how long it lasted. We'll look into it and email you with what we can offer.</p>${field("issue", "What happened?", { area: true, max: 1000 })}`,
+          check: (x) => (x.issue.trim().length >= 10 ? "" : "Please tell us what happened and about how long it lasted."),
+        });
+        if (v) await done(await api("POST", `/api/bookings/${report.dataset.report}/report-issue`, { description: v.issue.trim() }));
       } else if (leave) {
         const r = await api("POST", `/api/bookings/${leave.dataset.leave}/cancel-ticket`, { choice: null, note: null }); await done(r);
       } else if (cancel) {
@@ -112,6 +123,7 @@ route("/classes", async (el) => {
               : `<p class="muted">This is less than 48 hours before the event, so a refund or credit isn't guaranteed. We'll look at your request fairly. Up to half of the fee can be agreed.</p>`}
             <p class="small muted">${b.freeCancellation ? "I'd like:" : "I'd prefer:"}</p>
             <div class="row"><button type="button" class="chip on" data-pick="CREDIT" data-group="choice">Account credit</button><button type="button" class="chip" data-pick="REFUND" data-group="choice">Refund</button></div>
+            <p class="small muted">Account credit can be used towards any other event for 12 months.</p>
             ${b.freeCancellation ? "" : field("note", "Anything we should know? (optional)", { area: true, max: 500 })}
             <p class="small"><a href="#/policies">Read the cancellation policy</a></p>`,
         });

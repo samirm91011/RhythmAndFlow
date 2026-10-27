@@ -100,7 +100,7 @@ public class YouTubeTests
         var svc = new ScheduleAdminService(t.Db, new NotificationService(t.Db));
         var lesson = t.AddLesson();
         LessonUpsert Body(string reference) =>
-            new(lesson.ProgrammeId, "Title", "d", "Yoga", "All levels", 600, "YouTube", reference, true);
+            new(lesson.ProgrammeId, "Title", "d", "Yoga", "Beginner", 600, "YouTube", reference, true);
 
         var bad = await svc.UpdateLessonAsync(lesson.Id, Body("https://example.com/video"));
         Assert.False(bad.Ok); Assert.Contains("YouTube link", bad.Error);
