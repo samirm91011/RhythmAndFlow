@@ -57,17 +57,31 @@ class SessionViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
-    suspend fun login(identifier: String, password: String): String? =
+    /** Signs in. If the account's email was never confirmed, [LoginResult.confirmEmail] holds the address to confirm. */
+    data class LoginResult(val error: String? = null, val confirmEmail: String? = null)
+
+    suspend fun login(identifier: String, password: String): LoginResult =
         when (val r = repo.login(identifier.trim(), password)) {
-            is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value.user); onSignedIn(); null }
-            is Outcome.Fail -> r.message
+            is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value.user); onSignedIn(); LoginResult() }
+            is Outcome.Fail ->
+                if (r.code == 403 && r.raw?.contains("EMAIL_NOT_VERIFIED") == true)
+                    LoginResult(r.message, confirmEmail = Regex("\"email\"\\s*:\\s*\"([^\"]+)\"").find(r.raw)?.groupValues?.get(1) ?: identifier.trim())
+                else LoginResult(r.message)
         }
 
-    suspend fun register(name: String, username: String, email: String, password: String): String? =
-        when (val r = repo.register(name.trim(), username.trim(), email.trim(), password)) {
-            is Outcome.Ok -> { _state.value = SessionState.SignedIn(r.value.user); onSignedIn(); null }
-            is Outcome.Fail -> r.message
-        }
+    /** Creates the account. Nobody is signed in: on success the app shows the "enter your code" screen. */
+    suspend fun register(name: String, username: String, email: String, password: String): Outcome<RegisterResponse> =
+        repo.register(name.trim(), username.trim(), email.trim(), password)
+
+    suspend fun verifyEmail(email: String, code: String): String? = when (val r = repo.verifyEmail(email, code)) {
+        is Outcome.Ok -> null
+        is Outcome.Fail -> r.message
+    }
+
+    suspend fun resendVerification(email: String): String? = when (val r = repo.resendVerification(email)) {
+        is Outcome.Ok -> null
+        is Outcome.Fail -> r.message
+    }
 
     suspend fun updateProfile(name: String, email: String, about: String): String? =
         when (val r = repo.updateProfile(name.trim(), email.trim(), about.trim())) {
@@ -189,6 +203,8 @@ data class PlayerState(
     val url: String? = null,
     val resumeMs: Long = 0,
     val locked: Boolean = false,
+    /** Set for a lesson that plays from YouTube instead of a video file. */
+    val youtubeId: String? = null,
 )
 
 class PlayerViewModel(private val c: AppContainer, private val lessonId: Int) : ViewModel() {
@@ -203,7 +219,9 @@ class PlayerViewModel(private val c: AppContainer, private val lessonId: Int) : 
         viewModelScope.launch {
             _state.value = PlayerState()
             when (val r = repo.playback(lessonId)) {
-                is Outcome.Ok -> _state.value = PlayerState(false, null, r.value.url, r.value.resumeSeconds * 1000L)
+                is Outcome.Ok -> _state.value = PlayerState(
+                    false, null, r.value.url.ifBlank { null }, r.value.resumeSeconds * 1000L, youtubeId = r.value.youtubeId,
+                )
                 is Outcome.Fail -> _state.value = PlayerState(false, r.message, locked = r.code == 403)
             }
         }
@@ -339,6 +357,9 @@ class ClassesViewModel(private val c: AppContainer) : ViewModel() {
         repo.cancelTicket(bookingId, choice, note).also { load() }
 
     suspend fun choose(bookingId: Int, choice: String): Outcome<ActionResult> = repo.chooseAfterChange(bookingId, choice).also { load() }
+
+    /** Tells the studio about a significant technical problem with an online class (within 48 hours of it). */
+    suspend fun reportIssue(bookingId: Int, description: String): Outcome<ActionResult> = repo.reportIssue(bookingId, description)
 
     suspend fun credits(): Credits? = (repo.credits() as? Outcome.Ok)?.value
 }
@@ -687,6 +708,12 @@ class AdminAttendeesViewModel(private val c: AppContainer, val classId: Int) : V
                 is Outcome.Fail -> AttendeesState(cls, false, people.message, _state.value.people)
             }
         }
+    }
+
+    /** Gives this person account credit for their ticket (for example after a technical problem). Returns a message if it was refused. */
+    suspend fun giveCredit(bookingId: Int, amount: Double, reason: String?): String? = when (val r = repo.adminGiveCredit(bookingId, amount, reason)) {
+        is Outcome.Ok -> null
+        is Outcome.Fail -> r.message
     }
 }
 

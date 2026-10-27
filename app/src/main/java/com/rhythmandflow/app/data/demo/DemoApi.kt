@@ -40,6 +40,9 @@ class DemoApi : Api {
         L(8, 4, "7-Day Flow Plan", 2, "Day 2: Dance Cardio Burn", "High energy dance for a full body workout.", "Dance", 1800, false),
         L(9, 3, "Mindful Mobility", 1, "Strength Basics", "Build strength and stability with simple at-home moves.", "Strength & Conditioning", 1200, false),
         L(10, 3, "Mindful Mobility", 1, "Box Breathing", "A short breathing practice for focus and calm.", "Breathwork", 300, false),
+        // Free previews from the client's YouTube channel (they play from YouTube, no subscription needed)
+        L(11, 5, "Free Practices", 1, "10 Minute Stretch and Mobility Morning Routine", "A morning routine for flexibility, circulation and mental clarity.", "Stretch & Mobility", 596, true),
+        L(12, 5, "Free Practices", 1, "Mindfulness Monday: 10 Minute Balancing Breathwork", "A guided alternate nostril breathing practice to calm the mind and body.", "Breathwork", 640, true),
     )
     private val watched = mutableMapOf(1 to 240)   // Alex is part-way through the first lesson, so Home shows "continue"
 
@@ -88,7 +91,7 @@ class DemoApi : Api {
     private fun lessonDto(l: L): Lesson {
         val locked = user.role != "ADMIN" && !(l.preview || tier >= l.minTier)
         val w = watched[l.id] ?: 0
-        return Lesson(l.id, l.prog, l.progName, l.title, l.desc, l.cat, "All levels", l.secs, null, l.preview, locked, (w * 100.0 / l.secs).coerceAtMost(100.0), w)
+        return Lesson(l.id, l.prog, l.progName, l.title, l.desc, l.cat, "Beginner", l.secs, null, l.preview, locked, (w * 100.0 / l.secs).coerceAtMost(100.0), w)
     }
     private fun session(admin: Boolean, name: String? = null, email: String? = null, username: String? = null): AuthResponse {
         user = User("demo-user", name ?: if (admin) "Rhythm Admin" else "Alex Demo", username ?: if (admin) "admin" else "alex",
@@ -105,7 +108,16 @@ class DemoApi : Api {
     }
 
     // ---- auth
-    override suspend fun register(body: RegisterRequest): AuthResponse { pause(); return session(false, body.fullName, body.email, body.username) }
+    override suspend fun register(body: RegisterRequest): RegisterResponse {
+        pause()
+        return RegisterResponse(body.email, true, "We've emailed you a 6-digit code. Enter it to confirm your email, then sign in.")
+    }
+    override suspend fun verifyEmail(body: VerifyEmailRequest): MessageResponse {
+        pause()
+        if (body.code != "123456") fail(400, "That code isn't valid or has expired. Please request a new one.")
+        return MessageResponse("Your email is confirmed. You can sign in now.")
+    }
+    override suspend fun resendVerification(body: ResendVerificationRequest): MessageResponse { pause(); return MessageResponse("We've sent a new 6-digit code.") }
     override suspend fun login(body: LoginRequest): AuthResponse {
         pause()
         if (body.password == "wrong") fail(401, "Incorrect username/email or password.")
@@ -225,6 +237,7 @@ class DemoApi : Api {
         AdminProgramme(2, "Dance with Joy", "Feel-good dance movement for every level.", 1, true, 2),
         AdminProgramme(3, "Mindful Mobility", "Stretch, restore and move well for life.", 1, true, 4),
         AdminProgramme(4, "7-Day Flow Plan", "A guided journey combining movement, breathing and rest.", 2, true, 2),
+        AdminProgramme(5, "Free Practices", "Free practices from Rhythm & Flow's YouTube channel. Create a free account and press play.", 1, true, 2),
     )
     override suspend fun programmes(): List<Programme> {
         pause()
@@ -256,6 +269,8 @@ class DemoApi : Api {
     override suspend fun playback(id: Int): Playback {
         pause()
         if (lessonDto(lessonsData.first { it.id == id }).locked) fail(403, "An active subscription is required to watch this lesson.")
+        val youtube = mapOf(11 to "NFixPh6y39U", 12 to "0LyPiFSmLpA")[id]
+        if (youtube != null) return Playback("", Instant.now().plus(Duration.ofHours(1)).toString(), 0, youtube)
         return Playback("https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4", Instant.now().plus(Duration.ofHours(1)).toString(), 0)
     }
     override suspend fun updateProgress(body: ProgressUpdate): ProgressResult {
@@ -315,6 +330,11 @@ class DemoApi : Api {
         return ActionResult(if (body.choice == "CREDIT") "Cancelled. ${formatDemoRand(paid)} has been added to your account credit." else "Cancelled. We'll refund ${formatDemoRand(paid)} to your original payment method.", "CANCELLED")
     }
     override suspend fun chooseAfterChange(id: Int, body: ChoiceBody): ActionResult { pause(); return ActionResult("Done.", "BOOKED") }
+    override suspend fun reportIssue(id: Int, body: ReportIssueBody): ActionResult {
+        pause()
+        if (body.description.trim().length < 10) fail(400, "Please tell us what happened and about how long it lasted.")
+        return ActionResult("Thank you. We've received your report and will email you with what we can offer.", "REPORTED")
+    }
     override suspend fun credits(): Credits {
         pause()
         return Credits(credit, if (credit > 0) listOf(CreditItem(1, credit, credit, ago(10), Instant.now().plus(Duration.ofDays(365)).toString(), "Cancelled at least 48 hours before the event")) else emptyList())
@@ -324,6 +344,7 @@ class DemoApi : Api {
     override suspend fun adminResolveRequest(id: Int, body: ResolveRequestBody): Response<Unit> { pause(); demoRequests.removeAll { it.bookingId == id }; return ok() }
     override suspend fun adminRefunds(): List<AdminRefund> { pause(); return demoRefunds.toList() }
     override suspend fun adminMarkRefunded(id: Int): Response<Unit> { pause(); demoRefunds.removeAll { it.bookingId == id }; return ok() }
+    override suspend fun adminGiveCredit(id: Int, body: GiveCreditBody): Response<Unit> { pause(); if (body.amount < 1) fail(400, "Enter an amount of at least R1."); return ok() }
     override suspend fun adminSendLinks(id: Int): Response<Unit> { pause(); return ok() }
     override suspend fun book(id: Int): Booking {
         pause()
@@ -392,7 +413,7 @@ class DemoApi : Api {
     override suspend fun adminLessons(): List<AdminLesson> {
         pause()
         return lessonsData.map {
-            AdminLesson(it.id, it.prog, it.progName, it.title, it.desc, it.cat, "All levels", it.secs, "Remote",
+            AdminLesson(it.id, it.prog, it.progName, it.title, it.desc, it.cat, "Beginner", it.secs, "Remote",
                 videoRefs[it.id] ?: "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4", it.preview)
         }
     }

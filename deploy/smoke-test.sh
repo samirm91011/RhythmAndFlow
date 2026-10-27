@@ -7,6 +7,8 @@
 # Optional environment variables:
 #   ADMIN_EMAIL, ADMIN_PASSWORD   enable the admin checks
 #   RESET_CODE_CMD                a shell command that prints the latest 6-digit reset code (reads it from the API log)
+#   VERIFY_CODE_CMD               the same for the sign-up confirmation code ("verification code is 123456" in the API log).
+#                                 Without it the customer checks are skipped: on a live server the code goes to the customer's inbox.
 # Exit code is 0 only when every check passes.
 set -uo pipefail
 
@@ -46,17 +48,49 @@ has "health says ok" '"status":"ok"' "$(cat "$BODY")"
 # /docs redirects to /docs/v1 (the interactive documentation page), so follow the redirect
 eq "API documentation page (/docs) loads" 200 "$(curl -sS -m 30 -L -o /dev/null -w '%{http_code}' "$BASE/docs" 2>/dev/null || echo 000)"
 eq "OpenAPI document answers 200" 200 "$(call GET /openapi/v1.json)"
+# The web version of the app is served from /app
+eq "web app page (/app/) loads" 200 "$(call GET /app/)"
+has "web app page is the Rhythm & Flow app" 'Rhythm' "$(cat "$BODY")"
+eq "web app script loads" 200 "$(call GET /app/js/core.js)"
+eq "web app manifest loads" 200 "$(call GET /app/manifest.webmanifest)"
+has "web app sends its browser safety header" 'content-security-policy' "$(curl -sS -m 30 -I "$BASE/app/" 2>/dev/null)"
 
 echo "== Plans =="
 eq "plans list answers 200" 200 "$(call GET /api/plans)"
 eq "two plans are offered" 2 "$(field 'length')"
 
+echo "== Public pages and the sign-in wall =="
+eq "the policies are public" 200 "$(call GET /api/policies)"
+eq "all four policies are served" 4 "$(field 'length')"
+eq "protected lessons need a token" 401 "$(call GET /api/lessons)"
+eq "protected credits need a token" 401 "$(call GET /api/credits)"
+eq "protected admin pages need a token" 401 "$(call GET /api/admin/summary)"
+eq "a wrong sign-in is refused" 401 "$(call POST /api/auth/login '' '{"identifier":"nobody-here","password":"wrong-password-1"}')"
+
+if [ -z "${VERIFY_CODE_CMD:-}" ]; then
+  # A new customer has to type the code we email them before they can sign in, so a script on a live server cannot finish a
+  # sign-up (and must not leave unconfirmed test accounts behind). Those checks run in the container test instead.
+  echo "== Customer checks =="
+  echo "  SKIP  sign-up, sign-in and everything after it (they need the emailed code; they run in the CI container test)"
+  echo
+  echo "Result: $PASS passed, $FAIL failed"
+  [ "$FAIL" -eq 0 ]
+  exit $?
+fi
+
 echo "== Accounts =="
 eq "register a new customer" 200 "$(call POST /api/auth/register '' "{\"fullName\":\"Smoke Tester\",\"username\":\"$USERN\",\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
-TOKEN="$(field '.token')"
+has "sign-up asks for email confirmation" '"verificationRequired":true' "$(cat "$BODY")"
+if grep -q '"token"' "$BODY"; then bad "sign-up does not sign the person in" "a token came back"; else ok "sign-up does not sign the person in"; fi
 eq "registering the same email again is refused" 409 "$(call POST /api/auth/register '' "{\"fullName\":\"Smoke Tester\",\"username\":\"${USERN}b\",\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
 eq "a too-short password is refused" 400 "$(call POST /api/auth/register '' "{\"fullName\":\"Smoke Tester\",\"username\":\"${USERN}c\",\"email\":\"c$EMAIL\",\"password\":\"abc\"}")"
 eq "wrong password is refused" 401 "$(call POST /api/auth/login '' "{\"identifier\":\"$USERN\",\"password\":\"wrong-password\"}")"
+eq "an unconfirmed customer cannot sign in" 403 "$(call POST /api/auth/login '' "{\"identifier\":\"$USERN\",\"password\":\"$PASSWORD\"}")"
+has "the refusal says the email is not confirmed" "EMAIL_NOT_VERIFIED" "$(cat "$BODY")"
+sleep 2
+VCODE="$(bash -c "$VERIFY_CODE_CMD" 2>/dev/null | tail -n1)"
+eq "a wrong confirmation code is refused" 400 "$(call POST /api/auth/verify-email '' "{\"email\":\"$EMAIL\",\"code\":\"000000\"}")"
+eq "the emailed code confirms the email" 200 "$(call POST /api/auth/verify-email '' "{\"email\":\"$EMAIL\",\"code\":\"$VCODE\"}")"
 eq "login with the right password" 200 "$(call POST /api/auth/login '' "{\"identifier\":\"$USERN\",\"password\":\"$PASSWORD\"}")"
 TOKEN="$(field '.token')"
 eq "profile loads with the token" 200 "$(call GET /api/auth/me "$TOKEN")"

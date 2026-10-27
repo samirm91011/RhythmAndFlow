@@ -11,7 +11,9 @@ import retrofit2.http.Query
 
 interface Api {
     // ---- Auth ----
-    @POST("api/auth/register") suspend fun register(@Body body: RegisterRequest): AuthResponse
+    @POST("api/auth/register") suspend fun register(@Body body: RegisterRequest): RegisterResponse
+    @POST("api/auth/verify-email") suspend fun verifyEmail(@Body body: VerifyEmailRequest): MessageResponse
+    @POST("api/auth/resend-verification") suspend fun resendVerification(@Body body: ResendVerificationRequest): MessageResponse
     @POST("api/auth/login") suspend fun login(@Body body: LoginRequest): AuthResponse
     @GET("api/auth/me") suspend fun me(): User
     @PUT("api/auth/me") suspend fun updateProfile(@Body body: UpdateProfileRequest): User
@@ -62,6 +64,7 @@ interface Api {
     @POST("api/classes/{id}/waitlist") suspend fun joinWaitlist(@Path("id") id: Int): Response<Unit>
     @POST("api/bookings/{id}/cancel-ticket") suspend fun cancelTicket(@Path("id") id: Int, @Body body: CancelRequestBody): ActionResult
     @POST("api/bookings/{id}/choice") suspend fun chooseAfterChange(@Path("id") id: Int, @Body body: ChoiceBody): ActionResult
+    @POST("api/bookings/{id}/report-issue") suspend fun reportIssue(@Path("id") id: Int, @Body body: ReportIssueBody): ActionResult
     @GET("api/credits") suspend fun credits(): Credits
 
     // ---- Notifications ----
@@ -100,6 +103,7 @@ interface Api {
     @POST("api/admin/bookings/{id}/resolve") suspend fun adminResolveRequest(@Path("id") id: Int, @Body body: ResolveRequestBody): Response<Unit>
     @GET("api/admin/refunds") suspend fun adminRefunds(): List<AdminRefund>
     @POST("api/admin/bookings/{id}/refunded") suspend fun adminMarkRefunded(@Path("id") id: Int): Response<Unit>
+    @POST("api/admin/bookings/{id}/credit") suspend fun adminGiveCredit(@Path("id") id: Int, @Body body: GiveCreditBody): Response<Unit>
     @POST("api/admin/classes/{id}/send-links") suspend fun adminSendLinks(@Path("id") id: Int): Response<Unit>
     @GET("api/admin/plans") suspend fun adminPlans(): List<AdminPlan>
     @POST("api/admin/plans") suspend fun adminCreatePlan(@Body body: PlanUpsert): Int

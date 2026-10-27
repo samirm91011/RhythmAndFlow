@@ -34,6 +34,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import com.rhythmandflow.app.data.Outcome
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -94,7 +96,7 @@ fun WelcomeScreen(onStart: () -> Unit) {
 }
 
 @Composable
-fun SignInScreen(session: SessionViewModel, onSignUp: () -> Unit, onForgot: () -> Unit, notify: (String) -> Unit) {
+fun SignInScreen(session: SessionViewModel, onSignUp: () -> Unit, onForgot: () -> Unit, onConfirmEmail: (String) -> Unit, notify: (String) -> Unit) {
     var identifier by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -104,7 +106,12 @@ fun SignInScreen(session: SessionViewModel, onSignUp: () -> Unit, onForgot: () -
     fun submit() {
         if (identifier.isBlank() || password.isBlank()) { error = "Enter your username or email and your password."; return }
         busy = true; error = null
-        scope.launch { error = session.login(identifier, password); busy = false }
+        scope.launch {
+            val result = session.login(identifier, password)
+            busy = false
+            // The right password but an email that was never confirmed: go to the "enter your code" screen.
+            if (result.confirmEmail != null) onConfirmEmail(result.confirmEmail) else error = result.error
+        }
     }
 
     AuthFrame(title = "Welcome Back!", subtitle = "Log in to continue your wellness journey.") {
@@ -128,7 +135,7 @@ fun SignInScreen(session: SessionViewModel, onSignUp: () -> Unit, onForgot: () -
 }
 
 @Composable
-fun SignUpScreen(session: SessionViewModel, onBack: () -> Unit, onLogin: () -> Unit) {
+fun SignUpScreen(session: SessionViewModel, onBack: () -> Unit, onLogin: () -> Unit, onCreated: (String) -> Unit) {
     var name by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -165,7 +172,14 @@ fun SignUpScreen(session: SessionViewModel, onBack: () -> Unit, onLogin: () -> U
             submitted = true
             if (listOf(nameErr, userErr, emailErr, passErr).all { it == null }) {
                 busy = true; serverError = null
-                scope.launch { serverError = session.register(name, username, email, password); busy = false }
+                scope.launch {
+                    // Sign-up does not sign anyone in. We email a code, and the next screen asks for it.
+                    when (val r = session.register(name, username, email, password)) {
+                        is Outcome.Ok -> onCreated(r.value.email)
+                        is Outcome.Fail -> serverError = r.message
+                    }
+                    busy = false
+                }
             }
         })
         VSpace(12)
@@ -173,6 +187,57 @@ fun SignUpScreen(session: SessionViewModel, onBack: () -> Unit, onLogin: () -> U
             Text("Already have an account?", style = MaterialTheme.typography.bodyMedium)
             TextButton(onClick = onLogin) { Text("Log in", color = Brand.TealDeep) }
         }
+    }
+}
+
+/**
+ * The step after signing up: type the 6-digit code that was emailed. Only then is the account ready, and the person signs in
+ * themselves. Also reached when someone tries to sign in with an email they never confirmed.
+ */
+@Composable
+fun VerifyEmailScreen(email: String, session: SessionViewModel, onBack: () -> Unit, onSignIn: () -> Unit, notify: (String) -> Unit) {
+    var code by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var verified by remember { mutableStateOf(false) }
+    var wait by remember { mutableStateOf(30) }          // seconds before "send a new code" is offered again
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(wait) { if (wait > 0) { kotlinx.coroutines.delay(1000); wait-- } }
+
+    if (verified) {
+        AuthFrame(title = "Email confirmed", subtitle = "Your account is ready.") {
+            Icon(Icons.Default.Email, null, tint = Brand.TealDeep, modifier = Modifier.size(56.dp))
+            VSpace(12)
+            Text("Thanks for confirming $email. Sign in to start.", style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+            VSpace(24)
+            PrimaryButton("Sign in", onClick = onSignIn)
+        }
+        return
+    }
+
+    fun submit() {
+        if (code.length != 6) { error = "Enter the 6-digit code from the email."; return }
+        busy = true; error = null
+        scope.launch {
+            val problem = session.verifyEmail(email, code)
+            busy = false
+            if (problem == null) verified = true else error = problem
+        }
+    }
+
+    AuthFrame(title = "Check your email", subtitle = "We sent a 6-digit code to $email.", onBack = onBack) {
+        RfTextField(code, { code = it.filter(Char::isDigit).take(6); error = null }, "6-digit code", Icons.Default.Lock, keyboardType = KeyboardType.Number,
+            imeAction = androidx.compose.ui.text.input.ImeAction.Done, onImeAction = ::submit)
+        VSpace(8)
+        Text("The code expires in 15 minutes. Check your spam folder if you can't see it.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted, textAlign = TextAlign.Center)
+        VSpace(12)
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium); VSpace(8) }
+        PrimaryButton("Confirm email", onClick = ::submit, loading = busy)
+        VSpace(8)
+        TextButton(enabled = wait == 0, onClick = {
+            wait = 30
+            scope.launch { notify(session.resendVerification(email) ?: "We've sent a new code.") }
+        }) { Text(if (wait == 0) "Send me a new code" else "Send a new code in ${wait}s", color = if (wait == 0) Brand.TealDeep else Brand.Muted) }
     }
 }
 

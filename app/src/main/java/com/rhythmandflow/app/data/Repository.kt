@@ -14,7 +14,8 @@ import retrofit2.Response
 /** Result of a network call with a message that is safe to show to the user. */
 sealed class Outcome<out T> {
     data class Ok<T>(val value: T) : Outcome<T>()
-    data class Fail(val message: String, val code: Int? = null) : Outcome<Nothing>()
+    /** raw is the server's error body, for the few places that need more than the message (for example the email to confirm). */
+    data class Fail(val message: String, val code: Int? = null, val raw: String? = null) : Outcome<Nothing>()
 }
 
 inline fun <T, R> Outcome<T>.map(f: (T) -> R): Outcome<R> = when (this) {
@@ -40,10 +41,11 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
         throw e                                   // the screen was closed: not an error
     } catch (e: HttpException) {
         val code = e.code()
-        val msg = errorMessage(e.response()?.errorBody()?.string(), code)
+        val raw = e.response()?.errorBody()?.string()
+        val msg = errorMessage(raw, code)
         if (code == 401 && hasToken) _unauthorized.tryEmit(Unit)
         if (code >= 500) errors.report("Server error $code on ${e.response()?.raw()?.request?.url?.encodedPath}", msg, null, false)
-        Outcome.Fail(msg, code)
+        Outcome.Fail(msg, code, raw)
     } catch (e: IOException) {
         Outcome.Fail("Can't reach the Rhythm & Flow server. Check your internet connection and try again.")
     } catch (e: Exception) {
@@ -75,9 +77,11 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     // ---- Auth ----
     suspend fun login(identifier: String, password: String) = call { api.login(LoginRequest(identifier, password)) }
         .also { if (it is Outcome.Ok) tokens.token = it.value.token }
+    /** Sign-up does not sign anyone in: the person confirms their email with an emailed code first. */
     suspend fun register(name: String, username: String, email: String, password: String) =
         call { api.register(RegisterRequest(name, username, email, password)) }
-            .also { if (it is Outcome.Ok) tokens.token = it.value.token }
+    suspend fun verifyEmail(email: String, code: String) = call { api.verifyEmail(VerifyEmailRequest(email.trim(), code.trim())) }
+    suspend fun resendVerification(email: String) = call { api.resendVerification(ResendVerificationRequest(email.trim())) }
     suspend fun forgotPassword(email: String) = call { api.forgotPassword(ForgotPasswordRequest(email.trim())) }
     suspend fun resetPassword(email: String, code: String, newPassword: String) =
         call { api.resetPassword(ResetPasswordRequest(email.trim(), code.trim(), newPassword)) }
@@ -105,6 +109,7 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     suspend fun joinWaitlist(classId: Int) = callUnit { api.joinWaitlist(classId) }
     suspend fun cancelTicket(id: Int, choice: String?, note: String?) = call { api.cancelTicket(id, CancelRequestBody(choice, note)) }
     suspend fun chooseAfterChange(id: Int, choice: String) = call { api.chooseAfterChange(id, ChoiceBody(choice)) }
+    suspend fun reportIssue(id: Int, description: String) = call { api.reportIssue(id, ReportIssueBody(description)) }
     suspend fun credits() = call { api.credits() }
     suspend fun changePlan(subId: Int, planId: Int, billing: String?) = call { api.changePlan(subId, CheckoutRequest(planId, billing)) }
     suspend fun policies() = call { api.policies() }
@@ -153,6 +158,7 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     suspend fun adminResolveRequest(id: Int, approve: Boolean, amount: Double?) = callUnit { api.adminResolveRequest(id, ResolveRequestBody(approve, amount)) }
     suspend fun adminRefunds() = call { api.adminRefunds() }
     suspend fun adminMarkRefunded(id: Int) = callUnit { api.adminMarkRefunded(id) }
+    suspend fun adminGiveCredit(id: Int, amount: Double, reason: String?) = callUnit { api.adminGiveCredit(id, GiveCreditBody(amount, reason)) }
     suspend fun adminSendLinks(id: Int) = callUnit { api.adminSendLinks(id) }
     suspend fun adminCancelClass(id: Int) = callUnit { api.adminCancelClass(id) }
     suspend fun adminCreateLesson(l: LessonUpsert) = call { api.adminCreateLesson(l) }

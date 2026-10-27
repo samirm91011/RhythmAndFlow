@@ -15,6 +15,12 @@ public record LoginRequest(
 
 public record UserDto(Guid Id, string FullName, string Username, string Email, string Role, string About);
 public record AuthResponse(string Token, UserDto User);
+/// <summary>Sign-up no longer signs the person in. They confirm their email with a code first, then sign in.</summary>
+public record RegisterResponse(string Email, bool VerificationRequired, string Message);
+public record VerifyEmailRequest(
+    [Required, EmailAddress, StringLength(255)] string Email,
+    [Required, StringLength(10)] string Code);
+public record ResendVerificationRequest([Required, EmailAddress, StringLength(255)] string Email);
 public record UpdateProfileRequest(
     [Required, StringLength(100, MinimumLength = 2)] string FullName,
     [Required, EmailAddress, StringLength(255)] string Email,
@@ -42,7 +48,8 @@ public record ProgrammeDto(int Id, string Name, string Description, int MinTier,
 public record LessonDto(
     int Id, int ProgrammeId, string ProgrammeName, string Title, string Description, string Category, string Level,
     int DurationSeconds, string? ThumbnailUrl, bool IsPreview, bool Locked, decimal CompletionPercentage, int WatchTimeSeconds);
-public record PlaybackDto(string Url, DateTime ExpiresAt, int ResumeSeconds);
+/// <summary>How to play a lesson. A YouTube lesson has YouTubeId and no Url; every other lesson has a short-lived signed Url.\n/// The JSON name is "youtubeId" (all lower case after "you") because that is what the Android app and the web app read.</summary>
+public record PlaybackDto(string Url, DateTime ExpiresAt, int ResumeSeconds, [property: System.Text.Json.Serialization.JsonPropertyName("youtubeId")] string? YouTubeId = null);
 
 // ---- Progress ----
 public record ProgressUpdateRequest(int LessonId, [Range(0, 100000)] int WatchTimeSeconds);
@@ -207,3 +214,5 @@ public record AdminEventRequestDto(
 public record AdminRefundDto(
     int BookingId, string Reference, string FullName, string Email, string EventName, decimal Amount, string? PayFastPaymentId);
 public record ResolveRequestRequest(bool Approve, decimal? Amount);
+public record ReportIssueRequest([Required, StringLength(1000)] string Description);
+public record GiveCreditRequest(decimal Amount, [StringLength(200)] string? Reason);

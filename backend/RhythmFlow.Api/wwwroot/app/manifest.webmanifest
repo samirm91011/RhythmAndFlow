@@ -1,0 +1,15 @@
+{
+  "name": "Rhythm & Flow",
+  "short_name": "Rhythm & Flow",
+  "description": "Movement, classes and reflection, in your pocket.",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#2F7A6E",
+  "background_color": "#FFFFFF",
+  "icons": [
+    { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

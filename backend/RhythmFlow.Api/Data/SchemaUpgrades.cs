@@ -36,6 +36,9 @@ public static class SchemaUpgrades
         new("Subscriptions", "AwaitingFirstCharge", "boolean NOT NULL DEFAULT false", "INTEGER NOT NULL DEFAULT 0"),
         new("Subscriptions", "ReminderForEnd", "timestamp with time zone NULL", "TEXT NULL"),
         new("Subscriptions", "LockedPrice", "numeric(10,2) NULL", "TEXT NULL"),
+        // Email verification at sign-up. Everyone who already has an account counts as verified.
+        new("Users", "EmailVerified", "boolean NOT NULL DEFAULT true", "INTEGER NOT NULL DEFAULT 1"),
+        new("PasswordResets", "Purpose", "text NOT NULL DEFAULT 'RESET'", "TEXT NOT NULL DEFAULT 'RESET'"),
         // Paid events: what an event is, what it costs and how people join it
         new("Classes", "Kind", "text NOT NULL DEFAULT 'CLASS'", "TEXT NOT NULL DEFAULT 'CLASS'"),
         new("Classes", "Format", "text NOT NULL DEFAULT 'IN_PERSON'", "TEXT NOT NULL DEFAULT 'IN_PERSON'"),
@@ -147,6 +150,17 @@ public static class SchemaUpgrades
         else return;
 
         await ApplyClientPlanCopyAsync(db);
+        await ApplyLessonLevelsAsync(db);
+    }
+
+    /// <summary>
+    /// The client approved three levels: Beginner, Intermediate and Advanced. Lessons saved before that say "All levels", so they
+    /// become Beginner, except the two longer workouts from her channel, which are Intermediate. Safe to repeat.
+    /// </summary>
+    private static async Task ApplyLessonLevelsAsync(AppDbContext db)
+    {
+        await db.Database.ExecuteSqlRawAsync("""UPDATE "Lessons" SET "Level" = 'Intermediate' WHERE "Level" = 'All levels' AND "VideoReference" IN ('JfLKk17S8KQ', 'Y3ZCfwIV3js')""");
+        await db.Database.ExecuteSqlRawAsync("""UPDATE "Lessons" SET "Level" = 'Beginner' WHERE "Level" = 'All levels'""");
     }
 
     /// <summary>

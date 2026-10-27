@@ -54,7 +54,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -102,6 +108,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** The approved categories, in the order members see them. The names must match what is saved on each lesson. */
+/** The three levels the client approved. Nothing else is saved on a lesson. */
+val levelNames = listOf("Beginner", "Intermediate", "Advanced")
+
 val categoryNames = listOf("Yoga", "Barre & Pilates", "Dance", "Stretch & Mobility", "Strength & Conditioning", "Meditation", "Breathwork")
 
 private val categories = listOf("All") + categoryNames
@@ -122,7 +131,7 @@ fun categoryIcon(category: String): ImageVector = when (category) {
     "Yoga" -> Icons.Default.SelfImprovement
     "Barre & Pilates", "Barre" -> Icons.Default.SportsGymnastics
     "Dance" -> Icons.Default.MusicNote
-    "Stretch & Mobility", "Stretch" -> Icons.Default.Accessibility
+    "Stretch & Mobility", "Stretch" -> StretchFigureIcon   // the line drawing the client chose
     "Strength & Conditioning" -> Icons.Default.FitnessCenter
     "Meditation" -> Icons.Default.Spa
     "Breathwork" -> Icons.Default.Air
@@ -393,6 +402,17 @@ fun PlayerScreen(lessonId: Int, onBack: () -> Unit, onFinished: () -> Unit, onPl
                 VSpace(16)
                 if (state.locked) AccentButton("View plans", onClick = onPlans) else SecondaryButton("Try again", onClick = { vm.load() })
             }
+            state.youtubeId != null -> key(retries) {
+                // A free preview from the client's YouTube channel: YouTube's own player plays it.
+                YouTubePlayer(
+                    videoId = state.youtubeId!!, startSeconds = 0,
+                    onError = { code ->
+                        playbackFailed = true; playbackErrorCode = "YouTube error $code"
+                        (context.applicationContext as? com.rhythmandflow.app.RhythmApplication)?.container?.errorReporter
+                            ?.report("YouTube playback failed: $code", "lesson $lessonId", "player/$lessonId", false)
+                    },
+                )
+            }
             else -> AndroidView(
                 factory = { ctx -> PlayerView(ctx).apply { this.player = player; useController = true } },
                 modifier = Modifier.fillMaxSize(),
@@ -409,7 +429,7 @@ fun PlayerScreen(lessonId: Int, onBack: () -> Unit, onFinished: () -> Unit, onPl
                     Text("($playbackErrorCode)", color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.bodySmall)
                 }
                 VSpace(16)
-                SecondaryButton("Try again", onClick = { retries++ })
+                SecondaryButton("Try again", onClick = { playbackFailed = false; retries++ })
             }
         }
         IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(8.dp)) {
@@ -418,6 +438,57 @@ fun PlayerScreen(lessonId: Int, onBack: () -> Unit, onFinished: () -> Unit, onPl
     }
 }
 
+/**
+ * Plays a public YouTube video inside the app, in a 16:9 frame, using YouTube's own player. The page is opened with the app's
+ * package name as its referrer, which is how YouTube knows which app is embedding its player.
+ */
+@android.annotation.SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun YouTubePlayer(videoId: String, startSeconds: Int, onError: (Int) -> Unit) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var web by remember { mutableStateOf<android.webkit.WebView?>(null) }
+    val latestError by rememberUpdatedState(onError)
+
+    DisposableEffect(lifecycle, web) {
+        val observer = LifecycleEventObserver { _, e ->
+            when (e) {
+                Lifecycle.Event.ON_STOP -> web?.onPause()
+                Lifecycle.Event.ON_START -> web?.onResume()
+                else -> {}
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+
+    Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+        AndroidView(
+            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+            factory = { ctx ->
+                android.webkit.WebView(ctx).apply {
+                    setBackgroundColor(android.graphics.Color.BLACK)
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.mediaPlaybackRequiresUserGesture = false
+                    webChromeClient = android.webkit.WebChromeClient()
+                    webViewClient = object : android.webkit.WebViewClient() {
+                        override fun onReceivedError(view: android.webkit.WebView, request: android.webkit.WebResourceRequest, error: android.webkit.WebResourceError) {
+                            if (request.isForMainFrame) latestError(error.errorCode)
+                        }
+                    }
+                    loadUrl(youTubeEmbedUrl(videoId, startSeconds), mapOf("Referer" to YOUTUBE_EMBED_ORIGIN))
+                    web = this
+                }
+            },
+            onRelease = { it.destroy() },
+        )
+    }
+}
+
+private const val YOUTUBE_EMBED_ORIGIN = "https://com.rhythmandflow.app"
+
+private fun youTubeEmbedUrl(videoId: String, startSeconds: Int): String =
+    "https://www.youtube.com/embed/$videoId?playsinline=1&rel=0&modestbranding=1&start=$startSeconds&origin=$YOUTUBE_EMBED_ORIGIN"
 private val completeMoods = listOf("Calmer", "More energised", "Lighter", "Stronger", "More present", "Other")
 
 @Composable

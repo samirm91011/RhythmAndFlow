@@ -9,7 +9,8 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val zone: ZoneId get() = ZoneId.systemDefault()
+/** Everything is shown in South African time (UTC+2, no daylight saving), as the client asked, wherever the phone is. */
+private val zone: ZoneId = ZoneId.of("Africa/Johannesburg")
 
 fun parseInstant(iso: String?): ZonedDateTime? = try {
     if (iso == null) null else Instant.parse(iso).atZone(zone)
@@ -35,7 +36,7 @@ fun localToUtcIso(date: String, time: String): String? = try {
 } catch (_: Exception) { null }
 
 fun greeting(): String {
-    val h = ZonedDateTime.now(zone).hour
+    val h = ZonedDateTime.now(ZoneId.systemDefault()).hour   // the greeting follows the phone's own clock
     return when {
         h < 12 -> "Good morning"
         h < 17 -> "Good afternoon"

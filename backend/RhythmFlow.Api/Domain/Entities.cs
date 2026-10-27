@@ -53,6 +53,8 @@ public class User
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     /// <summary>Changes when the password changes or the account is disabled, which invalidates old login tokens.</summary>
     public string SecurityStamp { get; set; } = Guid.NewGuid().ToString("N");
+    /// <summary>False until the person types the code we emailed them. New sign-ups start false; accounts that existed before this was added, and seeded accounts, count as verified.</summary>
+    public bool EmailVerified { get; set; } = true;
 }
 
 public class SubscriptionPlan
@@ -134,7 +136,7 @@ public class Lesson
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
     public string Category { get; set; } = "Yoga";
-    public string Level { get; set; } = "All levels";
+    public string Level { get; set; } = "Beginner";   // Beginner, Intermediate or Advanced (see LessonLevels)
     public int DurationSeconds { get; set; }
     public int SequenceNumber { get; set; }
     /// <summary>Where the video lives: "Remote" (proxied from VideoReference URL) or "Local" (file in media folder).</summary>
@@ -256,6 +258,8 @@ public class PasswordResetCode
     public int Attempts { get; set; }
     public DateTime? UsedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    /// <summary>RESET (forgot password) or VERIFY (confirming an email address). A code for one can never be used for the other.</summary>
+    public string Purpose { get; set; } = "RESET";
 }
 
 /// <summary>An in-app notification. The app also shows these as system notifications.</summary>

@@ -30,12 +30,16 @@ INSY7315 (WIL) – Group 11. Task 2: Code & Implementation.
 ```
 Hosting: Azure App Service (API) + Azure Database for PostgreSQL. Deployment is automatic from GitHub Actions.
 
+**Web version (for iPhones and browsers).** The same service also serves a mobile web version of the customer app at `/app` (plain HTML, CSS and JavaScript in `backend/RhythmFlow.Api/wwwroot/app/`, no build step). It uses the same API and accounts, can be added to an iPhone's Home Screen, and has a `?demo` mode with made-up data. Administrator tools are in the Android app only. To try it on this PC without the server: `powershell -ExecutionPolicy Bypass -File tools\serve-web.ps1`, then open `http://localhost:8099/app/?demo`. Limits on iPhone: screenshots and screen recording of videos cannot be blocked, and push notifications only work once the web app is added to the Home Screen.
+
 ## Repository layout
 | Folder | Contents |
 |---|---|
 | `app/` | Android app (Compose, Navigation, Retrofit, Media3, WorkManager, Firebase Messaging) |
 | `backend/RhythmFlow.Api/` | the API (controllers, services, EF Core model, PayFast and e-mail integrations) |
 | `backend/RhythmFlow.Api.Tests/` | xUnit tests (94) and the app's JUnit tests (17) |
+| `backend/RhythmFlow.Api/wwwroot/app/` | the web version of the customer app (served at `/app`) |
+| `tools/` | `serve-web.ps1`: tries the web app on this PC |
 | `deploy/` | Docker Compose stack, server scripts, end-to-end `smoke-test.sh` (about 97 checks), `azure/setup-azure.sh` |
 | `.github/workflows/` | `ci.yml` (build + tests + lint), `stack-test.yml` (real container + PostgreSQL), `deploy.yml` (Azure) |
 | `docs/` | project log, requirements checklist, test report, Azure and GitHub guides, go-live and reminders lists |

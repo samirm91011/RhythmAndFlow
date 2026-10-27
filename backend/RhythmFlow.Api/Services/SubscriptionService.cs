@@ -6,8 +6,22 @@ using RhythmFlow.Api.Dtos;
 namespace RhythmFlow.Api.Services;
 
 public class SubscriptionService(
-    AppDbContext db, PayFastService payFast, IPayFastApi payFastApi, NotificationService notifications, ILogger<SubscriptionService> log)
+    AppDbContext db, PayFastService payFast, IPayFastApi payFastApi, NotificationService notifications, ILogger<SubscriptionService> log, IEmailSender? email = null)
 {
+    /// <summary>The in-app notice and an email, for a payment that did not go through (the client's renewal policy: the member is notified and told the grace period).</summary>
+    private async Task WarnPaymentProblemAsync(Guid userId, string title, string body)
+    {
+        await notifications.AddAsync(userId, "PAYMENT", title, body, "plans");
+        if (email is null) return;
+        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        if (user is not null)
+            await email.SendAsync(user.Email, title, $"Hi {user.FullName.Split(' ')[0]},\n\n{body}\n\nIf you have any questions, contact us on info@rhythmandflow.co.za.\n\nRhythm & Flow");
+    }
+
+    private static string GraceNote => EntitlementService.GraceDays > 0
+        ? $"You keep your access for {EntitlementService.GraceDays} more days while we try again."
+        : "";
+
     /// <summary>How many days before a charge or an end date the customer is reminded. A year is a bigger surprise than a month.</summary>
     /// <summary>Dates in messages are shown in South African time (UTC+2, no daylight saving), the same as the app, so a plan that ends just after midnight there does not read a day early.</summary>
     public static string Day(DateTime? utc) => utc is null ? "" : utc.Value.AddHours(2).ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
@@ -276,8 +290,8 @@ public class SubscriptionService(
                 db.Payments.Add(new Payment { SubscriptionId = sub.Id, Amount = amountGross, Status = "FAILED", TransactionReference = pfPaymentId });
                 sub.Status = sub.Status == SubscriptionStatus.Active ? SubscriptionStatus.PastDue : SubscriptionStatus.Failed;
                 await db.SaveChangesAsync();
-                await notifications.AddAsync(sub.UserId, "PAYMENT", "Payment didn't go through",
-                    "We couldn't take your subscription payment. Please check your payment method with PayFast.", "plans");
+                await WarnPaymentProblemAsync(sub.UserId, "Payment didn't go through",
+                    $"We couldn't take your subscription payment. Please update your payment method with PayFast. {GraceNote}".Trim());
                 return true;
             case "CANCELLED":
                 // Pending checkout abandoned, or the customer cancelled the recurring agreement from PayFast itself.
@@ -329,8 +343,8 @@ public class SubscriptionService(
         foreach (var s in due)
         {
             s.Status = SubscriptionStatus.PastDue;
-            await notifications.AddAsync(s.UserId, "PAYMENT", "Your subscription is overdue",
-                "We haven't received your latest payment. Please update it with PayFast to keep your access.", "plans");
+            await WarnPaymentProblemAsync(s.UserId, "Your subscription is overdue",
+                $"We haven't received your latest payment. Please update it with PayFast to keep your access. {GraceNote}".Trim());
         }
         var dead = await db.Subscriptions.Where(s => s.Status == SubscriptionStatus.PastDue && s.EndDate < now.AddDays(-7)).ToListAsync();
         foreach (var s in dead)

@@ -27,6 +27,7 @@ builder.Services.Configure<MediaOptions>(cfg.GetSection("Media"));
 builder.Services.Configure<PayFastOptions>(cfg.GetSection("PayFast"));
 builder.Services.Configure<BookingOptions>(cfg.GetSection("Booking"));
 builder.Services.Configure<EventOptions>(cfg.GetSection("Events"));
+EntitlementService.GraceDays = Math.Clamp(cfg.GetValue("Billing:GraceDays", 3), 0, 14);   // days of access while a failed renewal is retried
 builder.Services.Configure<SmtpOptions>(cfg.GetSection("Smtp"));
 builder.Services.Configure<AdminOptions>(cfg.GetSection("Admin"));
 
@@ -86,6 +87,7 @@ else
 builder.Services.AddSingleton<ErrorLogService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<PasswordResetService>();
+builder.Services.AddScoped<EmailVerificationService>();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<UserAdminService>();
 builder.Services.AddScoped<ProgrammeAdminService>();
@@ -156,9 +158,35 @@ using (var scope = app.Services.CreateScope())
     await db.Database.EnsureCreatedAsync();
     await SchemaUpgrades.ApplyAsync(db);   // newer tables for a database that was created by an earlier version
     await SeedData.RunAsync(db, cfg);
+    if (cfg.GetValue("Seed:FreePractices", true)) await SeedData.EnsureFreePracticesAsync(db);   // the client's free YouTube previews
     // Placeholder timetable stays populated until the studio adds its own classes (set to false at launch to be sure).
     if (cfg.GetValue("Seed:KeepSampleClassesUpcoming", true)) await SeedData.EnsureUpcomingClassesAsync(db);
 }
+
+// ---- The web version of the app (for iPhones and browsers) is served from this same service at /app ----
+// Browser safety headers apply to /app only; the API's own responses are unchanged.
+app.Use(async (ctx, next) =>
+{
+    // "/app" (no slash) goes to "/app/". It is done here and not with an endpoint, because an endpoint for "/app" also matches "/app/",
+    // then the static-file middleware stands aside and the page redirects to itself forever.
+    if (ctx.Request.Path == "/app") { ctx.Response.Redirect("/app/" + ctx.Request.QueryString); return; }
+    if (ctx.Request.Path.StartsWithSegments("/app"))
+    {
+        ctx.Response.OnStarting(() =>
+        {
+            var h = ctx.Response.Headers;
+            h.CacheControl = "no-cache";               // new versions show up straight away
+            h["X-Content-Type-Options"] = "nosniff";
+            h["Referrer-Policy"] = "strict-origin-when-cross-origin";   // YouTube refuses to play an embed that does not say where it is embedded
+            h["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data: https:; media-src 'self' blob: https:; style-src 'self' 'unsafe-inline'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://consent.youtube.com https://www.google.com; " +
+                                           "script-src 'self'; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+            return Task.CompletedTask;
+        });
+    }
+    await next();
+});
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.UseMiddleware<ErrorHandlingMiddleware>();
 app.UseRateLimiter();
@@ -187,6 +215,12 @@ _ = Task.Run(async () =>
             await scope.ServiceProvider.GetRequiredService<EventBookingService>().SweepAsync(DateTime.UtcNow);
         }
         catch (Exception ex) { app.Logger.LogError(ex, "Event sweep failed"); }
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<EmailVerificationService>().PurgeUnverifiedAsync(DateTime.UtcNow);
+        }
+        catch (Exception ex) { app.Logger.LogError(ex, "Unverified account clean-up failed"); }
         await Task.Delay(TimeSpan.FromMinutes(10));
     }
 });

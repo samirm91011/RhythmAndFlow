@@ -21,8 +21,8 @@ class FormatTest {
         assertEquals("R99.50", formatRand(99.5))
     }
 
-    @Test fun `admin local date and time convert to the right UTC instant`() {
-        val expected = LocalDateTime.of(LocalDate.of(2026, 10, 7), LocalTime.of(9, 30)).atZone(ZoneId.systemDefault()).toInstant().toString()
+    @Test fun `admin South African date and time convert to the right UTC instant`() {
+        val expected = LocalDateTime.of(LocalDate.of(2026, 10, 7), LocalTime.of(9, 30)).atZone(ZoneId.of("Africa/Johannesburg")).toInstant().toString()
         assertEquals(expected, localToUtcIso("2026-10-07", "09:30"))
     }
 
@@ -42,8 +42,8 @@ class FormatTest {
         assertEquals("", formatDate(""))
     }
 
-    @Test fun `time is shown in 24 hour form`() {
-        val iso = LocalDateTime.of(2026, 10, 7, 17, 5).atZone(ZoneId.systemDefault()).toInstant().toString()
+    @Test fun `time is shown in 24 hour form in South African time`() {
+        val iso = LocalDateTime.of(2026, 10, 7, 17, 5).atZone(ZoneId.of("Africa/Johannesburg")).toInstant().toString()
         assertEquals("17:05", formatTime(iso))
     }
 

@@ -127,9 +127,13 @@ fun AdminBookingsScreen(onBack: () -> Unit, onClass: (Int) -> Unit) {
 
 /** Administrators: who is booked into one class. */
 @Composable
-fun AdminAttendeesScreen(classId: Int, onBack: () -> Unit) {
+fun AdminAttendeesScreen(classId: Int, onBack: () -> Unit, notify: (String) -> Unit = {}) {
     val vm = appViewModel(key = "admin-class$classId") { AdminAttendeesViewModel(it, classId) }
     val state by vm.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    var crediting by remember { mutableStateOf<com.rhythmandflow.app.data.AdminAttendee?>(null) }
+    var amount by remember { mutableStateOf("") }
+    var reason by remember { mutableStateOf("") }
     OnResume { vm.load() }
     val c = state.cls
 
@@ -145,11 +149,33 @@ fun AdminAttendeesScreen(classId: Int, onBack: () -> Unit) {
                         Column(Modifier.fillMaxWidth()) {
                             Text(p.fullName, style = MaterialTheme.typography.titleSmall)
                             Text("${p.email} · booked ${formatDate(p.bookedAt)}", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                            // For paid events: credit someone, for example after a technical problem with an online class.
+                            if ((c?.price ?: 0.0) > 0) TextButton(onClick = { amount = ""; reason = "Online class problem"; crediting = p }) { Text("Give account credit", color = Brand.TealDeep) }
                         }
                     }
                 }
             }
         }
+    }
+    crediting?.let { p ->
+        AlertDialog(
+            onDismissRequest = { crediting = null },
+            title = { Text("Give account credit") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("${p.fullName} will be emailed. The credit is valid for 12 months and is used automatically on their next ticket. The most you can give is what they paid.")
+                    RfTextField(amount, { amount = it.filter(Char::isDigit) }, "Amount (R)", keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                    RfTextField(reason, { reason = it.take(200) }, "Reason")
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = (amount.toDoubleOrNull() ?: 0.0) >= 1, onClick = {
+                    crediting = null
+                    scope.launch { notify(vm.giveCredit(p.bookingId, amount.toDouble(), reason.trim().ifBlank { null }) ?: "Credit added. The person has been told.") }
+                }) { Text("Give credit") }
+            },
+            dismissButton = { TextButton(onClick = { crediting = null }) { Text("Cancel") } },
+        )
     }
 }
 

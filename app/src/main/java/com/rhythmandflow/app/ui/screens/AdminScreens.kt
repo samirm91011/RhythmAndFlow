@@ -120,10 +120,11 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
     var preview by remember { mutableStateOf(false) }
     var programmeId by remember { mutableStateOf<Int?>(null) }
     var editingId by remember { mutableStateOf<Int?>(null) }
-    var level by remember { mutableStateOf("All levels") }
+    var level by remember { mutableStateOf("Beginner") }
+    var provider by remember { mutableStateOf("Remote") }
     val chosenProgramme = programmeId ?: programmes.firstOrNull()?.first
     val scroll = rememberScrollState()
-    fun clearForm() { editingId = null; title = ""; description = ""; category = "Yoga"; seconds = ""; url = ""; preview = false; level = "All levels" }
+    fun clearForm() { editingId = null; title = ""; description = ""; category = "Yoga"; seconds = ""; url = ""; preview = false; level = "Beginner"; provider = "Remote" }
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Lessons & videos", onBack = onBack)
@@ -144,15 +145,28 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
                 }
             }
             categoryDescriptions[category]?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Brand.Muted) }
+            Text("Level", style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                levelNames.forEach { l -> SelectChip(l, level == l, { level = l }) }
+            }
             RfTextField(seconds, { seconds = it.filter(Char::isDigit) }, "Length in seconds", keyboardType = KeyboardType.Number)
-            RfTextField(url, { url = it }, "Video address (https://…)", keyboardType = KeyboardType.Uri)
+            Text("Where is the video?", style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SelectChip("Video file", provider != "YouTube", onClick = { provider = "Remote" })
+                SelectChip("YouTube", provider == "YouTube", onClick = { provider = "YouTube" })
+            }
+            RfTextField(
+                url, { url = it }, if (provider == "YouTube") "YouTube link (https://youtu.be/…)" else "Video address (https://…)",
+                keyboardType = KeyboardType.Uri,
+            )
+            if (provider == "YouTube") Text("Play a public YouTube video inside the app. Tick free preview so anyone with an account can watch it.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Switch(checked = preview, onCheckedChange = { preview = it }, colors = SwitchDefaults.colors(checkedTrackColor = Brand.TealDeep))
                 HSpace(10); Text("Free preview (no subscription needed)")
             }
             PrimaryButton(if (editingId == null) "Add lesson" else "Save changes", enabled = title.isNotBlank() && seconds.isNotBlank() && url.startsWith("http") && chosenProgramme != null, onClick = {
                 scope.launch {
-                    val body = LessonUpsert(chosenProgramme!!, title.trim(), description.trim(), category, level, seconds.toInt().coerceAtLeast(1), "Remote", url.trim(), preview)
+                    val body = LessonUpsert(chosenProgramme!!, title.trim(), description.trim(), category, level, seconds.toInt().coerceAtLeast(1), provider, url.trim(), preview)
                     val id = editingId
                     val err = if (id == null) vm.createLesson(body) else vm.updateLesson(id, body)
                     if (err == null) clearForm()
@@ -171,7 +185,9 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
                         }
                         IconButton(onClick = {
                             editingId = l.id; title = l.title; description = l.description; category = l.category; seconds = l.durationSeconds.toString()
-                            url = l.videoReference; preview = l.isPreview; programmeId = l.programmeId; level = l.level
+                            provider = if (l.videoProvider.equals("YouTube", true)) "YouTube" else "Remote"
+                            url = if (provider == "YouTube") "https://youtu.be/${l.videoReference}" else l.videoReference
+                            preview = l.isPreview; programmeId = l.programmeId; level = if (l.level in levelNames) l.level else "Beginner"
                             scope.launch { scroll.animateScrollTo(0) }
                         }) { Icon(Icons.Default.Edit, "Edit lesson", tint = Brand.TealDeep) }
                         IconButton(onClick = { delete = l.id }) { Icon(Icons.Default.Delete, "Delete lesson", tint = Brand.Error) }
@@ -289,11 +305,11 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
                 listOf("CLASS" to "Class", "WORKSHOP" to "Workshop").forEach { (k, label) -> SelectChip(label, kind == k, onClick = { kind = k }) }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("RETREAT" to "Retreat", "COACHING" to "Coaching").forEach { (k, label) -> SelectChip(label, kind == k, onClick = { kind = k }) }
+                listOf("RETREAT" to "Retreat", "COACHING" to "Coaching").forEach { (k, label) -> SelectChip(label, kind == k, onClick = { kind = k; if (k == "RETREAT") format = "IN_PERSON" }) }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SelectChip("In person", format == "IN_PERSON", onClick = { format = "IN_PERSON" })
-                SelectChip("Online", format == "ONLINE", onClick = { format = "ONLINE" })
+                if (kind != "RETREAT") SelectChip("Online", format == "ONLINE", onClick = { format = "ONLINE" })
             }
             RfTextField(price, { price = it.filter(Char::isDigit) }, "Ticket price in rand, VAT included (empty = free booking)", keyboardType = KeyboardType.Number)
             if ((price.toIntOrNull() ?: 0) > 0) {
@@ -301,6 +317,7 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
                 RfTextField(closeHours, { closeHours = it.filter(Char::isDigit) }, "Ticket sales close this many hours before the start", keyboardType = KeyboardType.Number)
                 RfTextField(opensOn, { opensOn = it }, "Ticket sales open on (yyyy-MM-dd, optional)", keyboardType = KeyboardType.Ascii)
                 RfTextField(earlyHours, { earlyHours = it.filter(Char::isDigit) }, "Members of the second plan can buy this many hours earlier", keyboardType = KeyboardType.Number)
+                Text("Priority booking: this works together with the 'sales open on' date above. Second-plan members can buy this many hours before that date, and they go first when a place opens on the waiting list.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(checked = waitlist, onCheckedChange = { waitlist = it }, colors = SwitchDefaults.colors(checkedTrackColor = Brand.TealDeep))
                     HSpace(10); Text("Waiting list when sold out")

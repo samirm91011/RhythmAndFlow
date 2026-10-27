@@ -15,6 +15,10 @@ data class User(
 
 data class AuthResponse(val token: String, val user: User)
 data class RegisterRequest(val fullName: String, val username: String, val email: String, val password: String)
+/** The answer to signing up. There is no token: the person confirms their email, then signs in. */
+data class RegisterResponse(val email: String, val verificationRequired: Boolean, val message: String)
+data class VerifyEmailRequest(val email: String, val code: String)
+data class ResendVerificationRequest(val email: String)
 data class LoginRequest(val identifier: String, val password: String)
 data class UpdateProfileRequest(val fullName: String, val email: String, val about: String?)
 data class ForgotPasswordRequest(val email: String)
@@ -138,7 +142,8 @@ data class AdminLesson(
         get() = if (durationSeconds < 90) "${durationSeconds} secs" else "${(durationSeconds + 30) / 60} mins"
 }
 
-data class Playback(val url: String, val expiresAt: String, val resumeSeconds: Int)
+/** A YouTube lesson has youtubeId (and an empty url); every other lesson has a short-lived signed url. */
+data class Playback(val url: String, val expiresAt: String, val resumeSeconds: Int, val youtubeId: String? = null)
 data class ProgressUpdate(val lessonId: Int, val watchTimeSeconds: Int)
 data class ProgressResult(val lessonId: Int, val watchTimeSeconds: Int, val completionPercentage: Double, val completed: Boolean)
 data class ProgressSummary(val completedLessons: Int, val inProgressLessons: Int, val sessionsThisMonth: Int, val minutesWatched: Int)
@@ -222,6 +227,8 @@ data class AdminRefund(
     val bookingId: Int, val reference: String, val fullName: String, val email: String, val eventName: String, val amount: Double, val payFastPaymentId: String?,
 )
 data class ResolveRequestBody(val approve: Boolean, val amount: Double?)
+data class ReportIssueBody(val description: String)
+data class GiveCreditBody(val amount: Double, val reason: String?)
 
 data class AppNotification(val id: Int, val kind: String, val title: String, val body: String, val route: String?, val createdAt: String, val read: Boolean)
 data class MarkReadRequest(val ids: List<Int>?)

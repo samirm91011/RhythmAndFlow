@@ -222,15 +222,66 @@ public class EventBookingService(
         if (now >= c.StartTime.AddHours(-c.SalesCloseHours)) return;
         while (await TakenAsync(classId, now) < c.Capacity)
         {
-            var next = (await db.Bookings.Where(b => b.ClassId == classId && b.Status == BookingStatus.Waitlisted &&
-                    (b.HoldUntil == null || b.HoldUntil <= now)).ToListAsync())
-                .OrderBy(b => b.BookingDate).ThenBy(b => b.Id).FirstOrDefault();
-            if (next is null) return;
+            var waiting = await db.Bookings.Where(b => b.ClassId == classId && b.Status == BookingStatus.Waitlisted &&
+                    (b.HoldUntil == null || b.HoldUntil <= now)).ToListAsync();
+            if (waiting.Count == 0) return;
+            // Priority booking: members of the second plan (and above) are offered a place first. Within each group, whoever waited longest goes first.
+            var tiers = new Dictionary<Guid, int>();
+            foreach (var userId in waiting.Select(b => b.UserId).Distinct()) tiers[userId] = await TierAsync(userId);
+            var next = waiting.OrderBy(b => tiers[b.UserId] >= 2 ? 0 : 1).ThenBy(b => b.BookingDate).ThenBy(b => b.Id).First();
             next.HoldUntil = now.AddHours(_o.WaitlistOfferHours);
             await db.SaveChangesAsync();
             await notifications.AddAsync(next.UserId, "BOOKING", "A place opened up",
                 $"A spot is free for {EventEmails.Describe(c)}. It's held for you for {_o.WaitlistOfferHours} hours. Open the event to buy your ticket.", "classes");
         }
+    }
+
+    // ---- Technical problems with an online class (the client's "Online Classes: Technical Issues and Disruptions" policy) ----
+
+    /// <summary>
+    /// A participant reports a significant technical problem with an online class they booked. It has to be after the class has started
+    /// and, where practicable, within 48 hours. The studio gets an email and an in-app alert; the participant gets a receipt.
+    /// What is offered (replacement class, refund or credit) is decided by a person, as the policy says.
+    /// </summary>
+    public async Task<(bool Ok, string? Error)> ReportIssueAsync(Guid userId, int bookingId, string? description)
+    {
+        var b = await db.Bookings.Include(x => x.Class).FirstOrDefaultAsync(x => x.Id == bookingId && x.UserId == userId);
+        if (b?.Class is null || b.Status != BookingStatus.Booked) return (false, "We couldn't find that booking.");
+        var c = b.Class; var now = DateTime.UtcNow;
+        if (c.Format != EventKinds.Online) return (false, "Technical problems can be reported for online classes.");
+        if (now < c.StartTime) return (false, "You can report a problem once the class has started.");
+        if (now > c.EndTime.AddHours(48)) return (false, $"Problems should be reported within 48 hours of the class. Please contact us on {_o.ContactEmail}.");
+        var text = (description ?? "").Trim();
+        if (text.Length < 10) return (false, "Please tell us what happened and about how long it lasted.");
+        if (text.Length > 1000) text = text[..1000];
+        var user = await db.Users.FirstAsync(u => u.Id == userId);
+        var reference = EventEmails.Reference(b.Id);
+
+        await email.SendAsync(_o.ContactEmail, $"Technical problem reported: {c.Name} ({reference})",
+            $"{user.FullName} ({user.Email}) reported a technical problem.\n\nEvent: {c.Name}\nDate and time: {EventEmails.When(c)}\nBooking reference: {reference}\n\nWhat happened:\n{text}\n");
+        await email.SendAsync(user.Email, $"We've received your report: {c.Name} ({reference})",
+            $"Hi {user.FullName.Split(' ')[0]},\n\nThank you for telling us about the problem with {c.Name}. We'll look into it, work out how much it affected the class, and email you with what we can offer, which may be a replacement class, a refund or account credit.\n\nBooking reference: {reference}\nRhythm & Flow: {_o.ContactEmail}, WhatsApp {_o.ContactWhatsApp}\n\n{EventEmails.SignOff}\n");
+        await notifications.AddForAdminsAsync("CLASS", "Technical problem reported", $"{user.FullName} reported a problem with {c.Name}: {text}", "admin");
+        return (true, null);
+    }
+
+    /// <summary>An administrator gives a participant account credit (for example after a technical problem). It is valid for the usual 12 months.</summary>
+    public async Task<(bool Ok, string? Error)> GiveCreditAsync(int bookingId, decimal amount, string? reason)
+    {
+        var b = await db.Bookings.Include(x => x.Class).FirstOrDefaultAsync(x => x.Id == bookingId);
+        if (b?.Class is null) return (false, "We couldn't find that booking.");
+        var paid = Total(b);
+        if (paid <= 0) return (false, "This booking was free, so there is nothing to give credit for.");
+        if (amount < 1) return (false, "Enter an amount of at least R1.");
+        if (amount > paid) return (false, $"The most for this booking is {EventEmails.Rand(paid)}, what was paid.");
+        var why = string.IsNullOrWhiteSpace(reason) ? "Online class problem" : reason.Trim();
+        if (why.Length > 200) why = why[..200];
+        await IssueCreditAsync(b.UserId, amount, why, b.Id);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == b.UserId);
+        if (user is not null)
+            await email.SendAsync(user.Email, $"Account credit added: {EventEmails.Rand(amount)}",
+                $"Hi {user.FullName.Split(' ')[0]},\n\nWe've added {EventEmails.Rand(amount)} account credit for {b.Class.Name} ({EventEmails.Reference(b.Id)}). Reason: {why}.\nIt is valid until {EventEmails.Sast(DateTime.UtcNow.AddMonths(_o.CreditMonths)):d MMMM yyyy} and is used automatically when you buy a ticket for another event.\n\n{EventEmails.SignOff}\n");
+        return (true, null);
     }
 
     // ---- Credit ----
