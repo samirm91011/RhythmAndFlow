@@ -88,17 +88,19 @@ public class PayFastController(
 
     // Simple landing pages for the browser after checkout.
     [AllowAnonymous, HttpGet("payfast/return")]
-    public ContentResult Return() => Page("Payment received", "Thank you! You can close this page and go back to the Rhythm & Flow app. Your subscription will activate as soon as PayFast confirms the payment.");
+    public ContentResult Return() => Page("Payment received", "Thank you! You can close this page and go back to the Rhythm & Flow app. Your subscription or ticket will be confirmed as soon as PayFast confirms the payment.", "/app/#/paid");
 
     [AllowAnonymous, HttpGet("payfast/cancel")]
-    public ContentResult Cancel() => Page("Payment cancelled", "No payment was taken. You can close this page and go back to the app.");
+    public ContentResult Cancel() => Page("Payment cancelled", "No payment was taken. You can close this page and go back to the app.", "/app/#/plans");
 
-    private static ContentResult Page(string title, string text) => new()
+    /// <summary>The optional link takes people who were using the web version of the app straight back to it.</summary>
+    private static ContentResult Page(string title, string text, string? webLink = null) => new()
     {
         ContentType = "text/html; charset=utf-8",
         Content = $"<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><title>{title}</title>" +
                   "<body style='font-family:Georgia,serif;background:#fff;color:#000;text-align:center;padding:48px 24px'>" +
-                  $"<h1 style='color:#279989'>{title}</h1><p style='font-family:system-ui;line-height:1.5'>{text}</p></body>"
+                  $"<h1 style='color:#279989'>{title}</h1><p style='font-family:system-ui;line-height:1.5'>{text}</p>" +
+                  (webLink is null ? "" : $"<p style='font-family:system-ui'><a href='{webLink}' style='color:#2F7A6E;font-weight:600'>Using Rhythm &amp; Flow in your browser? Continue here</a></p>") + "</body>"
     };
 }
 

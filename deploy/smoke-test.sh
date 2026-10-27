@@ -48,6 +48,12 @@ has "health says ok" '"status":"ok"' "$(cat "$BODY")"
 # /docs redirects to /docs/v1 (the interactive documentation page), so follow the redirect
 eq "API documentation page (/docs) loads" 200 "$(curl -sS -m 30 -L -o /dev/null -w '%{http_code}' "$BASE/docs" 2>/dev/null || echo 000)"
 eq "OpenAPI document answers 200" 200 "$(call GET /openapi/v1.json)"
+# The web version of the app is served from /app
+eq "web app page (/app/) loads" 200 "$(call GET /app/)"
+has "web app page is the Rhythm & Flow app" 'Rhythm' "$(cat "$BODY")"
+eq "web app script loads" 200 "$(call GET /app/js/core.js)"
+eq "web app manifest loads" 200 "$(call GET /app/manifest.webmanifest)"
+has "web app sends its browser safety header" 'content-security-policy' "$(curl -sS -m 30 -I "$BASE/app/" 2>/dev/null)"
 
 echo "== Plans =="
 eq "plans list answers 200" 200 "$(call GET /api/plans)"
