@@ -1,4 +1,4 @@
-package com.rhythmandflow.app.data.demo
+﻿package com.rhythmandflow.app.data.demo
 
 import com.rhythmandflow.app.data.*
 import java.time.Duration
@@ -114,7 +114,7 @@ class DemoApi : Api {
     }
     override suspend fun verifyEmail(body: VerifyEmailRequest): MessageResponse {
         pause()
-        if (body.code != "123456") fail(400, "That code isn't valid or has expired. Please ask for a new one.")
+        if (body.code != "123456") fail(400, "That code isn't valid or has expired. Please request a new one.")
         return MessageResponse("Your email is confirmed. You can sign in now.")
     }
     override suspend fun resendVerification(body: ResendVerificationRequest): MessageResponse { pause(); return MessageResponse("We've sent a new 6-digit code.") }

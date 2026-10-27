@@ -1,51 +1,122 @@
 package com.rhythmandflow.app.ui.screens
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
 /**
- * The Stretch & Mobility icon the client asked for: a simple line drawing of a person bending sideways with one arm arching
- * overhead. Drawn as strokes, so it takes whatever colour the icon is given.
+ * The Stretch & Mobility icon the client supplied: a person bending sideways with one arm arching overhead.
+ * It is traced from her picture and drawn as a solid figure, so it matches the other solid icons and takes whatever colour it is given.
  */
 val StretchFigureIcon: ImageVector by lazy {
     ImageVector.Builder("StretchFigure", 24.dp, 24.dp, 24f, 24f).apply {
-        val line = SolidColor(Color.Black)
-        fun stroke(block: androidx.compose.ui.graphics.vector.PathBuilder.() -> Unit) =
-            path(stroke = line, strokeLineWidth = 1.5f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round, pathBuilder = block)
-
-        // head
-        stroke {
-            moveTo(9.1f, 8.4f)
-            arcToRelative(2.3f, 2.3f, 0f, true, true, -4.6f, 0f)
-            arcToRelative(2.3f, 2.3f, 0f, true, true, 4.6f, 0f)
-        }
-        // the arm arching overhead, then down the back to the right foot
-        stroke {
-            moveTo(3.8f, 2.9f)
-            curveTo(9.5f, 0.6f, 18.2f, 2.4f, 19.8f, 11.0f)
-            curveTo(20.4f, 14.6f, 19.0f, 18.4f, 17.2f, 21.2f)
-        }
-        // the bent arm at the chest
-        stroke {
-            moveTo(6.2f, 12.6f)
-            lineTo(8.6f, 14.0f)
-            lineTo(11.6f, 13.2f)
-        }
-        // the legs: an upside-down V under the hips
-        stroke {
-            moveTo(7.8f, 21.2f)
-            lineTo(11.6f, 14.4f)
-            lineTo(14.8f, 21.2f)
-        }
-        // the ground
-        stroke {
-            moveTo(2.2f, 22.0f)
-            lineTo(21.8f, 22.0f)
+        path(fill = SolidColor(Color.Black), pathFillType = PathFillType.EvenOdd) {
+            moveTo(4.6f, 1.02f)
+            lineTo(4.81f, 1f)
+            lineTo(5.15f, 1.09f)
+            lineTo(6.48f, 1.7f)
+            lineTo(7.59f, 2.29f)
+            lineTo(8.68f, 3.01f)
+            lineTo(10.35f, 4.43f)
+            lineTo(11.05f, 5.16f)
+            lineTo(12.13f, 6.47f)
+            lineTo(13.36f, 8.33f)
+            lineTo(14.31f, 10.1f)
+            lineTo(15.13f, 12.02f)
+            lineTo(15.65f, 13.56f)
+            lineTo(16.19f, 15.59f)
+            lineTo(16.79f, 18.67f)
+            lineTo(17.23f, 21.67f)
+            lineTo(17.23f, 22.01f)
+            lineTo(17.1f, 22.51f)
+            lineTo(17.2f, 22.55f)
+            lineTo(20.02f, 22.54f)
+            lineTo(20.14f, 22.59f)
+            lineTo(20.21f, 22.73f)
+            lineTo(20.11f, 22.95f)
+            lineTo(19.89f, 22.99f)
+            lineTo(4.32f, 23f)
+            lineTo(4.17f, 22.98f)
+            lineTo(4.07f, 22.89f)
+            lineTo(4.04f, 22.69f)
+            lineTo(4.19f, 22.55f)
+            lineTo(7.14f, 22.51f)
+            lineTo(7.17f, 22.44f)
+            lineTo(7.02f, 22.02f)
+            lineTo(7.06f, 21.54f)
+            lineTo(9.03f, 15.9f)
+            lineTo(9.31f, 14.88f)
+            lineTo(9.56f, 13.56f)
+            lineTo(9.55f, 13.45f)
+            lineTo(9.44f, 13.39f)
+            lineTo(7.94f, 13.39f)
+            lineTo(6.62f, 13.21f)
+            lineTo(6.02f, 12.92f)
+            lineTo(5.73f, 12.55f)
+            lineTo(5.59f, 12.02f)
+            lineTo(5.63f, 11.44f)
+            lineTo(5.92f, 10.36f)
+            lineTo(6.28f, 9.48f)
+            lineTo(6.81f, 8.65f)
+            lineTo(8.41f, 6.75f)
+            lineTo(8.61f, 6.41f)
+            lineTo(8.62f, 6.29f)
+            lineTo(8.44f, 5.8f)
+            lineTo(8.14f, 5.34f)
+            lineTo(7.27f, 4.43f)
+            lineTo(6.09f, 3.63f)
+            lineTo(4.26f, 2.78f)
+            lineTo(3.97f, 2.53f)
+            lineTo(3.79f, 2.01f)
+            lineTo(3.89f, 1.54f)
+            lineTo(4.17f, 1.19f)
+            close()
+            moveTo(5.73f, 4.63f)
+            lineTo(6.31f, 4.63f)
+            lineTo(6.64f, 4.71f)
+            lineTo(6.99f, 4.89f)
+            lineTo(7.25f, 5.08f)
+            lineTo(7.54f, 5.41f)
+            lineTo(7.8f, 6.02f)
+            lineTo(7.82f, 6.68f)
+            lineTo(7.62f, 7.29f)
+            lineTo(7.17f, 7.81f)
+            lineTo(6.88f, 8f)
+            lineTo(6.4f, 8.18f)
+            lineTo(5.65f, 8.17f)
+            lineTo(4.98f, 7.89f)
+            lineTo(4.5f, 7.38f)
+            lineTo(4.23f, 6.73f)
+            lineTo(4.24f, 6.07f)
+            lineTo(4.51f, 5.42f)
+            lineTo(5.05f, 4.89f)
+            lineTo(5.4f, 4.71f)
+            close()
+            moveTo(12.32f, 14.32f)
+            lineTo(12.56f, 14.3f)
+            lineTo(12.82f, 14.54f)
+            lineTo(13.71f, 16.78f)
+            lineTo(14.42f, 19.25f)
+            lineTo(15.01f, 21.93f)
+            lineTo(15.18f, 22.47f)
+            lineTo(15.08f, 22.55f)
+            lineTo(9.1f, 22.54f)
+            lineTo(9.08f, 22.43f)
+            lineTo(11.06f, 17.34f)
+            lineTo(12.06f, 14.62f)
+            close()
+            moveTo(7.83f, 10.02f)
+            lineTo(8.07f, 9.98f)
+            lineTo(8.73f, 10.66f)
+            lineTo(9.53f, 11.77f)
+            lineTo(9.5f, 12.07f)
+            lineTo(7.77f, 12f)
+            lineTo(7.19f, 11.81f)
+            lineTo(7.38f, 10.97f)
+            close()
         }
     }.build()
 }

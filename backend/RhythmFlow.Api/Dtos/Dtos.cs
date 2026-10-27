@@ -48,8 +48,8 @@ public record ProgrammeDto(int Id, string Name, string Description, int MinTier,
 public record LessonDto(
     int Id, int ProgrammeId, string ProgrammeName, string Title, string Description, string Category, string Level,
     int DurationSeconds, string? ThumbnailUrl, bool IsPreview, bool Locked, decimal CompletionPercentage, int WatchTimeSeconds);
-/// <summary>How to play a lesson. A YouTube lesson has YouTubeId and no Url; every other lesson has a short-lived signed Url.</summary>
-public record PlaybackDto(string Url, DateTime ExpiresAt, int ResumeSeconds, string? YouTubeId = null);
+/// <summary>How to play a lesson. A YouTube lesson has YouTubeId and no Url; every other lesson has a short-lived signed Url.\n/// The JSON name is "youtubeId" (all lower case after "you") because that is what the Android app and the web app read.</summary>
+public record PlaybackDto(string Url, DateTime ExpiresAt, int ResumeSeconds, [property: System.Text.Json.Serialization.JsonPropertyName("youtubeId")] string? YouTubeId = null);
 
 // ---- Progress ----
 public record ProgressUpdateRequest(int LessonId, [Range(0, 100000)] int WatchTimeSeconds);
