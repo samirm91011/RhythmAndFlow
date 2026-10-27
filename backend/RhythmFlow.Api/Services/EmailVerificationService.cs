@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -20,7 +20,7 @@ public class EmailVerificationService(AppDbContext db, IEmailSender email, IOpti
     /// <summary>Sign-ups that never confirm their email are removed after this many days, so nobody keeps a username by typing someone else's address.</summary>
     public const int UnverifiedAccountDays = 7;
 
-    public const string Generic = "That code isn't valid or has expired. Please ask for a new one.";
+    public const string Generic = "That code isn't valid or has expired. Please request a new one.";
 
     /// <summary>Emails a new code (replacing any earlier one). Returns false if too many were asked for in the last hour.</summary>
     public async Task<bool> SendCodeAsync(User user)

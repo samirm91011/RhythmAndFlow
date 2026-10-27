@@ -52,6 +52,15 @@ public class YouTubeTests
     }
 
     [Fact]
+    public void The_playback_answer_names_the_YouTube_video_youtubeId_because_that_is_what_the_apps_read()
+    {
+        // System.Text.Json would otherwise write "youTubeId", which the Android app (Gson) silently ignores.
+        var json = System.Text.Json.JsonSerializer.Serialize(new PlaybackDto("", DateTime.UtcNow, 0, "NFixPh6y39U"), new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        Assert.Contains("\"youtubeId\":\"NFixPh6y39U\"", json);
+        Assert.DoesNotContain("youTubeId", json);
+    }
+
+    [Fact]
     public async Task The_channels_nine_videos_are_added_once_as_free_previews_with_their_real_categories()
     {
         using var t = new TestDb();
