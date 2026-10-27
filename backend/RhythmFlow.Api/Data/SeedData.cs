@@ -132,6 +132,47 @@ public static class SeedData
         VideoProvider = "Remote", VideoReference = clip.Url, IsPreview = preview,
     };
 
+    /// <summary>The name of the programme that holds the free practices from the client's YouTube channel.</summary>
+    public const string FreePracticesName = "Free Practices";
+
+    /// <summary>
+    /// The client's public YouTube videos (channel "Rhythm &amp; Flow Wellness") as free previews: anyone with a free account can watch them,
+    /// no subscription needed. Added once, to any database, and never again once the programme exists, so an administrator can hide or
+    /// edit them without them coming back.
+    /// </summary>
+    public static async Task EnsureFreePracticesAsync(AppDbContext db)
+    {
+        if (await db.Programmes.AnyAsync(p => p.Name == FreePracticesName)) return;
+        var programme = new FitnessProgramme
+        {
+            Name = FreePracticesName, MinTier = 1,
+            Description = "Free practices from Rhythm & Flow's YouTube channel. Create a free account and press play, no membership needed.",
+        };
+        // id, title, category, seconds
+        (string Id, string Title, string Category, int Seconds, string Description)[] videos =
+        [
+            ("NFixPh6y39U", "10 Minute Stretch and Mobility Morning Routine", "Stretch & Mobility", 596, "A morning routine for flexibility, circulation and mental clarity."),
+            ("Z6zMtGnV_AI", "25 Minute Stretch Class", "Stretch & Mobility", 1715, "A stretch class to improve joint range of motion, posture and circulation."),
+            ("JfLKk17S8KQ", "30 Minute Full Body Barre Workout", "Barre & Pilates", 1816, "A bodyweight barre workout blending ballet, Pilates, dance, yoga and strength, with beginner to advanced options."),
+            ("Y3ZCfwIV3js", "30 Minute Full Body Sculpt Workout", "Strength & Conditioning", 1847, "A bodyweight strength workout with adjustable intensity and a good warm-up and cool-down."),
+            ("mdyAXSmZx3w", "Mindfulness Monday: 15 Minute Mindfulness Check-In", "Meditation", 968, "A guided mind and body scan to come back to the present."),
+            ("qHWZvPsLTEY", "Mindfulness Monday: 20 Minute Senses Meditation", "Meditation", 1230, "A guided meditation focusing on the senses."),
+            ("0LyPiFSmLpA", "Mindfulness Monday: 10 Minute Balancing Breathwork", "Breathwork", 640, "A guided alternate nostril breathing practice to calm the mind and body."),
+            ("hTkgxJc_w4Y", "Mindfulness Monday: 15 Minute Deep Belly Relaxation", "Breathwork", 930, "A guided relaxation using deep belly breaths."),
+            ("S6qnP5641LM", "Mindfulness Monday: 15 Minute Breathwork Meditation", "Breathwork", 944, "A guided meditation connecting breath and body."),
+        ];
+        var n = 0;
+        foreach (var v in videos)
+            programme.Lessons.Add(new Lesson
+            {
+                Title = v.Title, Description = v.Description, Category = v.Category, Level = "All levels", DurationSeconds = v.Seconds,
+                SequenceNumber = ++n, VideoProvider = RhythmFlow.Api.Services.LessonVideo.YouTube, VideoReference = v.Id, IsPreview = true,
+                ThumbnailUrl = $"https://img.youtube.com/vi/{v.Id}/hqdefault.jpg",
+            });
+        db.Programmes.Add(programme);
+        await db.SaveChangesAsync();
+    }
+
     private static async Task SeedUsersAsync(AppDbContext db, IConfiguration cfg)
     {
         var hasher = new PasswordHasher<User>();

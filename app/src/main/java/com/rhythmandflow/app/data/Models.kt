@@ -138,7 +138,8 @@ data class AdminLesson(
         get() = if (durationSeconds < 90) "${durationSeconds} secs" else "${(durationSeconds + 30) / 60} mins"
 }
 
-data class Playback(val url: String, val expiresAt: String, val resumeSeconds: Int)
+/** A YouTube lesson has youtubeId (and an empty url); every other lesson has a short-lived signed url. */
+data class Playback(val url: String, val expiresAt: String, val resumeSeconds: Int, val youtubeId: String? = null)
 data class ProgressUpdate(val lessonId: Int, val watchTimeSeconds: Int)
 data class ProgressResult(val lessonId: Int, val watchTimeSeconds: Int, val completionPercentage: Double, val completed: Boolean)
 data class ProgressSummary(val completedLessons: Int, val inProgressLessons: Int, val sessionsThisMonth: Int, val minutesWatched: Int)

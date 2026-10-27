@@ -54,7 +54,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -393,6 +397,19 @@ fun PlayerScreen(lessonId: Int, onBack: () -> Unit, onFinished: () -> Unit, onPl
                 VSpace(16)
                 if (state.locked) AccentButton("View plans", onClick = onPlans) else SecondaryButton("Try again", onClick = { vm.load() })
             }
+            state.youtubeId != null -> key(retries) {
+                // A free preview from the client's YouTube channel: YouTube plays it, we still keep the person's progress.
+                YouTubePlayer(
+                    videoId = state.youtubeId!!, startSeconds = (state.resumeMs / 1000).toInt(),
+                    onProgress = { vm.report(it) },
+                    onEnded = { seconds -> vm.report(seconds + 1, force = true); onFinished() },
+                    onError = { code ->
+                        playbackFailed = true; playbackErrorCode = "YouTube error $code"
+                        (context.applicationContext as? com.rhythmandflow.app.RhythmApplication)?.container?.errorReporter
+                            ?.report("YouTube playback failed: $code", "lesson $lessonId", "player/$lessonId", false)
+                    },
+                )
+            }
             else -> AndroidView(
                 factory = { ctx -> PlayerView(ctx).apply { this.player = player; useController = true } },
                 modifier = Modifier.fillMaxSize(),
@@ -409,7 +426,7 @@ fun PlayerScreen(lessonId: Int, onBack: () -> Unit, onFinished: () -> Unit, onPl
                     Text("($playbackErrorCode)", color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.bodySmall)
                 }
                 VSpace(16)
-                SecondaryButton("Try again", onClick = { retries++ })
+                SecondaryButton("Try again", onClick = { playbackFailed = false; retries++ })
             }
         }
         IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(8.dp)) {
@@ -417,6 +434,76 @@ fun PlayerScreen(lessonId: Int, onBack: () -> Unit, onFinished: () -> Unit, onPl
         }
     }
 }
+
+/**
+ * Plays a public YouTube video inside the app. YouTube's own player does the playback; a small bridge reports the position every
+ * few seconds so progress and "continue where you left off" work like they do for our own videos.
+ */
+@android.annotation.SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun YouTubePlayer(videoId: String, startSeconds: Int, onProgress: (Int) -> Unit, onEnded: (Int) -> Unit, onError: (Int) -> Unit) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var web by remember { mutableStateOf<android.webkit.WebView?>(null) }
+    val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+    val latestProgress by rememberUpdatedState(onProgress)
+    val latestEnded by rememberUpdatedState(onEnded)
+    val latestError by rememberUpdatedState(onError)
+
+    DisposableEffect(lifecycle, web) {
+        val observer = LifecycleEventObserver { _, e ->
+            when (e) {
+                Lifecycle.Event.ON_STOP -> web?.onPause()
+                Lifecycle.Event.ON_START -> web?.onResume()
+                else -> {}
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { ctx ->
+            android.webkit.WebView(ctx).apply {
+                setBackgroundColor(android.graphics.Color.BLACK)
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.mediaPlaybackRequiresUserGesture = false
+                webChromeClient = android.webkit.WebChromeClient()
+                addJavascriptInterface(object {
+                    @android.webkit.JavascriptInterface fun time(seconds: Int) { main.post { latestProgress(seconds) } }
+                    @android.webkit.JavascriptInterface fun ended(seconds: Int) { main.post { latestEnded(seconds) } }
+                    @android.webkit.JavascriptInterface fun error(code: Int) { main.post { latestError(code) } }
+                }, "Rf")
+                // The page is loaded as if it were youtube.com, which is what the embedded player expects to see.
+                loadDataWithBaseURL("https://www.youtube.com", youTubePage(videoId, startSeconds), "text/html", "utf-8", null)
+                web = this
+            }
+        },
+        onRelease = { it.destroy() },
+    )
+}
+
+private fun youTubePage(videoId: String, startSeconds: Int): String = """
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}#p{position:absolute;top:0;left:0;width:100%;height:100%}</style></head>
+<body><div id="p"></div>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+var player;
+function onYouTubeIframeAPIReady(){
+  player = new YT.Player('p', {
+    width:'100%', height:'100%', videoId:'$videoId',
+    playerVars:{playsinline:1, rel:0, modestbranding:1, start:$startSeconds, origin:'https://www.youtube.com'},
+    events:{
+      onStateChange:function(e){ if(e.data===0){ Rf.ended(Math.floor(player.getDuration())); } },
+      onError:function(e){ Rf.error(e.data); }
+    }
+  });
+  setInterval(function(){ try{ if(player && player.getPlayerState()===1){ Rf.time(Math.floor(player.getCurrentTime())); } }catch(x){} }, 5000);
+}
+</script></body></html>
+""".trimIndent()
 
 private val completeMoods = listOf("Calmer", "More energised", "Lighter", "Stronger", "More present", "Other")
 

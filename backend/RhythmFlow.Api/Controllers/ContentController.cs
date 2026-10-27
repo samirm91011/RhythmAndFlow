@@ -70,10 +70,15 @@ public class ContentController(
         if (!EntitlementService.CanWatch(l, tier, IsAdmin))
             return StatusCode(403, new { error = "An active subscription is required to watch this lesson." });
 
-        var (query, expires) = media.Sign(l.Id, UserId);
-        var url = $"{Request.Scheme}://{Request.Host}/media/{l.Id}?{query}";
         var resume = (await db.Progress.FirstOrDefaultAsync(x => x.UserId == UserId && x.LessonId == id))?.WatchTimeSeconds ?? 0;
         if (resume >= l.DurationSeconds - 3) resume = 0;
+
+        // A YouTube lesson is played by YouTube itself, so there is no file link to sign.
+        if (LessonVideo.IsYouTube(l.VideoProvider))
+            return new PlaybackDto("", DateTime.UtcNow.AddHours(1), resume, l.VideoReference);
+
+        var (query, expires) = media.Sign(l.Id, UserId);
+        var url = $"{Request.Scheme}://{Request.Host}/media/{l.Id}?{query}";
         return new PlaybackDto(url, expires, resume);
     }
 
@@ -96,7 +101,7 @@ public class ContentController(
     {
         if (!media.Validate(lessonId, u, e, s)) return Unauthorized();
         var lesson = await db.Lessons.FindAsync([lessonId], ct);
-        if (lesson is null) return NotFound();
+        if (lesson is null || LessonVideo.IsYouTube(lesson.VideoProvider)) return NotFound();
 
         Response.Headers.CacheControl = "private, no-store";
         Response.Headers["Content-Disposition"] = "inline";

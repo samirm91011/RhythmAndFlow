@@ -100,6 +100,9 @@ public class ScheduleAdminService(AppDbContext db, NotificationService notificat
         var l = await db.Lessons.FindAsync(id);
         if (l is null) return (false, true, null);
         if (!await db.Programmes.AnyAsync(p => p.Id == r.ProgrammeId)) return (false, false, "Unknown programme.");
+        var video = LessonVideo.Normalise(r.VideoProvider, r.VideoReference);
+        if (!video.Ok) return (false, false, video.Error);
+        r = r with { VideoProvider = video.Provider, VideoReference = video.Reference };
 
         // Moving a lesson to another programme puts it at the end there.
         if (l.ProgrammeId != r.ProgrammeId)

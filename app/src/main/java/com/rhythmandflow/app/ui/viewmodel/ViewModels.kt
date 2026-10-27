@@ -189,6 +189,8 @@ data class PlayerState(
     val url: String? = null,
     val resumeMs: Long = 0,
     val locked: Boolean = false,
+    /** Set for a lesson that plays from YouTube instead of a video file. */
+    val youtubeId: String? = null,
 )
 
 class PlayerViewModel(private val c: AppContainer, private val lessonId: Int) : ViewModel() {
@@ -203,7 +205,9 @@ class PlayerViewModel(private val c: AppContainer, private val lessonId: Int) : 
         viewModelScope.launch {
             _state.value = PlayerState()
             when (val r = repo.playback(lessonId)) {
-                is Outcome.Ok -> _state.value = PlayerState(false, null, r.value.url, r.value.resumeSeconds * 1000L)
+                is Outcome.Ok -> _state.value = PlayerState(
+                    false, null, r.value.url.ifBlank { null }, r.value.resumeSeconds * 1000L, youtubeId = r.value.youtubeId,
+                )
                 is Outcome.Fail -> _state.value = PlayerState(false, r.message, locked = r.code == 403)
             }
         }

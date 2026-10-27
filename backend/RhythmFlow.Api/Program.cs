@@ -156,6 +156,7 @@ using (var scope = app.Services.CreateScope())
     await db.Database.EnsureCreatedAsync();
     await SchemaUpgrades.ApplyAsync(db);   // newer tables for a database that was created by an earlier version
     await SeedData.RunAsync(db, cfg);
+    if (cfg.GetValue("Seed:FreePractices", true)) await SeedData.EnsureFreePracticesAsync(db);   // the client's free YouTube previews
     // Placeholder timetable stays populated until the studio adds its own classes (set to false at launch to be sure).
     if (cfg.GetValue("Seed:KeepSampleClassesUpcoming", true)) await SeedData.EnsureUpcomingClassesAsync(db);
 }

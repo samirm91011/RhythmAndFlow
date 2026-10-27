@@ -121,9 +121,10 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
     var programmeId by remember { mutableStateOf<Int?>(null) }
     var editingId by remember { mutableStateOf<Int?>(null) }
     var level by remember { mutableStateOf("All levels") }
+    var provider by remember { mutableStateOf("Remote") }
     val chosenProgramme = programmeId ?: programmes.firstOrNull()?.first
     val scroll = rememberScrollState()
-    fun clearForm() { editingId = null; title = ""; description = ""; category = "Yoga"; seconds = ""; url = ""; preview = false; level = "All levels" }
+    fun clearForm() { editingId = null; title = ""; description = ""; category = "Yoga"; seconds = ""; url = ""; preview = false; level = "All levels"; provider = "Remote" }
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Lessons & videos", onBack = onBack)
@@ -145,14 +146,23 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
             }
             categoryDescriptions[category]?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Brand.Muted) }
             RfTextField(seconds, { seconds = it.filter(Char::isDigit) }, "Length in seconds", keyboardType = KeyboardType.Number)
-            RfTextField(url, { url = it }, "Video address (https://…)", keyboardType = KeyboardType.Uri)
+            Text("Where is the video?", style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SelectChip("Video file", provider != "YouTube", onClick = { provider = "Remote" })
+                SelectChip("YouTube", provider == "YouTube", onClick = { provider = "YouTube" })
+            }
+            RfTextField(
+                url, { url = it }, if (provider == "YouTube") "YouTube link (https://youtu.be/…)" else "Video address (https://…)",
+                keyboardType = KeyboardType.Uri,
+            )
+            if (provider == "YouTube") Text("Play a public YouTube video inside the app. Tick free preview so anyone with an account can watch it.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Switch(checked = preview, onCheckedChange = { preview = it }, colors = SwitchDefaults.colors(checkedTrackColor = Brand.TealDeep))
                 HSpace(10); Text("Free preview (no subscription needed)")
             }
             PrimaryButton(if (editingId == null) "Add lesson" else "Save changes", enabled = title.isNotBlank() && seconds.isNotBlank() && url.startsWith("http") && chosenProgramme != null, onClick = {
                 scope.launch {
-                    val body = LessonUpsert(chosenProgramme!!, title.trim(), description.trim(), category, level, seconds.toInt().coerceAtLeast(1), "Remote", url.trim(), preview)
+                    val body = LessonUpsert(chosenProgramme!!, title.trim(), description.trim(), category, level, seconds.toInt().coerceAtLeast(1), provider, url.trim(), preview)
                     val id = editingId
                     val err = if (id == null) vm.createLesson(body) else vm.updateLesson(id, body)
                     if (err == null) clearForm()
@@ -171,7 +181,9 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
                         }
                         IconButton(onClick = {
                             editingId = l.id; title = l.title; description = l.description; category = l.category; seconds = l.durationSeconds.toString()
-                            url = l.videoReference; preview = l.isPreview; programmeId = l.programmeId; level = l.level
+                            provider = if (l.videoProvider.equals("YouTube", true)) "YouTube" else "Remote"
+                            url = if (provider == "YouTube") "https://youtu.be/${l.videoReference}" else l.videoReference
+                            preview = l.isPreview; programmeId = l.programmeId; level = l.level
                             scope.launch { scroll.animateScrollTo(0) }
                         }) { Icon(Icons.Default.Edit, "Edit lesson", tint = Brand.TealDeep) }
                         IconButton(onClick = { delete = l.id }) { Icon(Icons.Default.Delete, "Delete lesson", tint = Brand.Error) }

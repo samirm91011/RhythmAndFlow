@@ -173,6 +173,9 @@ public class AdminController(AppDbContext db, NotificationService notifications,
     public async Task<ActionResult<int>> CreateLesson(LessonUpsert r)
     {
         if (!await db.Programmes.AnyAsync(p => p.Id == r.ProgrammeId)) return BadRequest(new { error = "Unknown programme." });
+        var video = LessonVideo.Normalise(r.VideoProvider, r.VideoReference);
+        if (!video.Ok) return BadRequest(new { error = video.Error });
+        r = r with { VideoProvider = video.Provider, VideoReference = video.Reference };
         var next = (await db.Lessons.Where(l => l.ProgrammeId == r.ProgrammeId).MaxAsync(l => (int?)l.SequenceNumber) ?? 0) + 1;
         var l = new Lesson { SequenceNumber = next };
         Apply(l, r);
