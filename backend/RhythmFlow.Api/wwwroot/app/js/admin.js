@@ -39,10 +39,7 @@ route("/admin", async (el) => {
       ${aLink("Active plans", "Who is subscribed, and to what", "#/admin/subscriptions")}
       ${aLink("Customers", "Find people and switch accounts off", "#/admin/users")}
       ${aLink("Error log", s.openErrors > 0 ? `${s.openErrors} open problem(s) to review` : "Nothing open", "#/admin/errors")}
-      <h3 class="mt-s">Customer view</h3>
-      <a class="card navrow" href="#/home" id="custview"><div class="grow"><h3 style="font-size:19px">See the app as a customer</h3><p class="muted small">Check what your customers see. Switch back from You → Admin tools.</p></div>${ic("chev", "chev")}</a>
     </div>`;
-  $("#custview").onclick = () => setCustomerView(true);
 }, { admin: true, tab: aTab("a-home") });
 
 /* ---------------- Classes and events ---------------- */
