@@ -228,6 +228,9 @@ data class AdminRefund(
 )
 data class ResolveRequestBody(val approve: Boolean, val amount: Double?)
 data class ReportIssueBody(val description: String)
+data class VideoUploadBody(val fileName: String, val contentType: String, val sizeBytes: Long)
+/** Send the file to uploadUrl with a PUT (same content type), then save key as the lesson's video. */
+data class VideoUploadResult(val key: String, val uploadUrl: String, val contentType: String, val expiresAt: String)
 data class GiveCreditBody(val amount: Double, val reason: String?)
 
 data class AppNotification(val id: Int, val kind: String, val title: String, val body: String, val route: String?, val createdAt: String, val read: Boolean)

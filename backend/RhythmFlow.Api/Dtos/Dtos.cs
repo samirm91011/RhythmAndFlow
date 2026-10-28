@@ -214,5 +214,8 @@ public record AdminEventRequestDto(
 public record AdminRefundDto(
     int BookingId, string Reference, string FullName, string Email, string EventName, decimal Amount, string? PayFastPaymentId);
 public record ResolveRequestRequest(bool Approve, decimal? Amount);
+public record VideoUploadRequest([Required, StringLength(300)] string FileName, [StringLength(100)] string? ContentType, long SizeBytes);
+/// <summary>Where to send the video file (a PUT to UploadUrl with the same Content-Type) and the Key to save on the lesson afterwards.</summary>
+public record VideoUploadResponse(string Key, string UploadUrl, string ContentType, DateTime ExpiresAt);
 public record ReportIssueRequest([Required, StringLength(1000)] string Description);
 public record GiveCreditRequest(decimal Amount, [StringLength(200)] string? Reason);

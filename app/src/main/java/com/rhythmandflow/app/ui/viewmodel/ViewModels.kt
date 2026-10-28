@@ -467,6 +467,9 @@ class AdminViewModel(private val c: AppContainer) : ViewModel() {
     suspend fun createClass(c: ClassUpsert) = after(repo.adminCreateClass(c))
     suspend fun cancelClass(id: Int) = after(repo.adminCancelClass(id))
     suspend fun createLesson(l: LessonUpsert) = after(repo.adminCreateLesson(l))
+
+    /** Asks the server for a private link to upload a video to. */
+    suspend fun videoUploadUrl(name: String, contentType: String, sizeBytes: Long): Outcome<VideoUploadResult> = repo.adminVideoUploadUrl(name, contentType, sizeBytes)
     suspend fun deleteLesson(id: Int) = after(repo.adminDeleteLesson(id))
     suspend fun updatePlan(id: Int, p: PlanUpsert) = after(repo.adminUpdatePlan(id, p))
     suspend fun createPlan(p: PlanUpsert) = after(repo.adminCreatePlan(p))

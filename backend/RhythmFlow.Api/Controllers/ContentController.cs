@@ -12,7 +12,7 @@ namespace RhythmFlow.Api.Controllers;
 [ApiController]
 public class ContentController(
     AppDbContext db, EntitlementService entitlement, MediaTokenService media, ProgressService progress,
-    IHttpClientFactory http, IOptions<MediaOptions> mediaOptions) : ApiController
+    IHttpClientFactory http, IOptions<MediaOptions> mediaOptions, IVideoStorage storage) : ApiController
 {
     [HttpGet("api/plans")]
     public async Task<List<PlanDto>> Plans() =>
@@ -77,6 +77,13 @@ public class ContentController(
         if (LessonVideo.IsYouTube(l.VideoProvider))
             return new PlaybackDto("", DateTime.UtcNow.AddHours(1), resume, l.VideoReference);
 
+        // A video in the private AWS bucket is watched through a short-lived signed link straight from AWS, so the video does not pass through this server.
+        if (LessonVideo.IsS3(l.VideoProvider))
+        {
+            if (!storage.Configured) return StatusCode(503, new { error = "Videos are not available right now. Please try again later." });
+            return new PlaybackDto(storage.SignPlayback(l.VideoReference), DateTime.UtcNow.Add(storage.PlaybackValidFor), resume);
+        }
+
         var (query, expires) = media.Sign(l.Id, UserId);
         var url = $"{Request.Scheme}://{Request.Host}/media/{l.Id}?{query}";
         return new PlaybackDto(url, expires, resume);
@@ -101,7 +108,7 @@ public class ContentController(
     {
         if (!media.Validate(lessonId, u, e, s)) return Unauthorized();
         var lesson = await db.Lessons.FindAsync([lessonId], ct);
-        if (lesson is null || LessonVideo.IsYouTube(lesson.VideoProvider)) return NotFound();
+        if (lesson is null || LessonVideo.IsYouTube(lesson.VideoProvider) || LessonVideo.IsS3(lesson.VideoProvider)) return NotFound();
 
         Response.Headers.CacheControl = "private, no-store";
         Response.Headers["Content-Disposition"] = "inline";

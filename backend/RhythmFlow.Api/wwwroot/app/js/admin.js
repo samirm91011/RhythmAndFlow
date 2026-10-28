@@ -164,35 +164,77 @@ route("/admin/events", async (el) => {
 
 /* ---------------- Lessons and programmes ---------------- */
 route("/admin/lessons", async (el) => {
-  const blank = () => ({ id: null, programmeId: null, title: "", description: "", category: "Yoga", seconds: "", provider: "Remote", url: "", preview: false, level: "Beginner" });
+  const blank = () => ({ id: null, programmeId: null, title: "", description: "", category: "Yoga", seconds: "", provider: "S3", url: "", fileName: "", preview: false, level: "Beginner", uploading: false, pct: 0, upMsg: "", upErr: false });
   let f = blank(); let [lessons, programmes] = await Promise.all([api("GET", "/api/admin/lessons"), api("GET", "/api/admin/programmes")]);
   if (!f.programmeId && programmes.length) f.programmeId = String(programmes[0].id);
+  const fileLabel = (key) => String(key || "").split("/").pop().replace(/^[0-9a-f]{32}-/, "");
+  const videoBox = () => {
+    if (f.provider === "S3") {
+      return `<div class="card flat stack-sm" id="upbox">
+        ${f.url ? `<p>✔ <b>${esc(f.fileName || fileLabel(f.url))}</b> is uploaded.</p>` : `<p class="muted small">Choose the video from your phone or computer. It is stored privately, and only members whose plan allows it can watch it.</p>`}
+        <label class="btn secondary ${f.uploading ? "disabled" : ""}" for="l_file">${f.url ? "Replace the video" : "Choose a video to upload"}</label>
+        <input type="file" id="l_file" accept="video/*" hidden ${f.uploading ? "disabled" : ""}>
+        <div class="bar" id="upbar" ${f.uploading ? "" : "hidden"}><i style="width:${f.pct}%"></i></div>
+        <p class="small ${f.upErr ? "" : "muted"}" id="upmsg" ${f.upErr ? 'style="color:var(--error)"' : ""}>${esc(f.upMsg)}</p></div>`;
+    }
+    return `${field("l_url", f.provider === "YouTube" ? "YouTube link (https://youtu.be/…)" : "Video address (https://…)", { value: f.url })}
+      ${f.provider === "YouTube" ? `<p class="small muted">Play a public YouTube video inside the app. Tick free preview so anyone with an account can watch it.</p>` : ""}`;
+  };
   const draw = () => {
     el.innerHTML = `${topbar("Lessons & videos", { back: false })}<div class="pad stack"><div class="card stack"><h3>${f.id ? "Edit lesson" : "Add a lesson"}</h3>
       <p class="small muted">Programme</p>${chipRow("programmeId", programmes.map((p) => [p.id, p.name]), f.programmeId)}
       ${field("l_title", "Title", { value: f.title, cap: "sentences" })}${field("l_desc", "Description", { area: true, value: f.description, max: 600 })}
       <p class="small muted">Category</p>${chipRow("category", CATEGORIES.map((c) => [c.name, c.name]), catInfo(f.category).name)}<p class="small muted">${esc(catInfo(f.category).desc)}</p>
       <p class="small muted">Level</p>${chipRow("level", LEVELS.map((l) => [l, l]), f.level)}
-      ${field("l_sec", "Length in seconds", { inputmode: "numeric", value: f.seconds })}
-      <p class="small muted">Where is the video?</p>${chipRow("provider", [["Remote", "Video file"], ["YouTube", "YouTube"]], f.provider)}
-      ${field("l_url", f.provider === "YouTube" ? "YouTube link (https://youtu.be/…)" : "Video address (https://…)", { value: f.url })}
-      ${f.provider === "YouTube" ? `<p class="small muted">Play a public YouTube video inside the app. Tick free preview so anyone with an account can watch it.</p>` : ""}
+      ${field("l_sec", "Length in seconds (filled in for you when you upload)", { inputmode: "numeric", value: f.seconds })}
+      <p class="small muted">Where is the video?</p>${chipRow("provider", [["S3", "Upload a video"], ["YouTube", "YouTube"], ["Remote", "Video link"]], f.provider)}
+      ${videoBox()}
       ${checkbox("l_prev", "Free preview (no subscription needed)", f.preview)}
       <div class="formerr hidden" id="ferr" role="alert"></div>
       <button class="btn accent" id="lsave">${f.id ? "Save changes" : "Add lesson"}</button>${f.id ? `<button class="btn secondary" id="lcancel">Cancel editing</button>` : ""}</div>
-      <h3 class="mt-s">Existing lessons</h3>${lessons.map((l) => `<div class="card row"><div class="grow"><h3 style="font-size:18px">${esc(l.title)}</h3><p class="small muted">${esc(l.programmeName)} · ${esc(l.category)} · ${durLabel(l.durationSeconds)}</p></div>
+      <h3 class="mt-s">Existing lessons</h3>${lessons.map((l) => `<div class="card row"><div class="grow"><h3 style="font-size:18px">${esc(l.title)}</h3><p class="small muted">${esc(l.programmeName)} · ${esc(l.category)} · ${esc(l.level)} · ${durLabel(l.durationSeconds)}</p></div>
         <button class="iconbtn" style="margin:0" data-edit="${l.id}" aria-label="Edit lesson">${ic("edit")}</button><button class="iconbtn" style="margin:0" data-del="${l.id}" aria-label="Delete lesson">${ic("trash")}</button></div>`).join("")}</div>`;
   };
   draw();
-  const keep = () => Object.assign(f, { title: val("l_title"), description: val("l_desc"), seconds: val("l_sec"), url: val("l_url"), preview: $("#l_prev").checked });
+  const keep = () => { const u = $("#l_url"); Object.assign(f, { title: val("l_title"), description: val("l_desc"), seconds: val("l_sec"), preview: $("#l_prev").checked }); if (u) f.url = u.value; };
+  const say = (msg, err) => { f.upMsg = msg; f.upErr = !!err; const m = $("#upmsg"); if (m) { m.textContent = msg; m.style.color = err ? "var(--error)" : ""; m.classList.toggle("muted", !err); } };
+
+  /* Picks the file, asks the server for a private upload link, then sends the file straight to AWS (not through this server). */
+  const upload = async (file) => {
+    if (!file) return;
+    keep();
+    say("Getting ready…");
+    let target;
+    try { target = await api("POST", "/api/admin/videos/upload-url", { fileName: file.name, contentType: file.type || "video/mp4", sizeBytes: file.size }); }
+    catch (err) { return say(err.message, true); }
+    const secs = await new Promise((done) => {            // the length comes from the video itself
+      const v = document.createElement("video"); v.preload = "metadata"; const src = URL.createObjectURL(file);
+      v.onloadedmetadata = () => { URL.revokeObjectURL(src); done(Math.round(v.duration) || 0); }; v.onerror = () => { URL.revokeObjectURL(src); done(0); }; v.src = src;
+    });
+    f.uploading = true; f.pct = 0; draw(); say("Uploading… keep this page open.");
+    try {
+      await new Promise((ok, fail) => {
+        const x = new XMLHttpRequest(); x.open("PUT", target.uploadUrl); x.setRequestHeader("Content-Type", target.contentType);
+        x.upload.onprogress = (ev) => { if (!ev.lengthComputable) return; f.pct = Math.round(ev.loaded * 100 / ev.total); const b = $("#upbar i"); if (b) b.style.width = f.pct + "%"; say(`Uploading… ${f.pct}%. Keep this page open.`); };
+        x.onload = () => (x.status >= 200 && x.status < 300 ? ok() : fail(new Error(`The video storage refused the upload (${x.status}). Please tell the developer.`)));
+        x.onerror = () => fail(new Error("The upload didn't go through. Check your internet connection and try again. If it keeps happening, tell the developer."));
+        x.send(file);
+      });
+      f.uploading = false; f.url = target.key; f.fileName = file.name; if (secs && !parseInt(digits(f.seconds), 10)) f.seconds = String(secs);
+      f.upMsg = "Uploaded. Now check the details and press the save button."; f.upErr = false; draw();
+    } catch (err) { f.uploading = false; f.pct = 0; draw(); say(err.message, true); }
+  };
+  el.onchange = (e) => { if (e.target.id === "l_file") upload(e.target.files[0]); };
+
   el.onclick = async (e) => {
     try {
-      keep(); const g = chipPick(e, f); if (g) { if (g === "category" || g === "provider") draw(); return; }
+      if (f.uploading) { if (e.target.closest("#lsave,[data-edit],#lcancel,[data-g]")) toast("Please wait for the upload to finish."); return; }
+      keep(); const g = chipPick(e, f); if (g) { if (g === "category" || g === "provider") { if (g === "provider") { f.url = ""; f.fileName = ""; f.upMsg = ""; } draw(); } return; }
       const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
       if (e.target.id === "lcancel") { f = Object.assign(blank(), { programmeId: String(programmes[0].id) }); return draw(); }
       if (ed) {
-        const l = lessons.find((x) => String(x.id) === ed.dataset.edit); const yt = /youtube/i.test(l.videoProvider);
-        f = { id: l.id, programmeId: String(l.programmeId), title: l.title, description: l.description, category: l.category, seconds: String(l.durationSeconds), provider: yt ? "YouTube" : "Remote", url: yt ? `https://youtu.be/${l.videoReference}` : l.videoReference, preview: l.isPreview, level: LEVELS.includes(l.level) ? l.level : "Beginner" };
+        const l = lessons.find((x) => String(x.id) === ed.dataset.edit); const yt = /youtube/i.test(l.videoProvider), s3 = /^s3$/i.test(l.videoProvider);
+        f = Object.assign(blank(), { id: l.id, programmeId: String(l.programmeId), title: l.title, description: l.description, category: l.category, seconds: String(l.durationSeconds), provider: yt ? "YouTube" : s3 ? "S3" : "Remote", url: yt ? `https://youtu.be/${l.videoReference}` : l.videoReference, fileName: s3 ? fileLabel(l.videoReference) : "", preview: l.isPreview, level: LEVELS.includes(l.level) ? l.level : "Beginner" });
         draw(); window.scrollTo(0, 0); return;
       }
       if (del) {
@@ -202,7 +244,10 @@ route("/admin/lessons", async (el) => {
       if (e.target.id === "lsave") {
         const fe = $("#ferr"); fe.classList.add("hidden"); const fail = (m) => { fe.textContent = m; fe.classList.remove("hidden"); };
         const secs = parseInt(digits(f.seconds), 10) || 0;
-        if (!f.title.trim() || secs < 1 || !/^https?:\/\//i.test(f.url.trim()) || !f.programmeId) return fail("Enter a title, the length in seconds and a video address that starts with https://.");
+        const haveVideo = f.provider === "S3" ? /^videos\//.test(f.url) : f.provider === "YouTube" ? f.url.trim().length > 5 : /^https?:\/\//i.test(f.url.trim());
+        if (!f.title.trim() || !f.programmeId) return fail("Enter a title and choose a programme.");
+        if (!haveVideo) return fail(f.provider === "S3" ? "Upload the video first, then save the lesson." : f.provider === "YouTube" ? "Paste the YouTube link." : "Enter a video address that starts with https://.");
+        if (secs < 1) return fail("Enter the length of the video in seconds.");
         const body = { programmeId: Number(f.programmeId), title: f.title.trim(), description: f.description.trim(), category: f.category, level: f.level, durationSeconds: secs, videoProvider: f.provider, videoReference: f.url.trim(), isPreview: !!f.preview };
         busy(e.target, true, "Saving…");
         try { if (f.id) await api("PUT", `/api/admin/lessons/${f.id}`, body); else await api("POST", "/api/admin/lessons", body); toast(f.id ? "Lesson updated." : "Lesson added."); f = Object.assign(blank(), { programmeId: f.programmeId }); lessons = await api("GET", "/api/admin/lessons"); draw(); }
