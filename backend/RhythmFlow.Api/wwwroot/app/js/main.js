@@ -157,10 +157,11 @@ route("/play/:id", async (el, { id }) => {
   $("#pmsg").remove(); sec.appendChild(v);
   v.addEventListener("loadedmetadata", () => { if (pb.resumeSeconds > 3) { try { v.currentTime = pb.resumeSeconds; } catch (e) { /* ignore */ } } });
   v.addEventListener("error", () => { v.remove(); const m = document.createElement("div"); m.className = "msg"; m.innerHTML = `<p>This video couldn't be played. Check your internet connection and try again.</p><button class="btn secondary small" data-retry>Try again</button>`; sec.appendChild(m); });
-  let last = 0, sent = 0;
+  let last = 0, sent = 0, sending = false;
   const report = async (done) => {
-    const t = Math.floor(v.currentTime || 0); if (!done && Math.abs(t - sent) < 5) return; sent = t;
-    try { await api("POST", "/api/progress", { lessonId: Number(id), watchTimeSeconds: t }); } catch (e) { /* silent: progress is best effort */ }
+    const t = Math.floor(v.currentTime || 0); if (!done && (sending || Math.abs(t - sent) < 5)) return; sent = t;
+    sending = true;   // one report at a time, so a pause and leaving the page do not both make the first save together
+    try { await api("POST", "/api/progress", { lessonId: Number(id), watchTimeSeconds: t }); } catch (e) { /* silent: progress is best effort */ } finally { sending = false; }
   };
   v.addEventListener("timeupdate", () => { const t = Math.floor(v.currentTime); if (t - last >= 15) { last = t; report(); } });
   v.addEventListener("pause", () => report());
