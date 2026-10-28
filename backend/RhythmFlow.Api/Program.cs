@@ -24,6 +24,10 @@ builder.Services.AddDbContext<AppDbContext>(o =>
 // ---- Options ----
 builder.Services.Configure<JwtOptions>(cfg.GetSection("Jwt"));
 builder.Services.Configure<MediaOptions>(cfg.GetSection("Media"));
+// Private video storage on AWS S3 (section "Video"). Without a bucket the admin screens say uploads are not set up yet.
+builder.Services.Configure<VideoStorageOptions>(cfg.GetSection("Video"));
+if (!string.IsNullOrWhiteSpace(cfg["Video:Bucket"])) builder.Services.AddSingleton<IVideoStorage, S3VideoStorage>();
+else builder.Services.AddSingleton<IVideoStorage, NoVideoStorage>();
 builder.Services.Configure<PayFastOptions>(cfg.GetSection("PayFast"));
 builder.Services.Configure<BookingOptions>(cfg.GetSection("Booking"));
 builder.Services.Configure<EventOptions>(cfg.GetSection("Events"));
@@ -165,6 +169,8 @@ using (var scope = app.Services.CreateScope())
 
 // ---- The web version of the app (for iPhones and browsers) is served from this same service at /app ----
 // Browser safety headers apply to /app only; the API's own responses are unchanged.
+// Only when testing with a stand-in for AWS storage on this computer (Video:ServiceUrl): let the page talk to it.
+var testStore = Uri.TryCreate(cfg["Video:ServiceUrl"], UriKind.Absolute, out var storeUri) ? " " + storeUri.GetLeftPart(UriPartial.Authority) : "";
 app.Use(async (ctx, next) =>
 {
     // "/app" (no slash) goes to "/app/". It is done here and not with an endpoint, because an endpoint for "/app" also matches "/app/",
@@ -178,8 +184,8 @@ app.Use(async (ctx, next) =>
             h.CacheControl = "no-cache";               // new versions show up straight away
             h["X-Content-Type-Options"] = "nosniff";
             h["Referrer-Policy"] = "strict-origin-when-cross-origin";   // YouTube refuses to play an embed that does not say where it is embedded
-            h["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data: https:; media-src 'self' blob: https:; style-src 'self' 'unsafe-inline'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://consent.youtube.com https://www.google.com; " +
-                                           "script-src 'self'; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+            h["Content-Security-Policy"] = $"default-src 'self'; img-src 'self' data: https:; media-src 'self' blob: https:{testStore}; style-src 'self' 'unsafe-inline'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://consent.youtube.com https://www.google.com; " +
+                                           $"script-src 'self'; connect-src 'self' https://*.amazonaws.com{testStore}; font-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
             return Task.CompletedTask;
         });
     }

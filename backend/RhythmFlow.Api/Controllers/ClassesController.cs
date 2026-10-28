@@ -117,7 +117,7 @@ public class JournalController(AppDbContext db) : ApiController
 /// <summary>Administrator functions. Every action requires the ADMIN role (BR-15, FR-22).</summary>
 [ApiController, Authorize(Roles = Roles.Admin)]
 [Route("api/admin")]
-public class AdminController(AppDbContext db, NotificationService notifications, EventBookingService events, UserAdminService users, ProgrammeAdminService programmes, AdminOverviewService overview, PlanAdminService plansAdmin, ScheduleAdminService schedule) : ApiController
+public class AdminController(IVideoStorage videoStorage, AppDbContext db, NotificationService notifications, EventBookingService events, UserAdminService users, ProgrammeAdminService programmes, AdminOverviewService overview, PlanAdminService plansAdmin, ScheduleAdminService schedule) : ApiController
 {
     // ---- Who is booked, who holds a plan ----
     [HttpGet("bookings")]
@@ -177,6 +177,14 @@ public class AdminController(AppDbContext db, NotificationService notifications,
     }
 
     // ---- Lessons ----
+    /// <summary>Gives the admin a signed link to upload a video straight to the private AWS bucket, and the key to save on the lesson.</summary>
+    [HttpPost("videos/upload-url")]
+    public ActionResult<VideoUploadResponse> VideoUploadUrl(VideoUploadRequest r)
+    {
+        var (result, error) = VideoUploads.Create(videoStorage, r);
+        return result is not null ? result : StatusCode(videoStorage.Configured ? 400 : 503, new { error });
+    }
+
     [HttpPost("lessons")]
     public async Task<ActionResult<int>> CreateLesson(LessonUpsert r)
     {

@@ -6,6 +6,8 @@ namespace RhythmFlow.Api.Services;
 public static partial class LessonVideo
 {
     public const string YouTube = "YouTube";
+    /// <summary>A video uploaded to the private AWS bucket. The reference is its key in the bucket.</summary>
+    public const string S3 = "S3";
 
     [GeneratedRegex(@"^[A-Za-z0-9_-]{11}$")]
     private static partial Regex IdPattern();
@@ -51,8 +53,14 @@ public static partial class LessonVideo
             return TryGetYouTubeId(r, out var id)
                 ? (true, YouTube, id, null)
                 : (false, YouTube, r, "That doesn't look like a YouTube link. Paste the video's address, for example https://youtu.be/abcdefghijk.");
+        if (p.Equals(S3, StringComparison.OrdinalIgnoreCase))
+            return VideoUploads.IsValidKey(r)
+                ? (true, S3, r, null)
+                : (false, S3, r, "Upload the video first, then save the lesson.");
         return (true, string.IsNullOrEmpty(p) ? "Remote" : p, r, null);
     }
+
+    public static bool IsS3(string? provider) => string.Equals(provider, S3, StringComparison.OrdinalIgnoreCase);
 
     public static bool IsYouTube(string? provider) => string.Equals(provider, YouTube, StringComparison.OrdinalIgnoreCase);
 }

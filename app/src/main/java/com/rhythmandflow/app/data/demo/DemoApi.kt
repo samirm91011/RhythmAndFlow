@@ -344,6 +344,11 @@ class DemoApi : Api {
     override suspend fun adminResolveRequest(id: Int, body: ResolveRequestBody): Response<Unit> { pause(); demoRequests.removeAll { it.bookingId == id }; return ok() }
     override suspend fun adminRefunds(): List<AdminRefund> { pause(); return demoRefunds.toList() }
     override suspend fun adminMarkRefunded(id: Int): Response<Unit> { pause(); demoRefunds.removeAll { it.bookingId == id }; return ok() }
+    override suspend fun adminVideoUploadUrl(body: VideoUploadBody): VideoUploadResult {
+        pause()
+        if (!body.contentType.startsWith("video/")) fail(400, "Please choose a video file (MP4 or MOV is best).")
+        return VideoUploadResult("videos/202610/demo-${body.fileName}", "demo://upload", body.contentType, Instant.now().plus(Duration.ofHours(3)).toString())
+    }
     override suspend fun adminGiveCredit(id: Int, body: GiveCreditBody): Response<Unit> { pause(); if (body.amount < 1) fail(400, "Enter an amount of at least R1."); return ok() }
     override suspend fun adminSendLinks(id: Int): Response<Unit> { pause(); return ok() }
     override suspend fun book(id: Int): Booking {

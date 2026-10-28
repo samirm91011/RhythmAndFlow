@@ -26,6 +26,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.rhythmandflow.app.data.Outcome
+import com.rhythmandflow.app.data.VideoUploader
 import com.rhythmandflow.app.data.ClassUpsert
 import com.rhythmandflow.app.data.LessonUpsert
 import com.rhythmandflow.app.data.AdminPlan
@@ -119,10 +123,36 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
     var programmeId by remember { mutableStateOf<Int?>(null) }
     var editingId by remember { mutableStateOf<Int?>(null) }
     var level by remember { mutableStateOf("Beginner") }
-    var provider by remember { mutableStateOf("Remote") }
+    var provider by remember { mutableStateOf("S3") }
+    var fileName by remember { mutableStateOf("") }
+    var uploadPct by remember { mutableStateOf<Int?>(null) }
+    var uploadError by remember { mutableStateOf<String?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     val chosenProgramme = programmeId ?: programmes.firstOrNull()?.first
     val scroll = rememberScrollState()
-    fun clearForm() { editingId = null; title = ""; description = ""; category = "Yoga"; seconds = ""; url = ""; preview = false; level = "Beginner"; provider = "Remote" }
+    fun clearForm() { editingId = null; title = ""; description = ""; category = "Yoga"; seconds = ""; url = ""; preview = false; level = "Beginner"; provider = "S3"; fileName = ""; uploadError = null }
+    fun fileLabel(key: String) = key.substringAfterLast('/').replace(Regex("^[0-9a-f]{32}-"), "")
+
+    // Picks a video from the phone and sends it straight to the private AWS storage with a signed link from the server.
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            uploadError = null
+            val video = VideoUploader.inspect(context, uri)
+            if (video == null || video.sizeBytes <= 0) { uploadError = "That file couldn't be read."; return@launch }
+            uploadPct = 0
+            when (val r = vm.videoUploadUrl(video.name, video.mimeType, video.sizeBytes)) {
+                is Outcome.Fail -> { uploadError = r.message; uploadPct = null }
+                is Outcome.Ok -> {
+                    val err = VideoUploader.upload(context, video, r.value.uploadUrl, r.value.contentType) { uploadPct = it }
+                    uploadPct = null
+                    if (err == null) {
+                        url = r.value.key; fileName = video.name
+                        if (seconds.isBlank() && video.seconds > 0) seconds = video.seconds.toString()
+                    } else uploadError = err
+                }
+            }
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Lessons & videos", onBack = onBack)
@@ -147,13 +177,23 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 levelNames.forEach { l -> SelectChip(l, level == l, { level = l }) }
             }
-            RfTextField(seconds, { seconds = it.filter(Char::isDigit) }, "Length in seconds", keyboardType = KeyboardType.Number)
+            RfTextField(seconds, { seconds = it.filter(Char::isDigit) }, "Length in seconds (filled in when you upload)", keyboardType = KeyboardType.Number)
             Text("Where is the video?", style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SelectChip("Video file", provider != "YouTube", onClick = { provider = "Remote" })
-                SelectChip("YouTube", provider == "YouTube", onClick = { provider = "YouTube" })
+                SelectChip("Upload a video", provider == "S3", onClick = { if (uploadPct == null) { provider = "S3"; url = ""; fileName = ""; uploadError = null } })
+                SelectChip("YouTube", provider == "YouTube", onClick = { if (uploadPct == null) { provider = "YouTube"; url = ""; uploadError = null } })
+                SelectChip("Video link", provider == "Remote", onClick = { if (uploadPct == null) { provider = "Remote"; url = ""; uploadError = null } })
             }
-            RfTextField(
+            if (provider == "S3") {
+                if (url.startsWith("videos/")) Text("✔ ${fileName.ifBlank { fileLabel(url) }} is uploaded.", style = MaterialTheme.typography.bodyMedium, color = Brand.TealDeep)
+                else Text("Choose the video from your phone. It is stored privately, and only members whose plan allows it can watch it.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                SecondaryButton(if (url.startsWith("videos/")) "Replace the video" else "Choose a video to upload", enabled = uploadPct == null, onClick = { picker.launch(arrayOf("video/*")) })
+                uploadPct?.let { p ->
+                    LinearProgressIndicator(progress = { p / 100f }, modifier = Modifier.fillMaxWidth(), color = Brand.TealDeep)
+                    Text("Uploading… $p%. Keep the app open until it finishes.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                }
+                uploadError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Brand.Error) }
+            } else RfTextField(
                 url, { url = it }, if (provider == "YouTube") "YouTube link (https://youtu.be/…)" else "Video address (https://…)",
                 keyboardType = KeyboardType.Uri,
             )
@@ -162,7 +202,8 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
                 Switch(checked = preview, onCheckedChange = { preview = it }, colors = SwitchDefaults.colors(checkedTrackColor = Brand.TealDeep))
                 HSpace(10); Text("Free preview (no subscription needed)")
             }
-            PrimaryButton(if (editingId == null) "Add lesson" else "Save changes", enabled = title.isNotBlank() && seconds.isNotBlank() && url.startsWith("http") && chosenProgramme != null, onClick = {
+            PrimaryButton(if (editingId == null) "Add lesson" else "Save changes", enabled = uploadPct == null && title.isNotBlank() && seconds.isNotBlank() && chosenProgramme != null &&
+                (when (provider) { "S3" -> url.startsWith("videos/"); "YouTube" -> url.length > 5; else -> url.startsWith("http") }), onClick = {
                 scope.launch {
                     val body = LessonUpsert(chosenProgramme!!, title.trim(), description.trim(), category, level, seconds.toInt().coerceAtLeast(1), provider, url.trim(), preview)
                     val id = editingId
@@ -183,8 +224,9 @@ fun AdminLessonsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
                         }
                         IconButton(onClick = {
                             editingId = l.id; title = l.title; description = l.description; category = l.category; seconds = l.durationSeconds.toString()
-                            provider = if (l.videoProvider.equals("YouTube", true)) "YouTube" else "Remote"
+                            provider = if (l.videoProvider.equals("YouTube", true)) "YouTube" else if (l.videoProvider.equals("S3", true)) "S3" else "Remote"
                             url = if (provider == "YouTube") "https://youtu.be/${l.videoReference}" else l.videoReference
+                            fileName = if (provider == "S3") fileLabel(l.videoReference) else ""; uploadError = null
                             preview = l.isPreview; programmeId = l.programmeId; level = if (l.level in levelNames) l.level else "Beginner"
                             scope.launch { scroll.animateScrollTo(0) }
                         }) { Icon(Icons.Default.Edit, "Edit lesson", tint = Brand.TealDeep) }
