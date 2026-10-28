@@ -74,8 +74,6 @@ fun AdminHomeScreen(name: String, onNavigate: (String) -> Unit, onCustomerView: 
                 AdminLink("Active plans", "Who is subscribed, and to what") { onNavigate("admin/subscriptions") }
                 AdminLink("Customers", "Find people and switch accounts off") { onNavigate("admin/users") }
                 AdminLink("Error log", if ((state.summary?.openErrors ?: 0) > 0) "${state.summary?.openErrors} open problem(s) to review" else "Nothing open") { onNavigate("admin/errors") }
-                Text("Customer view", style = MaterialTheme.typography.titleMedium)
-                AdminLink("See the app as a customer", "Check what your customers see. Switch back from You → Admin tools.") { onCustomerView() }
             }
         }
     }
