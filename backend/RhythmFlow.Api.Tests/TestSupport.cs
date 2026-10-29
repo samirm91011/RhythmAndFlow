@@ -67,6 +67,8 @@ public sealed class TestDb : IDisposable
 public class FakeEmail : IEmailSender
 {
     public List<(string To, string Subject, string Body)> Sent { get; } = new();
+    /// <summary>What went to customers: everything except the automatic notes to the studio inbox.</summary>
+    public List<(string To, string Subject, string Body)> Customer => Sent.Where(m => m.To != new EventOptions().ContactEmail).ToList();
     public Task<bool> SendAsync(string to, string subject, string body) { Sent.Add((to, subject, body)); return Task.FromResult(true); }
 }
 

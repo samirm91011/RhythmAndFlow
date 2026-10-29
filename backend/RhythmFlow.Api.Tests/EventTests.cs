@@ -88,7 +88,7 @@ public class EventTests
 
         Assert.Equal(BookingStatus.Booked, b.Status);
         Assert.Equal(250m, b.AmountPaid);
-        var mail = Assert.Single(email.Sent);
+        var mail = Assert.Single(email.Customer);
         Assert.Equal(user.Email, mail.To);
         foreach (var expected in new[]
         {
@@ -112,7 +112,7 @@ public class EventTests
         Assert.True(await svc.ApplyPaymentResultAsync(r.BookingId, "COMPLETE", 250m, "PF-1"));
         Assert.True(await svc.ApplyPaymentResultAsync(r.BookingId, "COMPLETE", 250m, "PF-1"));
 
-        Assert.Single(email.Sent);
+        Assert.Single(email.Customer);
     }
 
     [Fact]
@@ -124,15 +124,15 @@ public class EventTests
         var user = t.AddUser();
 
         var a = await Bought(svc, t, user, withLink, "PF-A");
-        Assert.Equal(2, email.Sent.Count);
-        Assert.Contains("Joining details", email.Sent[1].Subject);
-        Assert.Contains("https://zoom.us/j/123", email.Sent[1].Body);
-        Assert.DoesNotContain("https://zoom.us/j/123", email.Sent[0].Body);   // the link comes in its own email
+        Assert.Equal(2, email.Customer.Count);
+        Assert.Contains("Joining details", email.Customer[1].Subject);
+        Assert.Contains("https://zoom.us/j/123", email.Customer[1].Body);
+        Assert.DoesNotContain("https://zoom.us/j/123", email.Customer[0].Body);   // the link comes in its own email
         Assert.NotNull(a.LinkSentAt);
 
         email.Sent.Clear();
         await Bought(svc, t, user, without, "PF-B");
-        var mail = Assert.Single(email.Sent);
+        var mail = Assert.Single(email.Customer);
         Assert.Contains("A separate email with the Zoom joining link will follow", mail.Body.Replace("platform", "Zoom"));
     }
 
@@ -148,8 +148,8 @@ public class EventTests
         await svc.SendJoinLinksAsync(c.Id);
         await svc.SendJoinLinksAsync(c.Id);
 
-        Assert.Equal(2, email.Sent.Count);
-        Assert.All(email.Sent, m => Assert.Contains("meet.google.com", m.Body));
+        Assert.Equal(2, email.Customer.Count);
+        Assert.All(email.Customer, m => Assert.Contains("meet.google.com", m.Body));
     }
 
     // ---- Capacity, sales window, waiting list ----
@@ -278,8 +278,8 @@ public class EventTests
         Assert.Null(error);
         Assert.True(r!.Confirmed); Assert.Null(r.PaymentUrl);
         Assert.Equal(50m, (await svc.CreditsAsync(user.Id)).Balance);
-        Assert.Single(email.Sent);
-        Assert.Contains("including R250.00 account credit", email.Sent[0].Body);
+        Assert.Single(email.Customer);
+        Assert.Contains("including R250.00 account credit", email.Customer[0].Body);
     }
 
     [Fact]
@@ -451,13 +451,13 @@ public class EventTests
 
         c.StartTime = DateTime.UtcNow.AddHours(20); c.EndTime = c.StartTime.AddHours(1); t.Db.SaveChanges();
         await svc.SendRemindersAsync(DateTime.UtcNow); await svc.SendRemindersAsync(DateTime.UtcNow);
-        Assert.Single(email.Sent); Assert.Contains("Tomorrow", email.Sent[0].Subject);
+        Assert.Single(email.Customer); Assert.Contains("Tomorrow", email.Customer[0].Subject);
 
         c.StartTime = DateTime.UtcNow.AddMinutes(40); c.EndTime = c.StartTime.AddHours(1); t.Db.SaveChanges();
         await svc.SendRemindersAsync(DateTime.UtcNow); await svc.SendRemindersAsync(DateTime.UtcNow);
-        Assert.Equal(2, email.Sent.Count);
-        Assert.Contains("Starting soon", email.Sent[1].Subject);
-        Assert.Contains("https://zoom.us/j/9", email.Sent[1].Body);
+        Assert.Equal(2, email.Customer.Count);
+        Assert.Contains("Starting soon", email.Customer[1].Subject);
+        Assert.Contains("https://zoom.us/j/9", email.Customer[1].Body);
         Assert.Equal(2, t.Db.Notifications.Count(n => n.UserId == user.Id && n.Kind == "CLASS"));
     }
 
@@ -470,7 +470,7 @@ public class EventTests
 
         await svc.SendRemindersAsync(DateTime.UtcNow);
 
-        Assert.Empty(email.Sent);
+        Assert.Empty(email.Customer);
     }
 
     // ---- What customers see ----
@@ -630,7 +630,7 @@ public class EventAdminTests
 
         await svc.UpdateClassAsync(c.Id, Upsert(c, 150, "WORKSHOP", "ONLINE", link: "https://zoom.us/j/77"));
 
-        var sent = Assert.Single(mail.Sent);
+        var sent = Assert.Single(mail.Customer);
         Assert.Contains("https://zoom.us/j/77", sent.Body);
     }
 }
