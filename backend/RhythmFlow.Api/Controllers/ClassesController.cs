@@ -215,12 +215,7 @@ public class AdminController(IVideoStorage videoStorage, AppDbContext db, Notifi
     [HttpDelete("lessons/{id:int}")]
     public async Task<IActionResult> DeleteLesson(int id)
     {
-        var l = await db.Lessons.FindAsync(id);
-        if (l is null) return NotFound();
-        db.Progress.RemoveRange(db.Progress.Where(p => p.LessonId == id));
-        db.Lessons.Remove(l);
-        await db.SaveChangesAsync();
-        return NoContent();
+        return await schedule.DeleteLessonAsync(id) ? NoContent() : NotFound();
     }
 
     private static void Apply(Lesson l, LessonUpsert r)

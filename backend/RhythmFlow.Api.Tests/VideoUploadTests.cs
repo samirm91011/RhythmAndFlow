@@ -1,3 +1,4 @@
+using RhythmFlow.Api.Domain;
 using RhythmFlow.Api.Dtos;
 using RhythmFlow.Api.Services;
 
@@ -14,6 +15,9 @@ public class VideoUploadTests
         public TimeSpan PlaybackValidFor => TimeSpan.FromMinutes(120);
         public string SignUpload(string key, string contentType) => $"https://bucket.example/{key}?upload&type={contentType}";
         public string SignPlayback(string key) => $"https://bucket.example/{key}?play";
+        public List<string> Deleted { get; } = new();
+        public bool FailDeletes { get; set; }
+        public Task DeleteAsync(string key) { if (FailDeletes) throw new InvalidOperationException("AWS is down"); Deleted.Add(key); return Task.CompletedTask; }
     }
 
     [Fact]
@@ -97,5 +101,81 @@ public class VideoUploadTests
         Assert.Contains("X-Amz-Signature=", up.Query); Assert.Contains("X-Amz-Signature=", play.Query);
         Assert.Contains("a-flow.mp4", up.AbsolutePath); Assert.Contains("a-flow.mp4", play.AbsolutePath);
         Assert.True(storage.Configured);
+    }
+
+    // ---- The file is removed from AWS when nothing uses it any more ----
+
+    private static (ScheduleAdminService svc, FakeStorage storage, TestDb t) Cleanup(bool failDeletes = false)
+    {
+        var t = new TestDb(); var storage = new FakeStorage { FailDeletes = failDeletes };
+        return (new ScheduleAdminService(t.Db, new NotificationService(t.Db), null, storage), storage, t);
+    }
+
+    private static Lesson S3Lesson(TestDb t, string key, int programmeId)
+    {
+        var l = new Lesson { ProgrammeId = programmeId, Title = "Uploaded", Level = "Beginner", DurationSeconds = 600, VideoProvider = "S3", VideoReference = key };
+        t.Db.Lessons.Add(l); t.Db.SaveChanges(); return l;
+    }
+
+    [Fact]
+    public async Task Deleting_a_lesson_also_deletes_its_uploaded_video_from_storage()
+    {
+        var (svc, storage, t) = Cleanup(); using var _ = t;
+        var seed = t.AddLesson(); var l = S3Lesson(t, "videos/202610/aaa-flow.mp4", seed.ProgrammeId);
+
+        Assert.True(await svc.DeleteLessonAsync(l.Id));
+
+        Assert.Equal(["videos/202610/aaa-flow.mp4"], storage.Deleted);
+        Assert.False(t.Db.Lessons.Any(x => x.Id == l.Id));
+    }
+
+    [Fact]
+    public async Task A_file_that_another_lesson_still_uses_is_kept()
+    {
+        var (svc, storage, t) = Cleanup(); using var _ = t;
+        var seed = t.AddLesson(); var a = S3Lesson(t, "videos/202610/shared.mp4", seed.ProgrammeId); S3Lesson(t, "videos/202610/shared.mp4", seed.ProgrammeId);
+
+        await svc.DeleteLessonAsync(a.Id);
+
+        Assert.Empty(storage.Deleted);
+    }
+
+    [Fact]
+    public async Task YouTube_and_link_lessons_never_touch_storage_and_a_missing_lesson_is_reported()
+    {
+        var (svc, storage, t) = Cleanup(); using var _ = t;
+        var plain = t.AddLesson();   // a "Remote" link lesson
+
+        Assert.True(await svc.DeleteLessonAsync(plain.Id));
+        Assert.False(await svc.DeleteLessonAsync(99999));
+        Assert.Empty(storage.Deleted);
+    }
+
+    [Fact]
+    public async Task Replacing_the_video_deletes_the_old_file_but_saving_other_changes_keeps_it()
+    {
+        var (svc, storage, t) = Cleanup(); using var _ = t;
+        var seed = t.AddLesson(); var l = S3Lesson(t, "videos/202610/old.mp4", seed.ProgrammeId);
+        LessonUpsert Edit(string provider, string reference, string title) => new(l.ProgrammeId, title, "d", "Yoga", "Beginner", 600, provider, reference, false);
+
+        Assert.True((await svc.UpdateLessonAsync(l.Id, Edit("S3", "videos/202610/old.mp4", "New title"))).Ok);   // same file
+        Assert.Empty(storage.Deleted);
+
+        Assert.True((await svc.UpdateLessonAsync(l.Id, Edit("S3", "videos/202610/new.mp4", "New title"))).Ok);   // replaced
+        Assert.Equal(["videos/202610/old.mp4"], storage.Deleted);
+
+        Assert.True((await svc.UpdateLessonAsync(l.Id, Edit("YouTube", "NFixPh6y39U", "Now YouTube"))).Ok);     // switched away
+        Assert.Equal(["videos/202610/old.mp4", "videos/202610/new.mp4"], storage.Deleted);
+    }
+
+    [Fact]
+    public async Task If_AWS_cannot_delete_the_file_the_lesson_is_still_deleted()
+    {
+        var (svc, _, t) = Cleanup(failDeletes: true); using var _ = t;
+        var seed = t.AddLesson(); var l = S3Lesson(t, "videos/202610/x.mp4", seed.ProgrammeId);
+
+        Assert.True(await svc.DeleteLessonAsync(l.Id));
+
+        Assert.False(t.Db.Lessons.Any(x => x.Id == l.Id));
     }
 }
