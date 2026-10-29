@@ -78,8 +78,8 @@ route("/you", async (el) => {
       if (!savedLessons) { const all = await api("GET", "/api/lessons"); savedLessons = all.filter((l) => saved.has(l.id)); }
       body = savedLessons.length ? `<div class="stack">${savedLessons.map(lessonRow).join("")}</div>` : emptyBox("Nothing saved yet", "Tap the heart on a practice to save it here.", "🤍");
     }
-    el.innerHTML = `${topbar("You", { back: false, sub: "Your journey, your way.", right: `<a class="iconbtn right" href="#/settings" aria-label="Settings">${ic("info")}</a>` })}
-      <div class="tabsbar">${["Overview", "Intentions", "Preferences", "Saved"].map((t) => `<button class="${t === tab ? "on" : ""}" data-ytab="${t}">${t}</button>`).join("")}</div><div class="pad stack">${body}</div>`;
+    el.innerHTML = `${topbar("You", { back: false, sub: "Your journey, your way.", right: `<a class="iconbtn right" href="#/settings" aria-label="Settings">${ic("settings")}</a>` })}
+      <div class="tabsbar">${["Overview", "Intentions", "Preferences", "Saved"].map((t) => `<button class="${t === tab ? "on" : ""}" data-ytab="${t}">${t}</button>`).join("")}</div><div class="pad stack">${body}<a class="btn secondary" href="#/settings" style="display:flex;justify-content:center;gap:8px">${ic("settings")} Settings and log out</a></div>`;
   };
   await paint();
   el.onclick = async (e) => {
