@@ -510,7 +510,7 @@ fun PracticeCompleteScreen(onHome: () -> Unit, onSaved: () -> Unit, notify: (Str
         VSpace(20)
         completeMoods.chunked(3).forEach { row ->
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { m -> SelectChip(m, mood == m, onClick = { mood = m }, modifier = Modifier.weight(1f)) }
+                row.forEach { m -> SelectChip(m, mood == m, onClick = { mood = m }, modifier = Modifier.weight(1f).height(56.dp), centered = true) }
             }
         }
         VSpace(16)

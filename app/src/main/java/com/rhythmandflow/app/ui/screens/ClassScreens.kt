@@ -62,7 +62,7 @@ private fun Poster(url: String?) {
 }
 
 @Composable
-fun ClassesScreen(onBookings: () -> Unit, onPayment: (Int) -> Unit, onPolicies: () -> Unit, notify: (String) -> Unit) {
+fun ClassesScreen(onBookings: () -> Unit, onPayment: (Int) -> Unit, onPolicies: () -> Unit, notify: (String) -> Unit, onBooked: () -> Unit = {}) {
     val vm = appViewModel(key = "classes") { ClassesViewModel(it) }
     val state by vm.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -119,6 +119,7 @@ fun ClassesScreen(onBookings: () -> Unit, onPayment: (Int) -> Unit, onPolicies: 
                                 val err = vm.book(c.id)
                                 busyId = null
                                 notify(err ?: "You're booked in for ${c.name}.")
+                                if (err == null) onBooked()
                             }
                         },
                         onBuy = { buying = c },

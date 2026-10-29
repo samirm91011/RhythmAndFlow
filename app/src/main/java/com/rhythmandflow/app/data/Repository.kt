@@ -158,6 +158,8 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     suspend fun adminResolveRequest(id: Int, approve: Boolean, amount: Double?) = callUnit { api.adminResolveRequest(id, ResolveRequestBody(approve, amount)) }
     suspend fun adminRefunds() = call { api.adminRefunds() }
     suspend fun adminMarkRefunded(id: Int) = callUnit { api.adminMarkRefunded(id) }
+    suspend fun suggestion(mood: String) = call { api.suggestion(mood) }
+    suspend fun feelInsight() = call { api.feelInsight() }
     suspend fun content() = call { api.content().orBuiltIn() }
     suspend fun adminContent() = call { api.adminContent().orBuiltIn() }
     suspend fun adminSaveContent(c: AppContent) = callUnit { api.adminSaveContent(c) }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.selection.selectable
@@ -75,16 +76,18 @@ import com.rhythmandflow.app.ui.viewmodel.appViewModel
 import kotlinx.coroutines.launch
 
 @Composable
-fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: (String) -> Unit) {
+fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: (String) -> Unit, onHasBooking: () -> Unit = {}) {
     val vm = appViewModel { HomeViewModel(it) }
     val state by vm.state.collectAsState()
     val user = (session.state.collectAsState().value as? com.rhythmandflow.app.ui.viewmodel.SessionState.SignedIn)?.user
     val subs by session.subscriptions.collectAsState()
     var mood by remember { mutableStateOf<String?>(null) }
+    var suggestion by remember { mutableStateOf<com.rhythmandflow.app.data.Suggestion?>(null) }
     val scope = rememberCoroutineScope()
     val firstName = user?.fullName?.substringBefore(' ') ?: ""
     val content by com.rhythmandflow.app.data.ContentCache.flow.collectAsState()
     OnResume { vm.load(); session.refreshSubscriptions() }
+    LaunchedEffect(state.nextBooking != null) { if (state.nextBooking != null) onHasBooking() }
 
     PageColumn {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -107,8 +110,31 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
             scope.launch {
                 val err = vm.checkIn(m)
                 notify(err ?: "Thanks for checking in. You're feeling $m today.")
+                if (err == null) suggestion = vm.suggestion(m)
             }
         })
+        suggestion?.let { s ->
+            VSpace(12)
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                SoftCard(Modifier.fillMaxWidth(), background = Brand.TangerineSoft) {
+                    Column(Modifier.fillMaxWidth()) {
+                        InfoPill("Suggested for how you feel")
+                        VSpace(8)
+                        Text(s.reason, color = Brand.Muted, style = MaterialTheme.typography.bodyMedium)
+                        if (s.lessonId != null && s.title != null) {
+                            VSpace(4)
+                            Text(s.title, style = MaterialTheme.typography.titleLarge)
+                            Text("${s.category} · ${maxOf(1, (s.durationSeconds + 30) / 60)} min", color = Brand.Muted, style = MaterialTheme.typography.bodyMedium)
+                            VSpace(10)
+                            AccentButton("Start this practice", onClick = { onNavigate("lesson/${s.lessonId}") })
+                        } else {
+                            VSpace(10)
+                            AccentButton("Browse ${s.category}", onClick = { onNavigate("move") })
+                        }
+                    }
+                }
+            }
+        }
 
         VSpace(20)
         Column(Modifier.padding(horizontal = 20.dp)) {
@@ -159,6 +185,18 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
         RhythmCards(content.rhythmCards, onNavigate)
 
         VSpace(20)
+        state.feel?.message?.let { msg ->
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                SoftCard(Modifier.fillMaxWidth(), background = Brand.TealSoft) {
+                    Column(Modifier.fillMaxWidth()) {
+                        InfoPill("Your feel-better story")
+                        VSpace(8)
+                        Text(msg, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+            VSpace(20)
+        }
         state.summary?.let { s ->
             Row(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatCard("${s.sessionsThisMonth}", "sessions this month", Modifier.weight(1f), onClick = { onNavigate("progress") })

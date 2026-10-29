@@ -210,11 +210,11 @@ fun ScreenHeader(
 }
 
 @Composable
-fun SelectChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun SelectChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, centered: Boolean = false) {
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(text) },
+        label = { if (centered) Text(text, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth()) else Text(text) },
         modifier = modifier,
         shape = RoundedCornerShape(20.dp),
         colors = FilterChipDefaults.filterChipColors(

@@ -285,6 +285,10 @@ data class AppContent(
     }
 }
 
+data class Suggestion(val mood: String, val category: String, val lessonId: Int?, val title: String?, val durationSeconds: Int, val reason: String)
+data class FeelJourney(val from: String, val to: String, val count: Int)
+data class FeelInsight(val checkIns: Int, val practicesLogged: Int, val topFeeling: String?, val journeys: List<FeelJourney>, val message: String?)
+
 /** What the screens show right now: the last wording fetched from the server, or the built-in one. */
 object ContentCache {
     val flow = kotlinx.coroutines.flow.MutableStateFlow(AppContent.builtIn)

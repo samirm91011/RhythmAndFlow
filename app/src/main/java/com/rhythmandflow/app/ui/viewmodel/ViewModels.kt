@@ -369,6 +369,8 @@ data class HomeState(
     val summary: ProgressSummary? = null, val nextBooking: Booking? = null, val loading: Boolean = true, val unread: Int = 0,
     /** A practice the person started and has not finished, so Home can offer to carry on. */
     val resume: Lesson? = null,
+    /** How practising has been leaving the person feeling (null until there is something to say). */
+    val feel: com.rhythmandflow.app.data.FeelInsight? = null,
 )
 
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
@@ -388,10 +390,13 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             val resume = (repo.lessons() as? Outcome.Ok)?.value
                 ?.filter { !it.locked && it.watchTimeSeconds > 0 && it.completionPercentage in 1.0..94.9 }
                 ?.maxByOrNull { it.completionPercentage }
-            _state.value = HomeState(s, b, false, unread, resume)
+            val feel = (repo.feelInsight() as? Outcome.Ok)?.value
+            _state.value = HomeState(s, b, false, unread, resume, feel)
             (repo.content() as? Outcome.Ok)?.value?.let { com.rhythmandflow.app.data.ContentCache.flow.value = it }   // her latest wording
         }
     }
+
+    suspend fun suggestion(mood: String): com.rhythmandflow.app.data.Suggestion? = (repo.suggestion(mood) as? Outcome.Ok)?.value
 
     suspend fun checkIn(mood: String): String? = when (val r = repo.addJournal("CHECKIN", mood, null)) {
         is Outcome.Ok -> null
