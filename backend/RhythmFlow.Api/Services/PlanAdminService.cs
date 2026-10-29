@@ -5,7 +5,7 @@ using RhythmFlow.Api.Dtos;
 
 namespace RhythmFlow.Api.Services;
 
-/// <summary>Lets administrators add, edit and hide subscription plans. Plans are never deleted: people may hold them and payments refer to them.</summary>
+/// <summary>Lets administrators add, edit, hide and (when nobody has ever held them) delete subscription plans.</summary>
 public class PlanAdminService(AppDbContext db)
 {
     public static readonly string[] Statuses = ["ACTIVE", "INACTIVE"];
@@ -35,6 +35,21 @@ public class PlanAdminService(AppDbContext db)
         if (await NameTakenAsync(r.Name, id)) return (false, false, "A plan with that name already exists.");
 
         Apply(plan, r);
+        await db.SaveChangesAsync();
+        return (true, false, null);
+    }
+
+    /// <summary>
+    /// Deletes a plan nobody has ever held. A plan that has any subscription or payment history cannot be deleted, because those records refer to it:
+    /// hide it instead, so no new customer can choose it.
+    /// </summary>
+    public async Task<(bool Ok, bool NotFound, string? Error)> DeleteAsync(int id)
+    {
+        var plan = await db.Plans.FindAsync(id);
+        if (plan is null) return (false, true, null);
+        if (await db.Subscriptions.AnyAsync(s => s.PlanId == id))
+            return (false, false, "Customers have held this plan, so it has to stay on record. Hide it instead.");
+        db.Plans.Remove(plan);
         await db.SaveChangesAsync();
         return (true, false, null);
     }

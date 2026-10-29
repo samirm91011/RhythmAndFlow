@@ -295,6 +295,7 @@ object ContentCache {
 }
 
 data class ReportIssueBody(val description: String)
+data class RemovedCount(val removed: Int)
 data class VideoUploadBody(val fileName: String, val contentType: String, val sizeBytes: Long)
 /** Send the file to uploadUrl with a PUT (same content type), then save key as the lesson's video. */
 data class VideoUploadResult(val key: String, val uploadUrl: String, val contentType: String, val expiresAt: String)

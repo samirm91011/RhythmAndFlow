@@ -223,6 +223,7 @@ fun AdminUsersScreen(onBack: () -> Unit, notify: (String) -> Unit) {
     val query by vm.query.collectAsState()
     val scope = rememberCoroutineScope()
     var confirm by remember { mutableStateOf<AdminUser?>(null) }
+    var deleting by remember { mutableStateOf<AdminUser?>(null) }
     OnResume { vm.load() }
     val data = state.data
 
@@ -237,9 +238,19 @@ fun AdminUsersScreen(onBack: () -> Unit, notify: (String) -> Unit) {
             state.error != null && data == null -> ErrorBox(state.error!!, onRetry = vm::load)
             data.isNullOrEmpty() -> EmptyState("No one found", "Try a different name or email address.")
             else -> LazyColumn(contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(data, key = { it.id }) { u -> CustomerCard(u, onToggle = { confirm = u }) }
+                items(data, key = { it.id }) { u -> CustomerCard(u, onToggle = { confirm = u }, onDelete = { deleting = u }) }
             }
         }
+    }
+
+    deleting?.let { u ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text("Delete ${u.fullName}?") },
+            text = { Text("Their account, journal, progress, bookings and credit are erased for good, and any plan is cancelled with PayFast first. Records of payments they made are kept without their name or email. This can't be undone.") },
+            confirmButton = { TextButton(onClick = { deleting = null; scope.launch { notify(vm.delete(u.id) ?: "Account deleted.") } }) { Text("Delete account", color = Brand.Error) } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Keep it") } },
+        )
     }
 
     confirm?.let { u ->
@@ -265,7 +276,7 @@ fun AdminUsersScreen(onBack: () -> Unit, notify: (String) -> Unit) {
 }
 
 @Composable
-private fun CustomerCard(u: AdminUser, onToggle: () -> Unit) {
+private fun CustomerCard(u: AdminUser, onToggle: () -> Unit, onDelete: () -> Unit) {
     val off = u.status != "ACTIVE"
     SoftCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -280,8 +291,9 @@ private fun CustomerCard(u: AdminUser, onToggle: () -> Unit) {
                 }
             }
             // Administrators are managed elsewhere; only customers can be switched off here.
-            if (u.role == "CUSTOMER") TextButton(onClick = onToggle) {
-                Text(if (off) "Switch on" else "Switch off", color = if (off) Brand.TealDeep else Brand.Error)
+            if (u.role == "CUSTOMER") Column(horizontalAlignment = Alignment.End) {
+                TextButton(onClick = onToggle) { Text(if (off) "Switch on" else "Switch off", color = if (off) Brand.TealDeep else Brand.Error) }
+                TextButton(onClick = onDelete) { Text("Delete", color = Brand.Error) }
             }
         }
     }

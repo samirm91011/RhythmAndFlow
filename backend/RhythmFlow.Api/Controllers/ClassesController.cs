@@ -149,6 +149,13 @@ public class AdminController(AppContentService appContent, IVideoStorage videoSt
         return ok ? NoContent() : BadRequest(new { error });
     }
 
+    [HttpDelete("programmes/{id:int}")]
+    public async Task<IActionResult> DeleteProgramme(int id)
+    {
+        var (ok, notFound) = await programmes.DeleteAsync(id);
+        return notFound ? NotFound() : NoContent();
+    }
+
     // ---- Customers ----
     [HttpGet("users")]
     public Task<List<AdminUserDto>> Users([FromQuery] string? search) => users.ListAsync(search);
@@ -157,6 +164,15 @@ public class AdminController(AppContentService appContent, IVideoStorage videoSt
     public async Task<IActionResult> SetUserStatus(Guid id, SetUserStatusRequest req)
     {
         var (ok, notFound, error) = await users.SetStatusAsync(UserId, id, req.Status);
+        if (notFound) return NotFound();
+        return ok ? NoContent() : BadRequest(new { error });
+    }
+
+    /// <summary>Deletes a customer's account and personal data (not an administrator, not yourself).</summary>
+    [HttpDelete("users/{id:guid}")]
+    public async Task<IActionResult> DeleteUser(Guid id, [FromServices] AccountService accounts)
+    {
+        var (ok, notFound, error) = await accounts.AdminDeleteAsync(UserId, id);
         if (notFound) return NotFound();
         return ok ? NoContent() : BadRequest(new { error });
     }
@@ -267,6 +283,18 @@ public class AdminController(AppContentService appContent, IVideoStorage videoSt
         return ok ? NoContent() : BadRequest(new { error });
     }
 
+    [HttpDelete("classes/{id:int}")]
+    public async Task<IActionResult> DeleteClass(int id)
+    {
+        var (ok, notFound, error) = await schedule.DeleteClassAsync(id);
+        if (notFound) return NotFound();
+        return ok ? NoContent() : BadRequest(new { error });
+    }
+
+    /// <summary>Removes every cancelled or finished class that nobody paid for.</summary>
+    [HttpPost("classes/clear-finished")]
+    public async Task<ActionResult<object>> ClearFinishedClasses() => new { removed = await schedule.DeleteFinishedClassesAsync() };
+
     [HttpPost("classes/{id:int}/cancel")]
     public async Task<IActionResult> CancelClass(int id)
     {
@@ -334,6 +362,14 @@ public class AdminController(AppContentService appContent, IVideoStorage videoSt
         return ok ? id : BadRequest(new { error });
     }
 
+    [HttpDelete("plans/{id:int}")]
+    public async Task<IActionResult> DeletePlan(int id)
+    {
+        var (ok, notFound, error) = await plansAdmin.DeleteAsync(id);
+        if (notFound) return NotFound();
+        return ok ? NoContent() : BadRequest(new { error });
+    }
+
     // ---- Error log (reports from the API and the app) ----
     [HttpGet("errors")]
     public async Task<List<ErrorLogDto>> Errors([FromQuery] string status = "NEW")
@@ -359,6 +395,25 @@ public class AdminController(AppContentService appContent, IVideoStorage videoSt
     public async Task<IActionResult> ResolveAllErrors()
     {
         foreach (var e in await db.ErrorLogs.Where(e => e.Status == "NEW").ToListAsync()) e.Status = "RESOLVED";
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpDelete("errors/{id:int}")]
+    public async Task<IActionResult> DeleteError(int id)
+    {
+        var e = await db.ErrorLogs.FindAsync(id);
+        if (e is null) return NotFound();
+        db.ErrorLogs.Remove(e);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    /// <summary>Clears every error report that has been marked resolved.</summary>
+    [HttpPost("errors/clear-resolved")]
+    public async Task<IActionResult> ClearResolvedErrors()
+    {
+        db.ErrorLogs.RemoveRange(await db.ErrorLogs.Where(e => e.Status == "RESOLVED").ToListAsync());
         await db.SaveChangesAsync();
         return NoContent();
     }

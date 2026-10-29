@@ -75,11 +75,11 @@ route("/admin/classes", async (el) => {
     poster: $("#c_poster") ? val("c_poster") : f.poster, closeHours: $("#c_close") ? val("c_close") : f.closeHours, opensOn: $("#c_opens") ? val("c_opens") : f.opensOn,
     earlyHours: $("#c_early") ? val("c_early") : f.earlyHours, waitlist: $("#c_wait") ? $("#c_wait").checked : f.waitlist, joinLink: $("#c_link") ? val("c_link") : f.joinLink,
   });
-  const list = () => `<h3 class="mt-s">Scheduled classes</h3>${classes.map((c) => `<div class="card stack-sm"><div class="row between"><div class="grow"><a href="#/admin/attendees/${c.id}" style="text-decoration:none;color:inherit"><h3 style="font-size:19px">${esc(c.name)}</h3></a>
+  const list = () => `<div class="row between mt-s"><h3>Scheduled classes</h3>${classes.some((c) => c.status !== "SCHEDULED" || new Date(c.endTime) < new Date()) ? `<button class="linkbtn danger" id="clearfin">Delete finished and cancelled</button>` : ""}</div>${classes.map((c) => `<div class="card stack-sm"><div class="row between"><div class="grow"><a href="#/admin/attendees/${c.id}" style="text-decoration:none;color:inherit"><h3 style="font-size:19px">${esc(c.name)}</h3></a>
       <p class="small muted">${fmtDayTime(c.startTime)} · ${c.capacity - c.spotsLeft}/${c.capacity} booked</p>
       ${c.price > 0 || c.format === "ONLINE" ? `<p class="small muted">${c.price > 0 ? fmtRand(c.price) + " ticket · " : ""}${c.format === "ONLINE" ? "Online" : "In person"}</p>` : ""}
       <a class="small" href="#/admin/attendees/${c.id}">See who is booked</a></div>${c.status === "SCHEDULED" ? "" : `<span class="pill grey">Cancelled</span>`}</div>
-      ${c.status === "SCHEDULED" ? `<div class="row wrap"><button class="linkbtn" data-edit="${c.id}">Edit</button>${c.format === "ONLINE" && c.price > 0 ? `<button class="linkbtn" data-links="${c.id}">Send links</button>` : ""}<button class="linkbtn danger" data-cancel="${c.id}">Cancel</button></div>` : ""}</div>`).join("")}`;
+      <div class="row wrap">${c.status === "SCHEDULED" ? `<button class="linkbtn" data-edit="${c.id}">Edit</button>${c.format === "ONLINE" && c.price > 0 ? `<button class="linkbtn" data-links="${c.id}">Send links</button>` : ""}<button class="linkbtn danger" data-cancel="${c.id}">Cancel</button>` : ""}<button class="linkbtn danger" data-delclass="${c.id}" data-cname="${esc(c.name)}">Delete</button></div></div>`).join("")}`;
   const draw = () => { el.innerHTML = `${topbar("Classes", { back: false })}<div class="pad stack">${form()}${list()}</div>`; };
   draw();
   const reload = async () => { classes = await api("GET", "/api/admin/classes"); draw(); };
@@ -100,6 +100,15 @@ route("/admin/classes", async (el) => {
         draw(); window.scrollTo(0, 0); return;
       }
       if (ln) { await api("POST", `/api/admin/classes/${ln.dataset.links}/send-links`); return toast("Joining links sent to everyone who has not had one."); }
+      const dc = e.target.closest("[data-delclass]");
+      if (dc) {
+        if (!(await dialog({ title: `Delete ${dc.dataset.cname}?`, text: "It is removed for good, along with its free bookings. A class that people paid for, or an upcoming class with people booked, can't be deleted: cancel it instead.", ok: "Delete", cancel: "Keep it", danger: true }))) return;
+        await api("DELETE", `/api/admin/classes/${dc.dataset.delclass}`); toast("Class deleted."); return reload();
+      }
+      if (e.target.id === "clearfin") {
+        if (!(await dialog({ title: "Delete all finished and cancelled classes?", text: "Every cancelled class, and every class that has already taken place, is removed for good. Any that people paid for are kept for your records.", ok: "Delete them", cancel: "Keep them", danger: true }))) return;
+        const r = await api("POST", "/api/admin/classes/clear-finished"); toast(`${r.removed} ${r.removed === 1 ? "class" : "classes"} deleted.`); return reload();
+      }
       if (cn) {
         if (!(await dialog({ title: "Cancel this class?", text: "Everyone who booked is told. People who paid for a ticket are offered a full refund or account credit, their choice.", ok: "Cancel class", cancel: "Keep it", danger: true }))) return;
         await api("POST", `/api/admin/classes/${cn.dataset.cancel}/cancel`); toast("Class cancelled."); return reload();
@@ -318,7 +327,7 @@ route("/admin/lessons", async (el) => {
 route("/admin/programmes", async (el) => {
   const draw = async () => {
     const rows = await api("GET", "/api/admin/programmes");
-    el.innerHTML = `${topbar("Programmes")}<div class="pad stack"><button class="btn accent" data-new>Add programme</button>${rows.map((p) => `<div class="card row"><div class="grow"><h3 style="font-size:19px">${esc(p.name)}</h3><p class="small muted">${p.lessonCount} practices · access level ${p.minTier}</p>${p.active ? "" : `<span class="pill grey">Hidden</span>`}</div><button class="linkbtn" data-edit="${p.id}">Edit</button></div>`).join("")}</div>`;
+    el.innerHTML = `${topbar("Programmes")}<div class="pad stack"><button class="btn accent" data-new>Add programme</button>${rows.map((p) => `<div class="card row"><div class="grow"><h3 style="font-size:19px">${esc(p.name)}</h3><p class="small muted">${p.lessonCount} practices · access level ${p.minTier}</p>${p.active ? "" : `<span class="pill grey">Hidden</span>`}</div><div class="stack-sm"><button class="linkbtn" data-edit="${p.id}">Edit</button><button class="linkbtn danger" data-delprog="${p.id}">Delete</button></div></div>`).join("")}</div>`;
     el._rows = rows;
   };
   await draw();
@@ -336,6 +345,12 @@ route("/admin/programmes", async (el) => {
   };
   el.onclick = (e) => {
     if (e.target.closest("[data-new]")) return form(null);
+    const dp = e.target.closest("[data-delprog]");
+    if (dp) {
+      const p = el._rows.find((x) => String(x.id) === dp.dataset.delprog);
+      return dialog({ title: `Delete ${p.name}?`, text: `This removes the programme, its ${p.lessonCount} ${p.lessonCount === 1 ? "practice" : "practices"}, any uploaded video files and everyone's progress on them. It can't be undone. To just hide it from customers, use Edit instead.`, ok: "Delete for good", cancel: "Keep it", danger: true })
+        .then(async (yes) => { if (!yes) return; try { await api("DELETE", `/api/admin/programmes/${p.id}`); toast("Programme deleted."); await draw(); } catch (err) { toast(err.message); } });
+    }
     const ed = e.target.closest("[data-edit]"); if (ed) form(el._rows.find((x) => String(x.id) === ed.dataset.edit));
   };
 }, { admin: true });
@@ -347,7 +362,7 @@ route("/admin/plans", async (el) => {
     el.innerHTML = `${topbar("Subscription plans", { back: false })}<div class="pad stack"><button class="btn accent" data-new>Add plan</button>${rows.map((p) => `<div class="card row"><div class="grow"><h3 style="font-size:19px">${esc(p.name)}</h3>
       <p class="small muted">${fmtRand(p.price)} / month · access level ${p.tier}</p>${p.annualPrice != null ? `<p class="small muted">${fmtRand(p.annualPrice)} / year</p>` : ""}
       ${p.launchPrice != null ? `<p class="small muted">Launch: ${fmtRand(p.launchPrice)} first month, until ${fmtDate(p.launchEndsAt)}</p>` : ""}${p.trialDays > 0 ? `<p class="small muted">${p.trialDays}-day free trial</p>` : ""}
-      ${p.status !== "ACTIVE" ? `<span class="pill grey">Hidden from customers</span>` : ""}</div><button class="linkbtn" data-edit="${p.id}">Edit</button></div>`).join("")}</div>`;
+      ${p.status !== "ACTIVE" ? `<span class="pill grey">Hidden from customers</span>` : ""}</div><div class="stack-sm"><button class="linkbtn" data-edit="${p.id}">Edit</button><button class="linkbtn danger" data-delplan="${p.id}">Delete</button></div></div>`).join("")}</div>`;
   };
   await draw();
   const form = async (p) => {
@@ -370,6 +385,12 @@ route("/admin/plans", async (el) => {
   };
   el.onclick = (e) => {
     if (e.target.closest("[data-new]")) return form(null);
+    const dl = e.target.closest("[data-delplan]");
+    if (dl) {
+      const p = el._rows.find((x) => String(x.id) === dl.dataset.delplan);
+      return dialog({ title: `Delete ${p.name}?`, text: "Only a plan nobody has ever held can be deleted. If customers have held it, hide it instead (Edit, then untick Visible to customers).", ok: "Delete", cancel: "Keep it", danger: true })
+        .then(async (yes) => { if (!yes) return; try { await api("DELETE", `/api/admin/plans/${p.id}`); toast("Plan deleted."); await draw(); } catch (err) { toast(err.message); } });
+    }
     const ed = e.target.closest("[data-edit]"); if (ed) form(el._rows.find((x) => String(x.id) === ed.dataset.edit));
   };
 }, { admin: true, tab: aTab("a-plans") });
@@ -382,11 +403,17 @@ route("/admin/users", async (el) => {
     const n = ++seq; const rows = await api("GET", `/api/admin/users?search=${encodeURIComponent(term)}`); if (n !== seq) return;
     $("#res").innerHTML = rows.length ? `<div class="list">${rows.map((u) => `<div class="card row"><div class="grow"><h3 style="font-size:19px">${esc(u.fullName)}</h3><p class="small muted">${esc(u.email)} · @${esc(u.username)}</p>
       <div class="pills">${u.role === "ADMIN" ? `<span class="pill grey">Admin</span>` : ""}${u.plan ? `<span class="pill">${esc(u.plan)}</span>` : ""}${u.status !== "ACTIVE" ? `<span class="pill tang">Switched off</span>` : ""}</div></div>
-      ${u.role === "CUSTOMER" ? `<button class="linkbtn ${u.status === "ACTIVE" ? "danger" : ""}" data-toggle="${u.id}" data-name="${esc(u.fullName)}" data-on="${u.status === "ACTIVE" ? 1 : 0}">${u.status === "ACTIVE" ? "Switch off" : "Switch on"}</button>` : ""}</div>`).join("")}</div>` : emptyBox("No one found", "Try a different name or email address.", "🔎");
+      ${u.role === "CUSTOMER" ? `<button class="linkbtn ${u.status === "ACTIVE" ? "danger" : ""}" data-toggle="${u.id}" data-name="${esc(u.fullName)}" data-on="${u.status === "ACTIVE" ? 1 : 0}">${u.status === "ACTIVE" ? "Switch off" : "Switch on"}</button><button class="linkbtn danger" data-deluser="${u.id}" data-name="${esc(u.fullName)}">Delete</button>` : ""}</div>`).join("")}</div>` : emptyBox("No one found", "Try a different name or email address.", "🔎");
   };
   await load();
   el.oninput = (e) => { if (e.target.id === "q") { term = e.target.value.trim(); clearTimeout(timer); timer = setTimeout(() => load().catch((x) => toast(x.message)), 300); } };
   el.onclick = async (e) => {
+    const du = e.target.closest("[data-deluser]");
+    if (du) {
+      if (!(await dialog({ title: `Delete ${du.dataset.name}?`, text: "Their account, journal, progress, bookings and credit are erased for good, and any plan is cancelled with PayFast first. Records of payments they made are kept without their name or email. This can't be undone.", ok: "Delete account", cancel: "Keep it", danger: true }))) return;
+      try { await api("DELETE", `/api/admin/users/${du.dataset.deluser}`); toast("Account deleted."); await load(); } catch (err) { toast(err.message); }
+      return;
+    }
     const t = e.target.closest("[data-toggle]"); if (!t) return; const disabling = t.dataset.on === "1";
     if (!(await dialog({ title: disabling ? `Switch off ${t.dataset.name}?` : `Switch ${t.dataset.name} back on?`, ok: disabling ? "Switch off" : "Switch on", danger: disabling,
       text: disabling ? "They will be signed out everywhere and won't be able to log in. Their data is kept, and any subscription is not cancelled automatically." : "They will be able to log in again." }))) return;
@@ -409,10 +436,10 @@ route("/admin/bookings", async (el) => {
 route("/admin/errors", async (el) => {
   const draw = async () => {
     const rows = await api("GET", "/api/admin/errors?status=NEW");
-    el.innerHTML = topbar("Error log", { sub: rows.length ? `${rows.length} open` : "Nothing open", right: rows.length ? `<button class="linkbtn" id="resall">Resolve all</button>` : "" }) +
+    el.innerHTML = topbar("Error log", { sub: rows.length ? `${rows.length} open` : "Nothing open", right: rows.length ? `<button class="linkbtn" id="resall">Resolve all</button>` : `<button class="linkbtn danger" id="clearres">Delete resolved</button>` }) +
       (rows.length ? `<div class="list">${rows.map((x) => `<div class="card stack-sm"><div class="row between"><h3 style="font-size:18px">${esc(x.message)}</h3><span class="pill grey">× ${x.count}</span></div>
         <p class="small muted">${esc(x.source)}${x.route ? " · " + esc(x.route) : ""}${x.userEmail ? " · " + esc(x.userEmail) : ""}${x.appVersion ? " · " + esc(x.appVersion) : ""}</p><p class="small muted">Last seen ${timeAgo(x.lastSeen)}</p>
-        ${x.details ? `<details><summary class="small">Details</summary><pre class="small prewrap">${esc(x.details)}</pre></details>` : ""}<button class="btn secondary small" data-res="${x.id}">Mark resolved</button></div>`).join("")}</div>` : emptyBox("All clear", "No problems have been reported.", "✅"));
+        ${x.details ? `<details><summary class="small">Details</summary><pre class="small prewrap">${esc(x.details)}</pre></details>` : ""}<div class="row"><button class="btn secondary small" data-res="${x.id}">Mark resolved</button><button class="linkbtn danger" data-delerr="${x.id}">Delete</button></div></div>`).join("")}</div>` : emptyBox("All clear", "No problems have been reported.", "✅"));
   };
   await draw();
   el.onclick = async (e) => {
@@ -420,6 +447,8 @@ route("/admin/errors", async (el) => {
       const r = e.target.closest("[data-res]");
       if (r) { await api("POST", `/api/admin/errors/${r.dataset.res}/resolve`); await draw(); }
       else if (e.target.id === "resall") { await api("POST", "/api/admin/errors/resolve-all"); await draw(); }
+      else if (e.target.closest("[data-delerr]")) { await api("DELETE", `/api/admin/errors/${e.target.closest("[data-delerr]").dataset.delerr}`); await draw(); }
+      else if (e.target.id === "clearres") { await api("POST", "/api/admin/errors/clear-resolved"); toast("Resolved reports deleted."); await draw(); }
     } catch (err) { toast(err.message); }
   };
 }, { admin: true });

@@ -36,6 +36,42 @@ public class ScheduleAdminService(AppDbContext db, NotificationService notificat
 
     // ---- Classes and events ----
 
+    /// <summary>Money or an open question is tied to this booking, so it has to stay as a record.</summary>
+    private static bool KeepsRecord(Booking b) =>
+        b.AmountPaid > 0 || b.CreditApplied > 0 || b.RefundAmount > 0 || !string.IsNullOrEmpty(b.RefundStatus) || !string.IsNullOrEmpty(b.ChoiceNeeded)
+        || b.RequestStatus == "PENDING";
+
+    /// <summary>
+    /// Deletes a class or event together with its free bookings. It is refused while the event is still coming up with people booked (cancel it
+    /// first so they are told), and when anyone paid for it or is owed a refund, a credit or an answer (those records must be kept: cancel it instead).
+    /// </summary>
+    public async Task<(bool Ok, bool NotFound, string? Error)> DeleteClassAsync(int id)
+    {
+        var c = await db.Classes.FindAsync(id);
+        if (c is null) return (false, true, null);
+        var bookings = await db.Bookings.Where(b => b.ClassId == id).ToListAsync();
+        if (bookings.Any(KeepsRecord))
+            return (false, false, "People paid for this event, or are owed a refund or an answer, so it has to stay on record. Cancel it instead.");
+        var active = bookings.Count(b => b.Status == BookingStatus.Booked);
+        if (c.Status != "CANCELLED" && c.EndTime > DateTime.UtcNow && active > 0)
+            return (false, false, $"{active} {(active == 1 ? "person is" : "people are")} booked. Cancel the class first so they are told, then you can delete it.");
+        db.Bookings.RemoveRange(bookings);
+        db.Classes.Remove(c);
+        await db.SaveChangesAsync();
+        return (true, false, null);
+    }
+
+    /// <summary>Clears out every cancelled or finished class that nobody paid for. Returns how many were removed.</summary>
+    public async Task<int> DeleteFinishedClassesAsync()
+    {
+        var now = DateTime.UtcNow;
+        var candidates = await db.Classes.Where(c => c.Status == "CANCELLED" || c.EndTime < now).Select(c => c.Id).ToListAsync();
+        var removed = 0;
+        foreach (var id in candidates)
+            if ((await DeleteClassAsync(id)).Ok) removed++;
+        return removed;
+    }
+
     /// <summary>Checks what an administrator typed for a class or event. Returns a message to show, or null if it is fine.</summary>
     public static string? ValidateEvent(ClassUpsert r)
     {

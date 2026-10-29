@@ -56,12 +56,14 @@ fun AdminErrorsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     var open by remember { mutableStateOf<ErrorLogItem?>(null) }
     var confirmAll by remember { mutableStateOf(false) }
+    var confirmClear by remember { mutableStateOf(false) }
     OnResume { vm.load() }
     val data = state.data
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Error log", "Problems reported by the app and the server.", onBack = onBack) {
             if (status == "NEW" && !data.isNullOrEmpty()) TextButton(onClick = { confirmAll = true }) { Text("Resolve all", color = Brand.TealDeep) }
+            else if (status != "NEW") TextButton(onClick = { confirmClear = true }) { Text("Delete resolved", color = Brand.Error) }
         }
         Row(Modifier.padding(horizontal = 20.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("NEW" to "Open", "RESOLVED" to "Resolved", "ALL" to "All").forEach { (value, label) ->
@@ -104,7 +106,22 @@ fun AdminErrorsScreen(onBack: () -> Unit, notify: (String) -> Unit) {
                 }) { Text("Mark resolved", color = Brand.TealDeep) }
                 else TextButton(onClick = { open = null }) { Text("Close") }
             },
-            dismissButton = { if (e.status == "NEW") TextButton(onClick = { open = null }) { Text("Close") } },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { open = null; scope.launch { notify(vm.delete(e.id) ?: "Report deleted.") } }) { Text("Delete", color = Brand.Error) }
+                    if (e.status == "NEW") TextButton(onClick = { open = null }) { Text("Close") }
+                }
+            },
+        )
+    }
+
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("Delete resolved reports?") },
+            text = { Text("Every report marked as resolved is removed for good. Open problems are not touched.") },
+            confirmButton = { TextButton(onClick = { confirmClear = false; scope.launch { notify(vm.clearResolved() ?: "Resolved reports deleted.") } }) { Text("Delete them", color = Brand.Error) } },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Keep them") } },
         )
     }
 
