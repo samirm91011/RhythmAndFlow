@@ -117,7 +117,7 @@ async function api(method, path, body) {
   throw new ApiError(friendly(res.status, parsed), res.status, parsed);
 }
 function signOutLocal() {
-  RF.token = null; RF.user = null; RF.subs = null;
+  RF.token = null; RF.user = null; RF.subs = null; RF.content = null;
   try { localStorage.removeItem("rf_token"); sessionStorage.removeItem("rf_customer_view"); } catch (e) { /* ignore */ }
   if (!isPublic(currentPath())) go("/welcome");
 }
@@ -141,6 +141,28 @@ function setSession(r) {
 async function loadSubs(force) {
   if (!RF.subs || force) { try { RF.subs = await api("GET", "/api/subscriptions"); } catch (e) { RF.subs = RF.subs || []; } }
   return RF.subs;
+}
+/* ---------- the wording the client edits herself (moods, affirmations, quotes, journal prompts) ----------
+   The server holds her version. These are the built-in words, used until she saves a change or if the server cannot be reached. */
+const DEFAULT_CONTENT = {
+  moods: [
+    { label: "Energised", emoji: "☀️", color: "#FFF1DC" }, { label: "Tired", emoji: "🔋", color: "#E3ECFB" }, { label: "Stressed", emoji: "☁️", color: "#F3E6EE" },
+    { label: "Grounded", emoji: "🌿", color: "#DDEFEA" }, { label: "Overwhelmed", emoji: "🌀", color: "#FDE9E1" }, { label: "Happy", emoji: "😊", color: "#FFEFD9" },
+    { label: "Low", emoji: "🌙", color: "#E5E8F7" }, { label: "Need some space", emoji: "🤍", color: "#FBE4E3" },
+  ],
+  affirmations: [
+    "I am enough, exactly as I am, and I am always growing.", "My body is strong, and I move with kindness.", "I give myself permission to rest and to rise.",
+    "Every small step brings me back to myself.", "I am free to express who I am through movement.", "I welcome joy into my body today.", "I am proud of how far I've come.",
+  ],
+  homeQuote: "A small check-in can lead to a big shift.",
+  rhythmQuote: "Progress isn't about doing more, it's about coming back to yourself.",
+  rhythmCards: [{ title: "Morning Reset", subtitle: "10 mins" }, { title: "Nourish Your Body", subtitle: "Recipes" }, { title: "Move & Release", subtitle: "15 mins" }],
+  journal: { reflectionTitle: "Today's Reflection", reflectionHint: "What's on your mind?", gratitudeTitle: "Gratitude", gratitudeHint: "What are you grateful for today?" },
+};
+const content = () => RF.content || DEFAULT_CONTENT;
+async function loadContent() {
+  try { const c = await api("GET", "/api/content"); RF.content = Object.assign({}, DEFAULT_CONTENT, c); RF.contentAt = Date.now(); }
+  catch (e) { if (!RF.content) RF.content = DEFAULT_CONTENT; }
 }
 const hasAccess = (subs) => (subs || []).some((s) => s.grantsAccess);
 
@@ -231,7 +253,8 @@ async function navigate() {
   let hit = null, params = {};
   for (const r of routes) { const m = r.re.exec(path); if (m) { hit = r; r.keys.forEach((k, i) => { params[k] = decodeURIComponent(m[i + 1]); }); break; } }
   if (!hit) return go(RF.token ? homePath() : "/welcome");
-  if (hit.opts.admin && !isAdmin()) return go("/home");   // the server also refuses; this just keeps customers off the admin screens
+  if (hit.opts.admin && !isAdmin()) return go("/home");
+  if (RF.token && (!RF.content || (path === "/home" && Date.now() - (RF.contentAt || 0) > 120000))) await loadContent();   // her latest wording   // the server also refuses; this just keeps customers off the admin screens
   const el = $("#view");
   el.onclick = null; el.oninput = null;   // each screen sets its own handlers; never keep the previous screen's
   drawTabs(typeof hit.opts.tab === "function" ? hit.opts.tab() : hit.opts.tab || null);

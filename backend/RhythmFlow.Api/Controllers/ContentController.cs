@@ -12,7 +12,7 @@ namespace RhythmFlow.Api.Controllers;
 [ApiController]
 public class ContentController(
     AppDbContext db, EntitlementService entitlement, MediaTokenService media, ProgressService progress,
-    IHttpClientFactory http, IOptions<MediaOptions> mediaOptions, IVideoStorage storage) : ApiController
+    IHttpClientFactory http, IOptions<MediaOptions> mediaOptions, IVideoStorage storage, AppContentService appContent) : ApiController
 {
     [HttpGet("api/plans")]
     public async Task<List<PlanDto>> Plans() =>
@@ -59,6 +59,10 @@ public class ContentController(
         var p = await db.Progress.FirstOrDefaultAsync(x => x.UserId == UserId && x.LessonId == id);
         return ToDto(l, tier, p);
     }
+
+    /// <summary>The wording the client can edit (moods, affirmations, quotes, journal prompts). Her version, or the built-in one.</summary>
+    [Authorize, HttpGet("api/content")]
+    public Task<AppContentDto> AppContent() => appContent.GetAsync();
 
     /// <summary>Entitlement check, then a short-lived signed link (FR-09, FR-11, FR-12).</summary>
     [Authorize, HttpGet("api/lessons/{id:int}/playback")]

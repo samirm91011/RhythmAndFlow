@@ -103,6 +103,10 @@ interface Api {
     @POST("api/admin/bookings/{id}/resolve") suspend fun adminResolveRequest(@Path("id") id: Int, @Body body: ResolveRequestBody): Response<Unit>
     @GET("api/admin/refunds") suspend fun adminRefunds(): List<AdminRefund>
     @POST("api/admin/bookings/{id}/refunded") suspend fun adminMarkRefunded(@Path("id") id: Int): Response<Unit>
+    @GET("api/content") suspend fun content(): AppContent
+    @GET("api/admin/content") suspend fun adminContent(): AppContent
+    @PUT("api/admin/content") suspend fun adminSaveContent(@Body body: AppContent): Response<Unit>
+    @POST("api/admin/content/reset") suspend fun adminResetContent(): Response<Unit>
     @POST("api/admin/videos/upload-url") suspend fun adminVideoUploadUrl(@Body body: VideoUploadBody): VideoUploadResult
     @POST("api/admin/bookings/{id}/credit") suspend fun adminGiveCredit(@Path("id") id: Int, @Body body: GiveCreditBody): Response<Unit>
     @POST("api/admin/classes/{id}/send-links") suspend fun adminSendLinks(@Path("id") id: Int): Response<Unit>

@@ -389,6 +389,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
                 ?.filter { !it.locked && it.watchTimeSeconds > 0 && it.completionPercentage in 1.0..94.9 }
                 ?.maxByOrNull { it.completionPercentage }
             _state.value = HomeState(s, b, false, unread, resume)
+            (repo.content() as? Outcome.Ok)?.value?.let { com.rhythmandflow.app.data.ContentCache.flow.value = it }   // her latest wording
         }
     }
 
@@ -407,6 +408,7 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
 
     fun load() {
         viewModelScope.launch {
+            (repo.content() as? Outcome.Ok)?.value?.let { com.rhythmandflow.app.data.ContentCache.flow.value = it }
             when (val r = repo.journal()) {
                 is Outcome.Ok -> _entries.value = Load(false, null, r.value)
                 is Outcome.Fail -> _entries.value = Load(false, r.message, _entries.value.data)
@@ -467,6 +469,11 @@ class AdminViewModel(private val c: AppContainer) : ViewModel() {
     suspend fun createClass(c: ClassUpsert) = after(repo.adminCreateClass(c))
     suspend fun cancelClass(id: Int) = after(repo.adminCancelClass(id))
     suspend fun createLesson(l: LessonUpsert) = after(repo.adminCreateLesson(l))
+
+    /** The wording the client edits: loads it, saves it, or goes back to the built-in wording. Save and reset return a message if refused. */
+    suspend fun content(): com.rhythmandflow.app.data.AppContent? = (repo.adminContent() as? Outcome.Ok)?.value
+    suspend fun saveContent(c: com.rhythmandflow.app.data.AppContent): String? = when (val r = repo.adminSaveContent(c)) { is Outcome.Ok -> null; is Outcome.Fail -> r.message }
+    suspend fun resetContent(): String? = when (val r = repo.adminResetContent()) { is Outcome.Ok -> null; is Outcome.Fail -> r.message }
 
     /** Asks the server for a private link to upload a video to. */
     suspend fun videoUploadUrl(name: String, contentType: String, sizeBytes: Long): Outcome<VideoUploadResult> = repo.adminVideoUploadUrl(name, contentType, sizeBytes)

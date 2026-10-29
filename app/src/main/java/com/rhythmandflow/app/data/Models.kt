@@ -227,6 +227,48 @@ data class AdminRefund(
     val bookingId: Int, val reference: String, val fullName: String, val email: String, val eventName: String, val amount: Double, val payFastPaymentId: String?,
 )
 data class ResolveRequestBody(val approve: Boolean, val amount: Double?)
+/** The wording the client edits from the admin screens. The server always sends every field; builtIn is used until then or when offline. */
+data class MoodItem(val label: String, val emoji: String, val color: String)
+data class RhythmCardItem(val title: String, val subtitle: String)
+data class JournalPrompts(val reflectionTitle: String, val reflectionHint: String, val gratitudeTitle: String, val gratitudeHint: String)
+data class AppContent(
+    val moods: List<MoodItem>, val affirmations: List<String>, val homeQuote: String, val rhythmQuote: String,
+    val rhythmCards: List<RhythmCardItem>, val journal: JournalPrompts,
+) {
+    /** Fills any gap (a field the server left out) with the built-in wording, so a screen is never empty. */
+    @Suppress("USELESS_ELVIS", "SENSELESS_COMPARISON")
+    fun orBuiltIn(): AppContent {
+        val d = builtIn
+        return AppContent(
+            if (moods == null || moods.isEmpty()) d.moods else moods, if (affirmations == null || affirmations.isEmpty()) d.affirmations else affirmations,
+            if (homeQuote.isNullOrBlank()) d.homeQuote else homeQuote, if (rhythmQuote.isNullOrBlank()) d.rhythmQuote else rhythmQuote,
+            if (rhythmCards == null || rhythmCards.size != 3) d.rhythmCards else rhythmCards, journal ?: d.journal,
+        )
+    }
+
+    companion object {
+        val builtIn = AppContent(
+            listOf(
+                MoodItem("Energised", "☀️", "#FFF1DC"), MoodItem("Tired", "🔋", "#E3ECFB"), MoodItem("Stressed", "☁️", "#F3E6EE"),
+                MoodItem("Grounded", "🌿", "#DDEFEA"), MoodItem("Overwhelmed", "🌀", "#FDE9E1"), MoodItem("Happy", "😊", "#FFEFD9"),
+                MoodItem("Low", "🌙", "#E5E8F7"), MoodItem("Need some space", "🤍", "#FBE4E3"),
+            ),
+            listOf(
+                "I am enough, exactly as I am, and I am always growing.", "My body is strong, and I move with kindness.", "I give myself permission to rest and to rise.",
+                "Every small step brings me back to myself.", "I am free to express who I am through movement.", "I welcome joy into my body today.", "I am proud of how far I've come.",
+            ),
+            "A small check-in can lead to a big shift.", "Progress isn't about doing more, it's about coming back to yourself.",
+            listOf(RhythmCardItem("Morning Reset", "10 mins"), RhythmCardItem("Nourish Your Body", "Recipes"), RhythmCardItem("Move & Release", "15 mins")),
+            JournalPrompts("Today's Reflection", "What's on your mind?", "Gratitude", "What are you grateful for today?"),
+        )
+    }
+}
+
+/** What the screens show right now: the last wording fetched from the server, or the built-in one. */
+object ContentCache {
+    val flow = kotlinx.coroutines.flow.MutableStateFlow(AppContent.builtIn)
+}
+
 data class ReportIssueBody(val description: String)
 data class VideoUploadBody(val fileName: String, val contentType: String, val sizeBytes: Long)
 /** Send the file to uploadUrl with a PUT (same content type), then save key as the lesson's video. */

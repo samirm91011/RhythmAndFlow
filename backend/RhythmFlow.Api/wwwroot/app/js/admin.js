@@ -32,6 +32,7 @@ route("/admin", async (el) => {
       ${aLink("Classes & events", "Schedule classes, workshops and retreats, set ticket prices, see who is booked", "#/admin/classes")}
       ${aLink("Event requests & refunds", "Late cancellation requests and refunds to pay on PayFast", "#/admin/events")}
       ${aLink("Lessons & videos", "Add, edit or remove lessons", "#/admin/lessons")}
+      ${aLink("App content", "Edit the check-in moods, affirmations, quotes and journal wording", "#/admin/content")}
       ${aLink("Programmes", "Add, edit or hide programmes", "#/admin/programmes")}
       ${aLink("Subscription plans", "Add plans, change prices, hide a plan", "#/admin/plans")}
       <h3 class="mt-s">Review</h3>
@@ -162,6 +163,50 @@ route("/admin/events", async (el) => {
   };
 }, { admin: true });
 
+/* ---------------- The wording customers see: moods, affirmations, quotes, journal prompts ---------------- */
+route("/admin/content", async (el) => {
+  let c = JSON.parse(JSON.stringify(await api("GET", "/api/admin/content")));
+  const draw = () => {
+    el.innerHTML = `${topbar("App content", { sub: "The wording customers see. Changes show in the app straight away." })}<div class="pad stack">
+      <div class="card stack"><h3>Check-in moods</h3><p class="small muted">The tiles on Home. Up to 12. Pick an emoji (on your keyboard) and a soft background colour.</p>
+        ${c.moods.map((m, i) => `<div class="row"><input class="emojibox" id="m_e${i}" value="${esc(m.emoji)}" maxlength="8" aria-label="Emoji ${i + 1}"><div class="field grow" style="margin:0"><input id="m_l${i}" value="${esc(m.label)}" maxlength="30" aria-label="Mood name ${i + 1}"></div>
+          <input type="color" id="m_c${i}" value="${esc(m.color.toLowerCase())}" aria-label="Colour ${i + 1}"><button class="iconbtn" style="margin:0" data-rmmood="${i}" aria-label="Remove mood">${ic("trash")}</button></div>`).join("")}
+        <button class="btn secondary" data-addmood ${c.moods.length >= 12 ? "disabled" : ""}>Add a mood</button></div>
+      <div class="card stack"><h3>Daily affirmations</h3><p class="small muted">One per line. The Journal shows a different one each day.</p>${field("a_list", "Affirmations", { area: true, value: c.affirmations.join("\n"), max: 12000 })}</div>
+      <div class="card stack"><h3>Quotes</h3>${field("q_home", "Quote at the bottom of Home", { value: c.homeQuote, max: 200 })}${field("q_rhythm", "Quote on Your Rhythm Today", { value: c.rhythmQuote, max: 200 })}</div>
+      <div class="card stack"><h3>Your Rhythm Today cards</h3><p class="small muted">The three cards on Home.</p>
+        ${c.rhythmCards.map((r, i) => `<div class="row">${field("r_t" + i, "Title", { value: r.title, max: 40 })}${field("r_s" + i, "Small line", { value: r.subtitle, max: 40 })}</div>`).join("")}</div>
+      <div class="card stack"><h3>Journal wording</h3>${field("j_rt", "Reflection title", { value: c.journal.reflectionTitle, max: 80 })}${field("j_rh", "Reflection prompt", { value: c.journal.reflectionHint, max: 80 })}
+        ${field("j_gt", "Gratitude title", { value: c.journal.gratitudeTitle, max: 80 })}${field("j_gh", "Gratitude prompt", { value: c.journal.gratitudeHint, max: 80 })}</div>
+      <div class="formerr hidden" id="ferr" role="alert"></div>
+      <button class="btn accent" id="csave">Save changes</button><button class="btn secondary" id="creset">Go back to the original wording</button></div>`;
+  };
+  draw();
+  const read = () => {
+    c.moods = c.moods.map((m, i) => ({ label: val("m_l" + i).trim(), emoji: val("m_e" + i).trim(), color: val("m_c" + i).toUpperCase() }));
+    c.affirmations = val("a_list").split("\n").map((s) => s.trim()).filter(Boolean);
+    c.homeQuote = val("q_home").trim(); c.rhythmQuote = val("q_rhythm").trim();
+    c.rhythmCards = c.rhythmCards.map((r, i) => ({ title: val("r_t" + i).trim(), subtitle: val("r_s" + i).trim() }));
+    c.journal = { reflectionTitle: val("j_rt").trim(), reflectionHint: val("j_rh").trim(), gratitudeTitle: val("j_gt").trim(), gratitudeHint: val("j_gh").trim() };
+  };
+  el.onclick = async (e) => {
+    try {
+      const rm = e.target.closest("[data-rmmood]");
+      if (e.target.closest("[data-addmood]")) { read(); c.moods.push({ label: "New mood", emoji: "🙂", color: "#E3F0ED" }); return draw(); }
+      if (rm) { read(); if (c.moods.length <= 1) return toast("Keep at least one mood."); c.moods.splice(Number(rm.dataset.rmmood), 1); return draw(); }
+      if (e.target.id === "creset") {
+        if (!(await dialog({ title: "Go back to the original wording?", text: "Your moods, affirmations, quotes and journal wording are replaced by the ones the app came with.", ok: "Go back", cancel: "Keep mine", danger: true }))) return;
+        await api("POST", "/api/admin/content/reset"); RF.content = null; toast("Back to the original wording."); return navigate();
+      }
+      if (e.target.id === "csave") {
+        read(); const fe = $("#ferr"); fe.classList.add("hidden");
+        busy(e.target, true, "Saving…");
+        try { await api("PUT", "/api/admin/content", c); RF.content = null; toast("Saved. The app now shows your wording."); busy(e.target, false); }
+        catch (err) { busy(e.target, false); fe.textContent = err.message; fe.classList.remove("hidden"); }
+      }
+    } catch (err) { toast(err.message); }
+  };
+}, { admin: true });
 /* ---------------- Lessons and programmes ---------------- */
 route("/admin/lessons", async (el) => {
   const blank = () => ({ id: null, programmeId: null, title: "", description: "", category: "Yoga", seconds: "", provider: "S3", url: "", fileName: "", preview: false, level: "Beginner", uploading: false, pct: 0, upMsg: "", upErr: false });

@@ -2,11 +2,6 @@
    The wording and layout follow the Android app screen for screen. */
 "use strict";
 
-const MOODS = [
-  ["Energised", "☀️", "#FFF1DC"], ["Tired", "🔋", "#E3ECFB"], ["Stressed", "☁️", "#F3E6EE"],
-  ["Grounded", "🌿", "#DDEFEA"], ["Overwhelmed", "🌀", "#FDE9E1"], ["Happy", "😊", "#FFEFD9"],
-  ["Low", "🌙", "#E5E8F7"], ["Need some space", "🤍", "#FBE4E3"],
-];
 const CATS = ["All", ...CATEGORIES.map((c) => c.name)];
 /* what the person has saved with the heart on a practice (kept on this device, like the app) */
 const saved = {
@@ -31,10 +26,9 @@ async function bellButton() {
   return `<a class="iconbtn right" href="#/notifications" aria-label="Notifications${n ? `, ${n} unread` : ""}">${ic("bell")}${n ? `<span class="badge">${n > 9 ? "9+" : n}</span>` : ""}</a>`;
 }
 
-const rhythmCards = () => `<div class="cards3">
-  <a class="rhythm plain tang" href="#/move"><h3>Morning Reset</h3><span>10 mins</span></a>
-  <a class="rhythm plain tint" href="#/explore"><h3>Nourish Your Body</h3><span>Recipes</span></a>
-  <a class="rhythm plain grey" href="#/move"><h3>Move &amp; Release</h3><span>15 mins</span></a></div>`;
+/* where each of the three cards goes, and its colour; the words come from content() */
+const RHYTHM_TARGETS = [["#/move", "tang"], ["#/explore", "tint"], ["#/move", "grey"]];
+const rhythmCards = () => `<div class="cards3">${content().rhythmCards.map((c, i) => `<a class="rhythm plain ${RHYTHM_TARGETS[i][1]}" href="${RHYTHM_TARGETS[i][0]}"><h3>${esc(c.title)}</h3><span>${esc(c.subtitle)}</span></a>`).join("")}</div>`;
 
 /* ---------------- Home ---------------- */
 route("/home", async (el) => {
@@ -44,7 +38,7 @@ route("/home", async (el) => {
   const next = bookings.filter((b) => b.status === "BOOKED" && new Date(b.startTime) > new Date()).sort((a, b) => new Date(a.startTime) - new Date(b.startTime))[0];
   el.innerHTML = `<div class="top"><img src="img/logo.png" alt="Rhythm &amp; Flow" style="width:52px;height:52px"><div class="grow"></div>${bell}</div>
     <div class="greet"><h1>${esc(greeting())}${first ? ", " + esc(first) : ""}</h1><p class="muted mt-s">Take a moment to check in with yourself. How are you feeling today?</p></div>
-    <div class="moods mt" role="group" aria-label="Mood">${MOODS.map(([m, e, bg]) => `<button class="mood" data-mood="${esc(m)}" style="background:${bg}"><span class="em" aria-hidden="true">${e}</span>${esc(m)}</button>`).join("")}</div>
+    <div class="moods mt" role="group" aria-label="Mood">${content().moods.map((m) => `<button class="mood" data-mood="${esc(m.label)}" style="background:${esc(m.color)}"><span class="em" aria-hidden="true">${esc(m.emoji)}</span>${esc(m.label)}</button>`).join("")}</div>
     <div class="pad mt">${next
       ? `<a class="card tint" href="#/classes?t=mine"><span class="pill solid" style="background:var(--teal-deep)">Your next class</span><h3 style="margin-top:8px">${esc(next.className)}</h3><p class="muted small">${fmtDayTime(next.startTime)} · ${esc(next.location)}</p></a>`
       : `<a class="card tang" href="#/classes"><h3>Join a class</h3><p class="muted small">Move with Deni and the community. Browse upcoming classes and reserve your spot.</p></a>`}</div>
@@ -54,7 +48,7 @@ route("/home", async (el) => {
     ${rhythmCards()}
     <div class="cards3 mt"><a class="card stat" href="#/progress"><b>${summary.sessionsThisMonth}</b><span>sessions this month</span></a><a class="card stat" href="#/progress"><b>${summary.minutesWatched}</b><span>minutes moved</span></a><a class="card stat" href="#/progress"><b>${summary.completedLessons}</b><span>completed</span></a></div>
     ${hasAccess(subs) ? "" : `<div class="pad mt"><div class="banner"><h2>Build a life that feels good.</h2><p>Unlock every programme with a monthly subscription.</p><a class="btn accent small" style="display:inline-flex" href="#/plans">See plans</a></div></div>`}
-    <div class="pad mt"><div class="card"><h3 class="muted center" style="font-weight:600">“A small check-in can lead to a big shift.”</h3></div></div>
+    <div class="pad mt"><div class="card"><h3 class="muted center" style="font-weight:600">“${esc(content().homeQuote)}”</h3></div></div>
     <div style="height:16px"></div>`;
   el.onclick = async (e) => {
     const b = e.target.closest("[data-mood]"); if (!b) return;
@@ -66,7 +60,7 @@ route("/home", async (el) => {
 route("/rhythm", (el) => {
   el.innerHTML = `${topbar("Your Rhythm Today", { sub: "Small steps that add up." })}${rhythmCards()}
     <div class="pad mt"><div class="banner" style="background:linear-gradient(135deg,var(--teal-deep),var(--teal))"><h2>Build a life that feels good.</h2><p></p><a class="btn small" style="display:inline-flex;background:#fff;color:var(--teal-deep);box-shadow:none" href="#/explore">Explore Today</a></div>
-    <div class="card mt"><h3 class="muted center" style="font-weight:600">“Progress isn’t about doing more, it’s about coming back to yourself.”</h3></div></div>`;
+    <div class="card mt"><h3 class="muted center" style="font-weight:600">“${esc(content().rhythmQuote)}”</h3></div></div>`;
 });
 
 /* ---------------- Move ---------------- */

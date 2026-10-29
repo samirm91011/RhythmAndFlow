@@ -349,6 +349,7 @@ private fun MainGraph(
             }
             composable("admin/errors") { AdminErrorsScreen(onBack = back, notify = notify) }
             composable("admin/lessons") { AdminLessonsScreen(onBack = back, notify = notify) }
+            composable("admin/content") { AdminContentScreen(onBack = back, notify = notify) }
             composable("admin/classes") { AdminClassesScreen(onBack = back, notify = notify, onAttendees = { nav.navigate("admin/class/$it") }) }
             composable("admin/class/{id}", listOf(navArgument("id") { type = NavType.IntType })) { e ->
                 AdminAttendeesScreen(e.arguments!!.getInt("id"), onBack = back, notify = notify)

@@ -41,16 +41,7 @@ import com.rhythmandflow.app.ui.viewmodel.container
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 
-private val affirmations = listOf(
-    "I am enough, exactly as I am, and I am always growing.",
-    "My body is strong, and I move with kindness.",
-    "I give myself permission to rest and to rise.",
-    "Every small step brings me back to myself.",
-    "I am free to express who I am through movement.",
-    "I welcome joy into my body today.",
-    "I am proud of how far I've come.",
-)
-
+/** The affirmations and journal wording are the client's, edited from the admin screens (see ContentCache). */
 @Composable
 fun JournalScreen(onLesson: (Int) -> Unit, notify: (String) -> Unit) {
     val vm = appViewModel(key = "journal") { JournalViewModel(it) }
@@ -84,13 +75,15 @@ fun JournalScreen(onLesson: (Int) -> Unit, notify: (String) -> Unit) {
 private fun CheckInTab(onSave: (String, String) -> Unit) {
     var reflection by remember { mutableStateOf("") }
     var gratitude by remember { mutableStateOf("") }
+    val content by com.rhythmandflow.app.data.ContentCache.flow.collectAsState()
+    val affirmations = content.affirmations
     val today = affirmations[LocalDate.now().dayOfYear % affirmations.size]
 
     Column(Modifier.vScroll().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         SoftCard(Modifier.fillMaxWidth(), background = Brand.TangerineSoft) {
             Column(Modifier.fillMaxWidth()) {
-                Text("Today's Reflection", style = MaterialTheme.typography.titleLarge)
-                Text("What's on your mind?", color = Brand.Muted, style = MaterialTheme.typography.bodyMedium)
+                Text(content.journal.reflectionTitle, style = MaterialTheme.typography.titleLarge)
+                Text(content.journal.reflectionHint, color = Brand.Muted, style = MaterialTheme.typography.bodyMedium)
                 VSpace(10)
                 RfTextField(reflection, { reflection = it }, "Write freely…", singleLine = false, minLines = 3)
                 VSpace(10)
@@ -106,8 +99,8 @@ private fun CheckInTab(onSave: (String, String) -> Unit) {
         }
         SoftCard(Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth()) {
-                Text("Gratitude", style = MaterialTheme.typography.titleLarge)
-                Text("What are you grateful for today?", color = Brand.Muted, style = MaterialTheme.typography.bodyMedium)
+                Text(content.journal.gratitudeTitle, style = MaterialTheme.typography.titleLarge)
+                Text(content.journal.gratitudeHint, color = Brand.Muted, style = MaterialTheme.typography.bodyMedium)
                 VSpace(10)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) { RfTextField(gratitude, { gratitude = it }, "I'm grateful for…") }
@@ -168,7 +161,7 @@ private fun MeditationTab(onLesson: (Int) -> Unit) {
 private fun AffirmationsTab(favourites: Set<String>, onToggle: (String) -> Unit) {
     var favs by remember { mutableStateOf(favourites) }
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        items(affirmations) { a ->
+        items(com.rhythmandflow.app.data.ContentCache.flow.value.affirmations) { a ->
             SoftCard(Modifier.fillMaxWidth()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("“$a”", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))

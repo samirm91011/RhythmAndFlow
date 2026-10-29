@@ -47,6 +47,7 @@ builder.Services.AddScoped<SubscriptionService>();
 builder.Services.AddScoped<BookingService>();
 builder.Services.AddScoped<EventBookingService>();
 builder.Services.AddSingleton<MediaTokenService>();
+builder.Services.AddScoped<AppContentService>();
 builder.Services.AddSingleton<PayFastService>();
 builder.Services.AddSingleton<IPayFastApi, PayFastApiClient>();
 // Email goes out by SMTP (e.g. Gmail) by default, or through Brevo's web API with Email:Provider=Brevo

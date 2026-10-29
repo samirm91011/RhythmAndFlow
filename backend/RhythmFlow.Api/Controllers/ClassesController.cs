@@ -117,7 +117,7 @@ public class JournalController(AppDbContext db) : ApiController
 /// <summary>Administrator functions. Every action requires the ADMIN role (BR-15, FR-22).</summary>
 [ApiController, Authorize(Roles = Roles.Admin)]
 [Route("api/admin")]
-public class AdminController(IVideoStorage videoStorage, AppDbContext db, NotificationService notifications, EventBookingService events, UserAdminService users, ProgrammeAdminService programmes, AdminOverviewService overview, PlanAdminService plansAdmin, ScheduleAdminService schedule) : ApiController
+public class AdminController(AppContentService appContent, IVideoStorage videoStorage, AppDbContext db, NotificationService notifications, EventBookingService events, UserAdminService users, ProgrammeAdminService programmes, AdminOverviewService overview, PlanAdminService plansAdmin, ScheduleAdminService schedule) : ApiController
 {
     // ---- Who is booked, who holds a plan ----
     [HttpGet("bookings")]
@@ -175,6 +175,21 @@ public class AdminController(IVideoStorage videoStorage, AppDbContext db, Notifi
             active.Sum(s => PlanPricing.MonthlyEquivalent(s)),
             await db.ErrorLogs.CountAsync(e => e.Status == "NEW"));
     }
+
+    // ---- The wording the client edits herself ----
+    [HttpGet("content")]
+    public Task<AppContentDto> GetContent() => appContent.GetAsync();
+
+    [HttpPut("content")]
+    public async Task<IActionResult> SaveContent(AppContentDto c)
+    {
+        var (ok, error) = await appContent.SaveAsync(c);
+        return ok ? NoContent() : BadRequest(new { error });
+    }
+
+    /// <summary>Goes back to the built-in wording.</summary>
+    [HttpPost("content/reset")]
+    public async Task<IActionResult> ResetContent() { await appContent.ResetAsync(); return NoContent(); }
 
     // ---- Lessons ----
     /// <summary>Gives the admin a signed link to upload a video straight to the private AWS bucket, and the key to save on the lesson.</summary>
