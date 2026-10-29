@@ -6,8 +6,34 @@ using RhythmFlow.Api.Dtos;
 namespace RhythmFlow.Api.Services;
 
 /// <summary>Lets administrators correct a class or a lesson after it was created.</summary>
-public class ScheduleAdminService(AppDbContext db, NotificationService notifications, EventBookingService? events = null)
+public class ScheduleAdminService(AppDbContext db, NotificationService notifications, EventBookingService? events = null, IVideoStorage? videoStorage = null, ILogger<ScheduleAdminService>? log = null)
 {
+    /// <summary>
+    /// Removes an uploaded video from the AWS bucket once no lesson uses it any more, so old files do not pile up and cost storage.
+    /// Only our own uploads (provider S3, key under videos/) are touched. A failure is logged and never stops the admin's action:
+    /// the lesson change has already happened, and a leftover file can be removed from the bucket by hand.
+    /// </summary>
+    private async Task RemoveFileIfUnusedAsync(string? provider, string? key)
+    {
+        if (videoStorage is null || !videoStorage.Configured || !LessonVideo.IsS3(provider) || !VideoUploads.IsValidKey(key)) return;
+        if (await db.Lessons.AnyAsync(l => l.VideoProvider == LessonVideo.S3 && l.VideoReference == key)) return;
+        try { await videoStorage.DeleteAsync(key!); }
+        catch (Exception e) { log?.LogWarning(e, "Could not delete the video {Key} from storage", key); }
+    }
+
+    /// <summary>Deletes a lesson, the progress people made on it, and its uploaded video file.</summary>
+    public async Task<bool> DeleteLessonAsync(int id)
+    {
+        var l = await db.Lessons.FindAsync(id);
+        if (l is null) return false;
+        var (provider, key) = (l.VideoProvider, l.VideoReference);
+        db.Progress.RemoveRange(db.Progress.Where(p => p.LessonId == id));
+        db.Lessons.Remove(l);
+        await db.SaveChangesAsync();
+        await RemoveFileIfUnusedAsync(provider, key);
+        return true;
+    }
+
     // ---- Classes and events ----
 
     /// <summary>Checks what an administrator typed for a class or event. Returns a message to show, or null if it is fine.</summary>
@@ -103,6 +129,7 @@ public class ScheduleAdminService(AppDbContext db, NotificationService notificat
         if (l is null) return (false, true, null);
         if (!await db.Programmes.AnyAsync(p => p.Id == r.ProgrammeId)) return (false, false, "Unknown programme.");
         if (!LessonLevels.TryNormalise(r.Level, out var level)) return (false, false, LessonLevels.Refusal);
+        var (oldProvider, oldKey) = (l.VideoProvider, l.VideoReference);
         var video = LessonVideo.Normalise(r.VideoProvider, r.VideoReference);
         if (!video.Ok) return (false, false, video.Error);
         r = r with { VideoProvider = video.Provider, VideoReference = video.Reference };
@@ -116,6 +143,8 @@ public class ScheduleAdminService(AppDbContext db, NotificationService notificat
         l.DurationSeconds = r.DurationSeconds; l.VideoProvider = r.VideoProvider.Trim(); l.VideoReference = r.VideoReference.Trim();
         l.IsPreview = r.IsPreview;
         await db.SaveChangesAsync();
+        // A replaced video: the old file is removed once nothing uses it.
+        if (LessonVideo.IsS3(oldProvider) && !(LessonVideo.IsS3(l.VideoProvider) && l.VideoReference == oldKey)) await RemoveFileIfUnusedAsync(oldProvider, oldKey);
         return (true, false, null);
     }
 }

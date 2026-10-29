@@ -38,6 +38,8 @@ public interface IVideoStorage
     TimeSpan PlaybackValidFor { get; }
     string SignUpload(string key, string contentType);
     string SignPlayback(string key);
+    /// <summary>Removes a stored video. Does nothing if it is already gone.</summary>
+    Task DeleteAsync(string key);
 }
 
 /// <summary>Used until a bucket is set up: the app says uploads are not available yet.</summary>
@@ -49,6 +51,7 @@ public class NoVideoStorage : IVideoStorage
     public TimeSpan PlaybackValidFor => TimeSpan.Zero;
     public string SignUpload(string key, string contentType) => throw new InvalidOperationException("Video storage is not set up.");
     public string SignPlayback(string key) => throw new InvalidOperationException("Video storage is not set up.");
+    public Task DeleteAsync(string key) => Task.CompletedTask;
 }
 
 /// <summary>Amazon S3. Signing a link is done on this server with no call to AWS, so it is instant and free.</summary>
@@ -83,6 +86,8 @@ public sealed class S3VideoStorage : IVideoStorage
     {
         BucketName = _o.Bucket, Key = key, Verb = HttpVerb.GET, Expires = DateTime.UtcNow.Add(PlaybackValidFor), Protocol = Scheme,
     });
+
+    public Task DeleteAsync(string key) => _s3.DeleteObjectAsync(_o.Bucket, key);
 }
 
 /// <summary>The rules for an administrator uploading a video: what is accepted, and where it is stored.</summary>
