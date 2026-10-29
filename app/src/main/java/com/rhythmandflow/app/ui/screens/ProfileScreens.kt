@@ -238,6 +238,7 @@ fun SettingsScreen(session: SessionViewModel, onBack: () -> Unit, onNavigate: (S
                         (if (com.rhythmandflow.app.BuildConfig.DEMO_MODE) " (demo data)" else "") +
                         "\n\nHeadings use Cormorant Garamond and text uses Open Sans, both under the SIL Open Font Licence 1.1." +
                         "\n\nBuilt with Kotlin, Jetpack Compose, Retrofit, OkHttp, Media3 (ExoPlayer), WorkManager and Firebase Cloud Messaging, all under their open-source licences." +
+                        "\n\nHealth and wellness: Rhythm & Flow shares general wellness content. It is not medical advice and does not replace a doctor or other health professional. Check with a health professional before starting a new kind of exercise, particularly if you are pregnant, injured or have a health condition, and stop if something hurts or you feel unwell." +
                         "\n\nQuestions? Visit rhythmandflow.co.za."
                     )
             }
