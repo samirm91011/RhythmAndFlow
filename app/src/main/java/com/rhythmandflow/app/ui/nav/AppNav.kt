@@ -202,7 +202,8 @@ private fun MainGraph(
                 onSwitchView(true)
                 return@LaunchedEffect
             }
-            if (r in knownRoutes) { if (r in tabRoutes) nav.goTab(r) else nav.navigate(r) }
+            if (r == "plans" && !com.rhythmandflow.app.BuildConfig.IN_APP_SUBSCRIPTIONS) { nav.goTab("home") }
+            else if (r in knownRoutes) { if (r in tabRoutes) nav.goTab(r) else nav.navigate(r) }
             onRouteHandled()
         }
     }

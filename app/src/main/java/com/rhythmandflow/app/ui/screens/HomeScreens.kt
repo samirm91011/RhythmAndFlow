@@ -206,7 +206,7 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
             VSpace(20)
         }
 
-        if (subs.none { it.grantsAccess }) {
+        if (subs.none { it.grantsAccess } && com.rhythmandflow.app.BuildConfig.IN_APP_SUBSCRIPTIONS) {
             Column(Modifier.padding(horizontal = 20.dp)) {
                 GradientBox(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)), listOf(Brand.Black, Color(0xFF2B3A37))) {
                     Column(Modifier.fillMaxWidth().padding(20.dp)) {

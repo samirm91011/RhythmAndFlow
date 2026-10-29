@@ -20,6 +20,9 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Run the whole app on built-in sample data (no server):  gradlew assembleDebug -PdemoMode=true.  Always off otherwise.
+        // The Google Play build (gradlew bundleRelease -PplayStore=true) has no in-app subscription purchase: Google Play requires digital
+        // subscriptions to use its own billing. Every other build keeps the PayFast plans screens. Tickets for classes and events stay everywhere.
+        buildConfigField("boolean", "IN_APP_SUBSCRIPTIONS", (project.findProperty("playStore") != "true").toString())
         buildConfigField("boolean", "DEMO_MODE", (project.findProperty("demoMode") == "true").toString())
         // The video player blocks screenshots and recording. Only for making a backup screen recording:  gradlew assembleDebug -PallowCapture=true
         buildConfigField("boolean", "ALLOW_SCREEN_CAPTURE", (project.findProperty("allowCapture") == "true").toString())

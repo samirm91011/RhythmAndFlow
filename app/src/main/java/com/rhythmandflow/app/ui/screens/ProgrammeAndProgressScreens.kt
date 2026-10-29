@@ -77,9 +77,13 @@ fun ProgrammeScreen(programmeId: Int, onBack: () -> Unit, onLesson: (Int) -> Uni
                                         "Included in the ${state.planName ?: "paid"} plan and above.",
                                         style = MaterialTheme.typography.titleSmall,
                                     )
-                                    Text("Subscribe to unlock every practice in this programme.", style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
-                                    VSpace(10)
-                                    PrimaryButton("View plans", onClick = onPlans)
+                                    if (com.rhythmandflow.app.BuildConfig.IN_APP_SUBSCRIPTIONS) {
+                                        Text("Subscribe to unlock every practice in this programme.", style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
+                                        VSpace(10)
+                                        PrimaryButton("View plans", onClick = onPlans)
+                                    } else {
+                                        Text("This programme is for members.", style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
+                                    }
                                 }
                             }
                         } else {

@@ -89,9 +89,11 @@ fun YouScreen(session: SessionViewModel, onNavigate: (String) -> Unit, onLesson:
                             Text("See my progress", color = Brand.TealDeep, style = MaterialTheme.typography.labelLarge)
                         }
                     }
-                    NavRow(Icons.Default.CreditCard, if (activeSub != null) "${activeSub.planName} plan" else "Choose a plan",
-                        if (activeSub != null) "Manage your subscription" else "Unlock every programme") {
-                        onNavigate(if (activeSub != null) "subscription" else "plans")
+                    if (activeSub != null || com.rhythmandflow.app.BuildConfig.IN_APP_SUBSCRIPTIONS) {
+                        NavRow(Icons.Default.CreditCard, if (activeSub != null) "${activeSub.planName} plan" else "Choose a plan",
+                            if (activeSub != null) "Manage your subscription" else "Unlock every programme") {
+                            onNavigate(if (activeSub != null) "subscription" else "plans")
+                        }
                     }
                     NavRow(Icons.Default.CalendarMonth, "My bookings", "Upcoming classes") { onNavigate("bookings") }
                     if (user?.isAdmin == true) NavRow(Icons.Default.AdminPanelSettings, "Admin tools", "Manage lessons, classes and plans") { onNavigate("admin") }
@@ -207,7 +209,7 @@ fun SettingsScreen(session: SessionViewModel, onBack: () -> Unit, onNavigate: (S
             NavRow(Icons.Default.CreditCard, "Subscription", "Plan, billing and receipts") { onNavigate("subscription") }
             NavRow(Icons.Default.Notifications, "Notifications", "Your updates and alerts") { onNavigate("notifications") }
             ReminderSwitchRow()
-            NavRow(Icons.Default.Lock, "Privacy Policy", "Read it on rhythmandflow.co.za/privacy-policy") { openPage(LegalLinks.PRIVACY) }
+            NavRow(Icons.Default.Lock, "Privacy Policy", "How the app uses your information") { openPage(LegalLinks.PRIVACY) }
             NavRow(Icons.Default.Policy, "Terms of Use", "Read it on rhythmandflow.co.za/terms-of-use") { openPage(LegalLinks.TERMS) }
             NavRow(Icons.Default.Help, "Help & Support", "Get answers and contact us") {
                 dialog = "Help & Support" to "Visit rhythmandflow.co.za to get in touch with the Rhythm & Flow team."
