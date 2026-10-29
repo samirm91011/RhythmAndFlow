@@ -15,7 +15,7 @@ android {
     defaultConfig {
         applicationId = "com.rhythmandflow.app"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -23,6 +23,20 @@ android {
         buildConfigField("boolean", "DEMO_MODE", (project.findProperty("demoMode") == "true").toString())
         // The video player blocks screenshots and recording. Only for making a backup screen recording:  gradlew assembleDebug -PallowCapture=true
         buildConfigField("boolean", "ALLOW_SCREEN_CAPTURE", (project.findProperty("allowCapture") == "true").toString())
+    }
+
+    // The Play Store upload key. Its file and passwords are never committed: a release is signed only when these environment
+    // variables are set (RF_UPLOAD_STORE_FILE, RF_UPLOAD_STORE_PASSWORD, RF_UPLOAD_KEY_ALIAS, RF_UPLOAD_KEY_PASSWORD).
+    val uploadStoreFile = System.getenv("RF_UPLOAD_STORE_FILE")
+    signingConfigs {
+        if (uploadStoreFile != null) {
+            create("upload") {
+                storeFile = file(uploadStoreFile)
+                storePassword = System.getenv("RF_UPLOAD_STORE_PASSWORD")
+                keyAlias = System.getenv("RF_UPLOAD_KEY_ALIAS")
+                keyPassword = System.getenv("RF_UPLOAD_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -39,6 +53,7 @@ android {
             val base = (project.findProperty("apiBaseUrl") as String?) ?: "https://api.example.com/"
             buildConfigField("String", "API_BASE_URL", "\"$base\"")
             buildConfigField("boolean", "SIMULATE_PAYMENT", "false")
+            if (uploadStoreFile != null) signingConfig = signingConfigs.getByName("upload")
         }
     }
 
