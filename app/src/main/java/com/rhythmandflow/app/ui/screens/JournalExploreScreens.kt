@@ -176,27 +176,30 @@ private fun AffirmationsTab(favourites: Set<String>, onToggle: (String) -> Unit)
 
 // ============================================================ Explore / articles / shop
 
-private data class ExploreItem(val title: String, val blurb: String, val icon: ImageVector, val colors: List<Color>)
+/** Only the look (icon and colours) is fixed here; the words are the client's, edited from the admin screens. */
+private data class ExploreLook(val icon: ImageVector, val colors: List<Color>)
 
-private val exploreItems = listOf(
-    ExploreItem("Feed Your Soul", "Mindfulness, meditation, emotional wellbeing.", Icons.Default.Spa, listOf(Brand.TealDeep, Brand.Teal)),
-    ExploreItem("Nourish Your Body", "Nutrition, food, self-care.", Icons.Default.Restaurant, listOf(Brand.Tangerine, Color(0xFFEE8E6E))),
-    ExploreItem("Open Your Mind", "Personal development, mindset, coaching.", Icons.Default.Lightbulb, listOf(Color(0xFF3D4F6B), Color(0xFF7C94B8))),
-    ExploreItem("Discover New Journeys", "Travel, experiences, trying something new.", Icons.Default.Explore, listOf(Brand.Teal, Color(0xFF7DB8AD))),
-    ExploreItem("Coaching & Programmes", "Guided support for your next chapter.", Icons.Default.Psychology, listOf(Color(0xFF2B3A37), Brand.Teal)),
-    ExploreItem("Shop", "Wellness products for everyday living.", Icons.Default.ShoppingBag, listOf(Brand.Black, Color(0xFF444444))),
+private val exploreLooks = listOf(
+    ExploreLook(Icons.Default.Spa, listOf(Brand.TealDeep, Brand.Teal)),
+    ExploreLook(Icons.Default.Restaurant, listOf(Brand.Tangerine, Color(0xFFEE8E6E))),
+    ExploreLook(Icons.Default.Lightbulb, listOf(Color(0xFF3D4F6B), Color(0xFF7C94B8))),
+    ExploreLook(Icons.Default.Explore, listOf(Brand.Teal, Color(0xFF7DB8AD))),
+    ExploreLook(Icons.Default.Psychology, listOf(Color(0xFF2B3A37), Brand.Teal)),
+    ExploreLook(Icons.Default.ShoppingBag, listOf(Brand.Black, Color(0xFF444444))),
 )
 
 @Composable
 fun ExploreScreen(onBack: () -> Unit, onArticle: (String) -> Unit, onShop: () -> Unit) {
+    val sections = com.rhythmandflow.app.data.ContentCache.flow.collectAsState().value.explore
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Explore", "A holistic wellness library.", onBack = onBack)
         LazyColumn(contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(exploreItems, key = { it.title }) { item ->
-                SoftCard(Modifier.fillMaxWidth(), onClick = { if (item.title == "Shop") onShop() else onArticle(item.title) }, background = Color.White) {
+            items(sections.size) { i ->
+                val item = sections[i]; val look = exploreLooks[i]
+                SoftCard(Modifier.fillMaxWidth(), onClick = { if (i == 5) onShop() else onArticle(i.toString()) }, background = Color.White) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        GradientBox(Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)), item.colors) {
-                            Icon(item.icon, null, tint = Color.White, modifier = Modifier.size(30.dp))
+                        GradientBox(Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)), look.colors) {
+                            Icon(look.icon, null, tint = Color.White, modifier = Modifier.size(30.dp))
                         }
                         Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                             Text(item.title, style = MaterialTheme.typography.titleMedium)
@@ -210,54 +213,42 @@ fun ExploreScreen(onBack: () -> Unit, onArticle: (String) -> Unit, onShop: () ->
     }
 }
 
-/** Article text is placeholder content drawn from the Brand Blueprint until the client supplies real articles. */
+/** The article text is the client's, edited from the admin screens; the section is picked by its position in Explore. */
 @Composable
 fun ArticleScreen(title: String, onBack: () -> Unit, notify: (String) -> Unit) {
-    val item = exploreItems.firstOrNull { it.title == title }
+    val n = (title.toIntOrNull() ?: 0).coerceIn(0, 4)
+    val item = com.rhythmandflow.app.data.ContentCache.flow.collectAsState().value.explore[n]; val look = exploreLooks[n]
     Column(Modifier.fillMaxSize()) {
         Box {
-            GradientBox(Modifier.fillMaxWidth().height(200.dp), item?.colors ?: listOf(Brand.TealDeep, Brand.Teal)) {
-                Icon(item?.icon ?: Icons.Default.Spa, null, tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(80.dp))
+            GradientBox(Modifier.fillMaxWidth().height(200.dp), look.colors) {
+                Icon(look.icon, null, tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(80.dp))
             }
             IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(8.dp)) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
             }
         }
         Column(Modifier.vScroll().padding(20.dp)) {
-            Text(title, style = MaterialTheme.typography.headlineMedium)
+            Text(item.title, style = MaterialTheme.typography.headlineMedium)
             Text("MINDSET  •  5 MIN READ", style = MaterialTheme.typography.labelMedium, color = Brand.Muted)
             VSpace(12)
-            Text(
-                "Movement is not just about physical exercise; it is a way to freely express ourselves, connect with others, and find inner balance. " +
-                    "Whether you are a beginner or an experienced mover, there is a place for you in this community.",
-                color = Brand.Muted,
-            )
-            VSpace(12)
-            Text(
-                "Balance isn't about doing it all. It's about creating space for what matters most. Here are a few simple ways to bring more intention into your everyday life:",
-                color = Brand.Muted,
-            )
-            VSpace(8)
-            listOf("Start the day with a few slow breaths.", "Move in a way that feels kind to your body.", "End the day by noting one thing you're grateful for.")
-                .forEach { Text("•  $it", color = Brand.Muted) }
-            VSpace(16)
+            item.body.split(Regex("\n\\s*\n")).filter { it.isNotBlank() }.forEach { Text(it.trim(), color = Brand.Muted); VSpace(12) }
+            VSpace(4)
             Text("Full articles from Rhythm & Flow are coming soon.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
         }
     }
 }
 
-private data class Product(val name: String, val price: String)
-
 @Composable
 fun ShopScreen(onBack: () -> Unit, notify: (String) -> Unit) {
-    val products = listOf(Product("Yoga Mat", "R650"), Product("Stainless Steel Bottle", "R450"), Product("Resistance Bands", "R320"), Product("Wellness Journal", "R250"))
+    val content = com.rhythmandflow.app.data.ContentCache.flow.collectAsState().value
+    val products = content.shop.products
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader("Shop", "Wellness products for everyday living.", onBack = onBack) {
+        ScreenHeader("Shop", content.explore[5].blurb, onBack = onBack) {
             IconButton(onClick = { notify("The shop is coming soon.") }) { Icon(Icons.Default.ShoppingCart, "Cart") }
         }
         Column(Modifier.padding(horizontal = 20.dp)) {
             SoftCard(Modifier.fillMaxWidth(), background = Brand.TangerineSoft) {
-                Text("The Rhythm & Flow shop is coming soon to the app. For now, visit rhythmandflow.co.za to order.", style = MaterialTheme.typography.bodyMedium)
+                Text(content.shop.intro, style = MaterialTheme.typography.bodyMedium)
             }
         }
         VSpace(12)

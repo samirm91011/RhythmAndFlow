@@ -125,8 +125,8 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
             } else {
                 SoftCard(onClick = { onNavigate("classes") }, background = Brand.TangerineSoft, modifier = Modifier.fillMaxWidth()) {
                     Column {
-                        Text("Join a class", style = MaterialTheme.typography.titleLarge)
-                        Text("Move with Deni and the community. Browse upcoming classes and reserve your spot.", color = Brand.Muted, style = MaterialTheme.typography.bodyMedium)
+                        Text(content.home.classTitle, style = MaterialTheme.typography.titleLarge)
+                        Text(content.home.classBody, color = Brand.Muted, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
@@ -172,9 +172,9 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
             Column(Modifier.padding(horizontal = 20.dp)) {
                 GradientBox(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)), listOf(Brand.Black, Color(0xFF2B3A37))) {
                     Column(Modifier.fillMaxWidth().padding(20.dp)) {
-                        Text("Build a life that feels good.", style = MaterialTheme.typography.headlineSmall, color = Color.White)
+                        Text(content.home.bannerTitle, style = MaterialTheme.typography.headlineSmall, color = Color.White)
                         VSpace(6)
-                        Text("Unlock every programme with a monthly subscription.", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodyMedium)
+                        Text(content.home.bannerBody, color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodyMedium)
                         VSpace(14)
                         AccentButton("See plans", onClick = { onNavigate("plans") })
                     }
@@ -274,7 +274,7 @@ fun RhythmTodayScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
         Column(Modifier.padding(horizontal = 20.dp)) {
             GradientBox(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)), listOf(Brand.TealDeep, Brand.Teal)) {
                 Column(Modifier.fillMaxWidth().padding(24.dp)) {
-                    Text("Build a life that feels good.", style = MaterialTheme.typography.headlineMedium, color = Color.White)
+                    Text(com.rhythmandflow.app.data.ContentCache.flow.collectAsState().value.home.bannerTitle, style = MaterialTheme.typography.headlineMedium, color = Color.White)
                     VSpace(14)
                     PrimaryButtonOnDark("Explore Today") { onNavigate("explore") }
                 }

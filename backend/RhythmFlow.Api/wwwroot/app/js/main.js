@@ -41,13 +41,13 @@ route("/home", async (el) => {
     <div class="moods mt" role="group" aria-label="Mood">${content().moods.map((m) => `<button class="mood" data-mood="${esc(m.label)}" style="background:${esc(m.color)}"><span class="em" aria-hidden="true">${esc(m.emoji)}</span>${esc(m.label)}</button>`).join("")}</div>
     <div class="pad mt">${next
       ? `<a class="card tint" href="#/classes?t=mine"><span class="pill solid" style="background:var(--teal-deep)">Your next class</span><h3 style="margin-top:8px">${esc(next.className)}</h3><p class="muted small">${fmtDayTime(next.startTime)} · ${esc(next.location)}</p></a>`
-      : `<a class="card tang" href="#/classes"><h3>Join a class</h3><p class="muted small">Move with Deni and the community. Browse upcoming classes and reserve your spot.</p></a>`}</div>
+      : `<a class="card tang" href="#/classes"><h3>${esc(content().home.classTitle)}</h3><p class="muted small">${esc(content().home.classBody)}</p></a>`}</div>
     ${resume ? `<div class="pad mt"><a class="card" href="#/lesson/${resume.id}"><span class="pill">Continue where you left off</span><h3 style="margin-top:8px">${esc(resume.title)}</h3>
       <p class="muted small">${Math.round(resume.completionPercentage)}% done · about ${Math.max(0, Math.ceil((resume.durationSeconds - resume.watchTimeSeconds) / 60))} min left</p><div class="bar"><i style="width:${Math.round(resume.completionPercentage)}%"></i></div></a></div>` : ""}
     <div class="sect"><h3>Your Rhythm Today</h3><a class="linkbtn" href="#/rhythm">See All</a></div>
     ${rhythmCards()}
     <div class="cards3 mt"><a class="card stat" href="#/progress"><b>${summary.sessionsThisMonth}</b><span>sessions this month</span></a><a class="card stat" href="#/progress"><b>${summary.minutesWatched}</b><span>minutes moved</span></a><a class="card stat" href="#/progress"><b>${summary.completedLessons}</b><span>completed</span></a></div>
-    ${hasAccess(subs) ? "" : `<div class="pad mt"><div class="banner"><h2>Build a life that feels good.</h2><p>Unlock every programme with a monthly subscription.</p><a class="btn accent small" style="display:inline-flex" href="#/plans">See plans</a></div></div>`}
+    ${hasAccess(subs) ? "" : `<div class="pad mt"><div class="banner"><h2>${esc(content().home.bannerTitle)}</h2><p>${esc(content().home.bannerBody)}</p><a class="btn accent small" style="display:inline-flex" href="#/plans">See plans</a></div></div>`}
     <div class="pad mt"><div class="card"><h3 class="muted center" style="font-weight:600">“${esc(content().homeQuote)}”</h3></div></div>
     <div style="height:16px"></div>`;
   el.onclick = async (e) => {
@@ -59,7 +59,7 @@ route("/home", async (el) => {
 
 route("/rhythm", (el) => {
   el.innerHTML = `${topbar("Your Rhythm Today", { sub: "Small steps that add up." })}${rhythmCards()}
-    <div class="pad mt"><div class="banner" style="background:linear-gradient(135deg,var(--teal-deep),var(--teal))"><h2>Build a life that feels good.</h2><p></p><a class="btn small" style="display:inline-flex;background:#fff;color:var(--teal-deep);box-shadow:none" href="#/explore">Explore Today</a></div>
+    <div class="pad mt"><div class="banner" style="background:linear-gradient(135deg,var(--teal-deep),var(--teal))"><h2>${esc(content().home.bannerTitle)}</h2><p></p><a class="btn small" style="display:inline-flex;background:#fff;color:var(--teal-deep);box-shadow:none" href="#/explore">Explore Today</a></div>
     <div class="card mt"><h3 class="muted center" style="font-weight:600">“${esc(content().rhythmQuote)}”</h3></div></div>`;
 });
 
