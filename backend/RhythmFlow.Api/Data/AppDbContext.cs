@@ -18,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PasswordResetCode> PasswordResets => Set<PasswordResetCode>();
     public DbSet<AppNotification> Notifications => Set<AppNotification>();
     public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
+    public DbSet<AppContent> AppContents => Set<AppContent>();
     public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
     public DbSet<AccountCredit> Credits => Set<AccountCredit>();
 
@@ -98,6 +99,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => x.Token).IsUnique();
             e.HasIndex(x => x.UserId);
         });
+        b.Entity<AppContent>().HasIndex(x => x.Key).IsUnique();
         b.Entity<ErrorLog>(e =>
         {
             e.HasIndex(x => x.Fingerprint);

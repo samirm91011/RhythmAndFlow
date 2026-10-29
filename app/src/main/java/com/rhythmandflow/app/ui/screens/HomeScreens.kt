@@ -74,19 +74,6 @@ import com.rhythmandflow.app.ui.viewmodel.SessionViewModel
 import com.rhythmandflow.app.ui.viewmodel.appViewModel
 import kotlinx.coroutines.launch
 
-private data class Mood(val label: String, val icon: ImageVector, val tint: Color, val bg: Color)
-
-private val moods = listOf(
-    Mood("Energised", Icons.Default.WbSunny, Color(0xFFE08A1E), Color(0xFFFFF1DC)),
-    Mood("Tired", Icons.Default.BatteryAlert, Color(0xFF3A6FD8), Color(0xFFE3ECFB)),
-    Mood("Stressed", Icons.Default.Cloud, Color(0xFF9B5D7A), Color(0xFFF3E6EE)),
-    Mood("Grounded", Icons.Default.Eco, Brand.TealDeep, Brand.TealSoft),
-    Mood("Overwhelmed", Icons.Default.BlurOn, Brand.Tangerine, Brand.TangerineSoft),
-    Mood("Happy", Icons.Default.SentimentSatisfiedAlt, Color(0xFFD9822B), Color(0xFFFFEFD9)),
-    Mood("Low", Icons.Default.NightsStay, Color(0xFF4A5FB5), Color(0xFFE5E8F7)),
-    Mood("Need some space", Icons.Default.FavoriteBorder, Color(0xFFC0443F), Color(0xFFFBE4E3)),
-)
-
 @Composable
 fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: (String) -> Unit) {
     val vm = appViewModel { HomeViewModel(it) }
@@ -96,6 +83,7 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
     var mood by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val firstName = user?.fullName?.substringBefore(' ') ?: ""
+    val content by com.rhythmandflow.app.data.ContentCache.flow.collectAsState()
     OnResume { vm.load(); session.refreshSubscriptions() }
 
     PageColumn {
@@ -114,7 +102,7 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
             Text("Take a moment to check in with yourself. How are you feeling today?", color = Brand.Muted)
         }
         VSpace(16)
-        MoodGrid(selected = mood, onSelect = { m ->
+        MoodGrid(content.moods, selected = mood, onSelect = { m ->
             mood = m
             scope.launch {
                 val err = vm.checkIn(m)
@@ -168,7 +156,7 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
         VSpace(20)
         SectionTitle("Your Rhythm Today", action = "See All", onAction = { onNavigate("rhythm") })
         VSpace(8)
-        RhythmCards(onNavigate)
+        RhythmCards(content.rhythmCards, onNavigate)
 
         VSpace(20)
         state.summary?.let { s ->
@@ -198,7 +186,7 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
         Column(Modifier.padding(horizontal = 20.dp)) {
             SoftCard(Modifier.fillMaxWidth()) {
                 Text(
-                    "“A small check-in can lead to a big shift.”",
+                    "“${content.homeQuote}”",
                     style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
                     color = Brand.Muted,
                 )
@@ -209,7 +197,7 @@ fun HomeScreen(session: SessionViewModel, onNavigate: (String) -> Unit, notify: 
 }
 
 @Composable
-private fun MoodGrid(selected: String?, onSelect: (String) -> Unit) {
+private fun MoodGrid(moods: List<com.rhythmandflow.app.data.MoodItem>, selected: String?, onSelect: (String) -> Unit) {
     // With very large text, three tiles across would break words in the middle, so use two.
     val columns = if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) 2 else 3
     Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -217,17 +205,18 @@ private fun MoodGrid(selected: String?, onSelect: (String) -> Unit) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { m ->
                     val isSel = selected == m.label
+                    val bg = try { Color(android.graphics.Color.parseColor(m.color)) } catch (_: Exception) { Brand.TealSoft }
                     val interaction = remember { MutableInteractionSource() }
                     val shape = RoundedCornerShape(20.dp)
                     Column(
                         Modifier.weight(1f).heightIn(min = 48.dp).pressScale(interaction)
-                            .clip(shape).background(m.bg)
-                            .let { if (isSel) it.background(m.tint.copy(alpha = 0.18f)).border(2.dp, m.tint, shape) else it }
+                            .clip(shape).background(bg)
+                            .let { if (isSel) it.background(Brand.TealDeep.copy(alpha = 0.14f)).border(2.dp, Brand.TealDeep, shape) else it }
                             .selectable(selected = isSel, interactionSource = interaction, indication = LocalIndication.current, role = Role.RadioButton) { onSelect(m.label) }
                             .padding(vertical = 14.dp, horizontal = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Icon(m.icon, null, tint = m.tint, modifier = Modifier.size(28.dp))
+                        Text(m.emoji, fontSize = androidx.compose.ui.unit.TextUnit(26f, androidx.compose.ui.unit.TextUnitType.Sp))
                         VSpace(6)
                         Text(m.label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
                     }
@@ -249,11 +238,14 @@ private fun StatCard(value: String, label: String, modifier: Modifier = Modifier
 }
 
 @Composable
-private fun RhythmCards(onNavigate: (String) -> Unit) {
+private fun RhythmCards(cards: List<com.rhythmandflow.app.data.RhythmCardItem>, onNavigate: (String) -> Unit) {
+    // The words are the client's (edited from the admin screens); where each card goes and its colour stay fixed.
+    val targets = listOf(Triple("move", Brand.TangerineSoft, 0), Triple("explore", Brand.TealSoft, 1), Triple("move", Brand.Surface, 2))
     Row(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        RhythmCard("Morning Reset", "10 mins", Brand.TangerineSoft, Modifier.weight(1f)) { onNavigate("move") }
-        RhythmCard("Nourish Your Body", "Recipes", Brand.TealSoft, Modifier.weight(1f)) { onNavigate("explore") }
-        RhythmCard("Move & Release", "15 mins", Brand.Surface, Modifier.weight(1f)) { onNavigate("move") }
+        targets.forEach { (route, colour, i) ->
+            val card = cards.getOrNull(i) ?: return@forEach
+            RhythmCard(card.title, card.subtitle, colour, Modifier.weight(1f)) { onNavigate(route) }
+        }
     }
 }
 
@@ -277,7 +269,7 @@ private fun RhythmCard(title: String, sub: String, bg: Color, modifier: Modifier
 fun RhythmTodayScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
     PageColumn {
         ScreenHeader("Your Rhythm Today", "Small steps that add up.", onBack = onBack)
-        RhythmCards(onNavigate)
+        RhythmCards(com.rhythmandflow.app.data.ContentCache.flow.collectAsState().value.rhythmCards, onNavigate)
         VSpace(20)
         Column(Modifier.padding(horizontal = 20.dp)) {
             GradientBox(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)), listOf(Brand.TealDeep, Brand.Teal)) {
@@ -290,7 +282,7 @@ fun RhythmTodayScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
             VSpace(16)
             SoftCard(Modifier.fillMaxWidth()) {
                 Text(
-                    "“Progress isn’t about doing more, it’s about coming back to yourself.”",
+                    "“${com.rhythmandflow.app.data.ContentCache.flow.collectAsState().value.rhythmQuote}”",
                     style = MaterialTheme.typography.titleLarge, color = Brand.Muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
                 )
             }

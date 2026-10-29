@@ -2,15 +2,8 @@
    The wording and layout follow the Android app screen for screen. */
 "use strict";
 
-const AFFIRMATIONS = [
-  "I am enough, exactly as I am, and I am always growing.",
-  "My body is strong, and I move with kindness.",
-  "I give myself permission to rest and to rise.",
-  "Every small step brings me back to myself.",
-  "I am free to express who I am through movement.",
-  "I welcome joy into my body today.",
-  "I am proud of how far I've come.",
-];
+/* the affirmations are the client's, edited from the admin screens: see content() */
+const affirmations = () => content().affirmations;
 const EXPLORE = [
   ["Feed Your Soul", "Mindfulness, meditation, emotional wellbeing.", "🌙", "linear-gradient(135deg,var(--teal-deep),var(--teal))"],
   ["Nourish Your Body", "Nutrition, food, self-care.", "🍽️", "linear-gradient(135deg,var(--tang),#EE8E6E)"],
@@ -33,10 +26,10 @@ route("/journal", async (el) => {
   const draw = async () => {
     let body = "";
     if (tab === "checkin") {
-      body = `<div class="pad stack"><div class="card tang stack"><h3>Today's Reflection</h3><p class="muted small">What's on your mind?</p>
+      body = `<div class="pad stack"><div class="card tang stack"><h3>${esc(content().journal.reflectionTitle)}</h3><p class="muted small">${esc(content().journal.reflectionHint)}</p>
         ${field("ref", "Write freely…", { area: true, max: 2000 })}<button class="btn" id="saveref" disabled>Save Entry</button></div>
-        <div class="card"><p class="muted" style="font-weight:600">Daily Affirmation</p><h3 style="margin-top:6px">“${esc(AFFIRMATIONS[dayOfYear() % AFFIRMATIONS.length])}”</h3></div>
-        <div class="card stack"><h3>Gratitude</h3><p class="muted small">What are you grateful for today?</p><div class="row">${field("grat", "I'm grateful for…", { max: 300, enter: "done" })}<button class="iconbtn" style="margin:0 0 14px;background:var(--teal-deep);color:#fff" id="savegrat" aria-label="Add gratitude" disabled>+</button></div></div></div>`;
+        <div class="card"><p class="muted" style="font-weight:600">Daily Affirmation</p><h3 style="margin-top:6px">“${esc(affirmations()[dayOfYear() % affirmations().length])}”</h3></div>
+        <div class="card stack"><h3>${esc(content().journal.gratitudeTitle)}</h3><p class="muted small">${esc(content().journal.gratitudeHint)}</p><div class="row">${field("grat", "I'm grateful for…", { max: 300, enter: "done" })}<button class="iconbtn" style="margin:0 0 14px;background:var(--teal-deep);color:#fff" id="savegrat" aria-label="Add gratitude" disabled>+</button></div></div></div>`;
     } else if (tab === "journal") {
       const items = await api("GET", "/api/journal");
       body = items.length ? `<div class="list">${items.map((j) => `<div class="card"><div class="row between"><div class="pills" style="margin:0"><span class="pill">${esc(KIND[j.kind] || j.kind)}</span>${j.mood ? `<span class="pill tang">${esc(j.mood)}</span>` : ""}</div>
@@ -46,7 +39,7 @@ route("/journal", async (el) => {
       const l = await api("GET", "/api/lessons?category=Meditation");
       body = l.length ? `<div class="list">${l.map(lessonRow).join("")}</div>` : emptyBox("No meditations yet", "Guided meditations will appear here.", "🌙");
     } else {
-      body = `<div class="list">${AFFIRMATIONS.map((a) => `<div class="card row"><h3 class="grow" style="font-size:19px;font-weight:600">“${esc(a)}”</h3><button class="iconbtn" style="margin:0;color:var(--tang)" data-fav="${esc(a)}" aria-label="Favourite">${ic(favs.has(a) ? "heart1" : "heart0")}</button></div>`).join("")}</div>`;
+      body = `<div class="list">${affirmations().map((a) => `<div class="card row"><h3 class="grow" style="font-size:19px;font-weight:600">“${esc(a)}”</h3><button class="iconbtn" style="margin:0;color:var(--tang)" data-fav="${esc(a)}" aria-label="Favourite">${ic(favs.has(a) ? "heart1" : "heart0")}</button></div>`).join("")}</div>`;
     }
     el.innerHTML = `${topbar("Journal", { back: false, sub: "Reconnect with yourself." })}
       <div class="tabsbar" role="tablist">${[["checkin", "Check-in"], ["journal", "Journal"], ["meditation", "Meditation"], ["aff", "Affirmations"]].map(([k, n]) => `<button class="${tab === k ? "on" : ""}" data-tab="${k}">${n}</button>`).join("")}</div>${body}`;

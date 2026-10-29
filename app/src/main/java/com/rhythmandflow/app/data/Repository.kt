@@ -158,6 +158,10 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     suspend fun adminResolveRequest(id: Int, approve: Boolean, amount: Double?) = callUnit { api.adminResolveRequest(id, ResolveRequestBody(approve, amount)) }
     suspend fun adminRefunds() = call { api.adminRefunds() }
     suspend fun adminMarkRefunded(id: Int) = callUnit { api.adminMarkRefunded(id) }
+    suspend fun content() = call { api.content().orBuiltIn() }
+    suspend fun adminContent() = call { api.adminContent().orBuiltIn() }
+    suspend fun adminSaveContent(c: AppContent) = callUnit { api.adminSaveContent(c) }
+    suspend fun adminResetContent() = callUnit { api.adminResetContent() }
     suspend fun adminVideoUploadUrl(fileName: String, contentType: String, sizeBytes: Long) = call { api.adminVideoUploadUrl(VideoUploadBody(fileName, contentType, sizeBytes)) }
     suspend fun adminGiveCredit(id: Int, amount: Double, reason: String?) = callUnit { api.adminGiveCredit(id, GiveCreditBody(amount, reason)) }
     suspend fun adminSendLinks(id: Int) = callUnit { api.adminSendLinks(id) }

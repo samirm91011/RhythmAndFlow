@@ -289,6 +289,15 @@ public class DeviceToken
 }
 
 /// <summary>A de-duplicated error report from the API or the app, for administrators to review.</summary>
+/// <summary>The wording the client edits from the admin screens (moods, affirmations, quotes, journal prompts), stored as one JSON document.</summary>
+public class AppContent
+{
+    public int Id { get; set; }
+    public string Key { get; set; } = "";
+    public string Json { get; set; } = "{}";
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
 public class ErrorLog
 {
     public int Id { get; set; }

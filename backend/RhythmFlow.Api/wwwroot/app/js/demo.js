@@ -159,6 +159,8 @@ const DEMO = (() => {
       case (m = /^POST \/api\/admin\/bookings\/(\d+)\/credit$/.exec(key)) !== null:
         if (!(body.amount >= 1)) fail("Enter an amount of at least R1.", 400);
         return delay(null);
+      case key === "GET /api/content": case key === "GET /api/admin/content": return delay(DEFAULT_CONTENT);
+      case key === "PUT /api/admin/content": case key === "POST /api/admin/content/reset": fail("Saving changes isn't available in the demo.", 400);
       case key === "GET /api/journal": return delay(state.journal);
       case key === "POST /api/journal": { const e = { id: state.nextId++, kind: body.kind, mood: body.mood || "", text: body.text || "", createdAt: new Date().toISOString() }; state.journal.unshift(e); return delay(e); }
       case (m = /^DELETE \/api\/journal\/(\d+)$/.exec(key)) !== null: state.journal = state.journal.filter((e) => e.id !== Number(m[1])); return delay(null);
