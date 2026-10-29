@@ -6,8 +6,22 @@ using RhythmFlow.Api.Dtos;
 namespace RhythmFlow.Api.Services;
 
 public class SubscriptionService(
-    AppDbContext db, PayFastService payFast, IPayFastApi payFastApi, NotificationService notifications, ILogger<SubscriptionService> log, IEmailSender? email = null)
+    AppDbContext db, PayFastService payFast, IPayFastApi payFastApi, NotificationService notifications, ILogger<SubscriptionService> log, IEmailSender? email = null, Microsoft.Extensions.Options.IOptions<EventOptions>? eventOptions = null)
 {
+    private EventOptions Contact => eventOptions?.Value ?? new EventOptions();
+
+    /// <summary>Sends a customer email and/or the studio copy. An email problem never undoes a payment, so it is only logged.</summary>
+    private async Task MailAsync(User? user, (string Subject, string Body)? toCustomer, (string Subject, string Body)? toStudio)
+    {
+        if (email is null) return;
+        try
+        {
+            if (user is not null && toCustomer is { } c) await email.SendAsync(user.Email, c.Subject, c.Body);
+            if (toStudio is { } s && !string.IsNullOrWhiteSpace(Contact.ContactEmail)) await email.SendAsync(Contact.ContactEmail, s.Subject, s.Body);
+        }
+        catch (Exception ex) { log.LogWarning(ex, "A payment email could not be sent."); }
+    }
+
     /// <summary>The in-app notice and an email, for a payment that did not go through (the client's renewal policy: the member is notified and told the grace period).</summary>
     private async Task WarnPaymentProblemAsync(Guid userId, string title, string body)
     {
@@ -125,6 +139,10 @@ public class SubscriptionService(
 
         await notifications.AddAsync(userId, "SUBSCRIPTION", "Subscription cancelled",
             $"Your {sub.Plan!.Name} plan won't renew. You keep access until {Day(sub.EndDate)}.", "subscription");
+        var who = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        if (who is not null)
+            await MailAsync(who, PaymentEmails.Cancelled(who, sub.Plan, sub.EndDate, Contact),
+                PaymentEmails.StudioCopy("Plan cancelled", who, [$"Plan: {sub.Plan.Name} ({PlanPricing.NormaliseBilling(sub.Billing)})", $"Access until: {Day(sub.EndDate)}"]));
 
         var text = cancelledWithPayFast
             ? $"Your subscription is cancelled and PayFast won't charge you again. You keep access until {Day(sub.EndDate)}."
@@ -247,6 +265,11 @@ public class SubscriptionService(
                         sub.TrialDays > 0
                             ? $"Enjoy {sub.Plan.Name} free until {Day(sub.EndDate)}. After that {Rand(recurring)} is charged each {PlanPricing.PeriodWord(billing)} unless you cancel."
                             : $"{sub.Plan.Name} starts on {Day(sub.StartDate)} and then renews each {PlanPricing.PeriodWord(billing)}.", "subscription");
+                    var starter = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == sub.UserId);
+                    if (starter is not null)
+                        await MailAsync(starter, PaymentEmails.FreeStart(starter, sub.Plan, billing, sub.TrialDays, recurring, sub.StartDate, sub.EndDate, Contact),
+                            PaymentEmails.StudioCopy(sub.TrialDays > 0 ? "Free trial started" : "New plan set up", starter,
+                                [$"Plan: {sub.Plan.Name} ({billing})", $"Then: {EventEmails.Rand(recurring)} each {PlanPricing.PeriodWord(billing)}", $"Starts / trial ends: {Day(sub.TrialDays > 0 ? sub.EndDate : sub.StartDate)}"]));
                     return true;
                 }
                 var expected = firstPayment ? sub.InitialAmount ?? recurring : recurring;
@@ -255,10 +278,11 @@ public class SubscriptionService(
                     log.LogWarning("ITN amount {Amount} does not match the expected {Expected} for subscription {Id}", amountGross, expected, sub.Id);
                     return false; // amount must match what the plan says
                 }
-                db.Payments.Add(new Payment
+                var payment = new Payment
                 {
                     SubscriptionId = sub.Id, Amount = amountGross, Status = "COMPLETE", TransactionReference = pfPaymentId,
-                });
+                };
+                db.Payments.Add(payment);
                 var now = DateTime.UtcNow;
                 if (firstPayment)
                 {
@@ -285,6 +309,11 @@ public class SubscriptionService(
                     firstPayment ? "You're subscribed!" : "Payment received",
                     firstPayment ? $"Your {sub.Plan.Name} plan is active. Enjoy your practice."
                                  : $"Thanks! Your {sub.Plan.Name} plan renews until {Day(sub.EndDate)}.", "subscription");
+                var payer = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == sub.UserId);
+                if (payer is not null)
+                    await MailAsync(payer, PaymentEmails.Receipt(payer, sub.Plan, billing, amountGross, now, payment.Id, pfPaymentId, firstPayment, sub.EndDate, Contact),
+                        PaymentEmails.StudioCopy(firstPayment ? "New subscriber payment" : "Renewal payment", payer,
+                            [$"Plan: {sub.Plan.Name} ({billing})", $"Amount: {EventEmails.Rand(amountGross)}", $"Receipt: {PaymentEmails.Reference(payment.Id)}", $"PayFast reference: {pfPaymentId}", $"Plan runs until: {Day(sub.EndDate)}"]));
                 return true;
             case "FAILED":
                 db.Payments.Add(new Payment { SubscriptionId = sub.Id, Amount = amountGross, Status = "FAILED", TransactionReference = pfPaymentId });
@@ -292,6 +321,10 @@ public class SubscriptionService(
                 await db.SaveChangesAsync();
                 await WarnPaymentProblemAsync(sub.UserId, "Payment didn't go through",
                     $"We couldn't take your subscription payment. Please update your payment method with PayFast. {GraceNote}".Trim());
+                var failedFor = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == sub.UserId);
+                if (failedFor is not null)
+                    await MailAsync(null, null, PaymentEmails.StudioCopy("Payment failed", failedFor,
+                        [$"Plan: {sub.Plan.Name} ({billing})", $"Amount: {EventEmails.Rand(amountGross)}", $"PayFast reference: {pfPaymentId}"]));
                 return true;
             case "CANCELLED":
                 // Pending checkout abandoned, or the customer cancelled the recurring agreement from PayFast itself.
@@ -301,6 +334,10 @@ public class SubscriptionService(
                     sub.Status = SubscriptionStatus.Cancelled;
                     await notifications.AddAsync(sub.UserId, "SUBSCRIPTION", "Subscription cancelled",
                         $"Your plan won't renew. You keep access until {Day(sub.EndDate)}.", "subscription");
+                    var leaver = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == sub.UserId);
+                    if (leaver is not null)
+                        await MailAsync(leaver, PaymentEmails.Cancelled(leaver, sub.Plan, sub.EndDate, Contact),
+                            PaymentEmails.StudioCopy("Plan cancelled on PayFast", leaver, [$"Plan: {sub.Plan.Name} ({billing})", $"Access until: {Day(sub.EndDate)}"]));
                 }
                 await db.SaveChangesAsync();
                 return true;

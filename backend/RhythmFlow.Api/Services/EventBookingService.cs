@@ -124,6 +124,13 @@ public class EventBookingService(
         var (subject, body) = EventEmails.Confirmation(user, c, b, _o);
         await email.SendAsync(user.Email, subject, body);
         await SendJoinLinkAsync(b, c, user);
+        try
+        {
+            var copy = PaymentEmails.StudioCopy(cashPaid > 0 ? "New ticket payment" : "New booking", user,
+                [$"Event: {EventEmails.Describe(c)}", $"Reference: {EventEmails.Reference(b.Id)}", $"Paid on PayFast: {EventEmails.Rand(cashPaid)}", $"PayFast reference: {pfPaymentId ?? "none"}"]);
+            await email.SendAsync(_o.ContactEmail, copy.Subject, copy.Body);
+        }
+        catch { /* a failed copy to the studio never undoes a booking */ }
         await notifications.AddAsync(user.Id, "BOOKING", "Booking confirmed",
             $"You're booked for {EventEmails.Describe(c)}. Reference {EventEmails.Reference(b.Id)}.", "bookings");
     }
@@ -533,6 +540,12 @@ public class EventBookingService(
         await db.SaveChangesAsync();
         await notifications.AddAsync(b.UserId, "PAYMENT", "Refund sent",
             $"We've refunded {EventEmails.Rand(b.RefundAmount)} for {EventEmails.Describe(b.Class!)}. It can take a few days to show on your statement.", "bookings");
+        var refunded = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == b.UserId);
+        if (refunded is not null)
+        {
+            var mail = PaymentEmails.RefundSent(refunded, EventEmails.Describe(b.Class!), b.RefundAmount, _o);
+            await email.SendAsync(refunded.Email, mail.Subject, mail.Body);
+        }
         return (true, null);
     }
 
