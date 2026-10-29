@@ -4,13 +4,10 @@
 
 /* the affirmations are the client's, edited from the admin screens: see content() */
 const affirmations = () => content().affirmations;
-const EXPLORE = [
-  ["Feed Your Soul", "Mindfulness, meditation, emotional wellbeing.", "🌙", "linear-gradient(135deg,var(--teal-deep),var(--teal))"],
-  ["Nourish Your Body", "Nutrition, food, self-care.", "🍽️", "linear-gradient(135deg,var(--tang),#EE8E6E)"],
-  ["Open Your Mind", "Personal development, mindset, coaching.", "💡", "linear-gradient(135deg,#3D4F6B,#7C94B8)"],
-  ["Discover New Journeys", "Travel, experiences, trying something new.", "🧭", "linear-gradient(135deg,var(--teal),#7DB8AD)"],
-  ["Coaching & Programmes", "Guided support for your next chapter.", "🧠", "linear-gradient(135deg,#2B3A37,var(--teal))"],
-  ["Shop", "Wellness products for everyday living.", "🛍️", "linear-gradient(135deg,#000,#444)"],
+/* the Explore sections: only the look (emoji and colour) is fixed here, the words are hers: see content().explore */
+const EXPLORE_LOOK = [
+  ["🌙", "linear-gradient(135deg,var(--teal-deep),var(--teal))"], ["🍽️", "linear-gradient(135deg,var(--tang),#EE8E6E)"], ["💡", "linear-gradient(135deg,#3D4F6B,#7C94B8)"],
+  ["🧭", "linear-gradient(135deg,var(--teal),#7DB8AD)"], ["🧠", "linear-gradient(135deg,#2B3A37,var(--teal))"], ["🛍️", "linear-gradient(135deg,#000,#444)"],
 ];
 const INTENTIONS = ["Move more", "Reduce stress", "Improve sleep", "Build confidence", "Create balance", "Nourish my body", "Connect with myself", "Make time for myself"];
 const KIND = { CHECKIN: "Check-in", REFLECTION: "Reflection", GRATITUDE: "Gratitude" };
@@ -119,21 +116,20 @@ route("/progress", async (el) => {
 
 /* ---------------- Explore and shop ---------------- */
 route("/explore", (el) => {
-  el.innerHTML = `${topbar("Explore", { sub: "A holistic wellness library." })}<div class="list">${EXPLORE.map(([t, b, e, bg]) => `<a class="card row" href="#/${t === "Shop" ? "shop" : "article/" + encodeURIComponent(t)}"><span class="thumb" style="width:64px;height:64px;font-size:28px;background:${bg}"><span style="filter:brightness(0) invert(1)">${e}</span></span><div class="grow"><h3 style="font-size:20px">${esc(t)}</h3><p class="muted small">${esc(b)}</p></div>${ic("chev", "chev")}</a>`).join("")}</div>`;
+  const ex = content().explore;
+  el.innerHTML = `${topbar("Explore", { sub: "A holistic wellness library." })}<div class="list">${ex.map((x, i) => `<a class="card row" href="#/${i === 5 ? "shop" : "article/" + i}"><span class="thumb" style="width:64px;height:64px;font-size:28px;background:${EXPLORE_LOOK[i][1]}"><span style="filter:brightness(0) invert(1)">${EXPLORE_LOOK[i][0]}</span></span><div class="grow"><h3 style="font-size:20px">${esc(x.title)}</h3><p class="muted small">${esc(x.blurb)}</p></div>${ic("chev", "chev")}</a>`).join("")}</div>`;
 });
-route("/article/:title", (el, { title }) => {
-  const item = EXPLORE.find((x) => x[0] === title) || [title, "", "🌿", "linear-gradient(135deg,var(--teal-deep),var(--teal))"];
-  el.innerHTML = `<div class="hero" style="height:200px;background:${item[3]}"><button class="iconbtn" data-back aria-label="Back">${ic("back")}</button><span style="filter:brightness(0) invert(1);font-size:64px">${item[2]}</span></div>
-    <div class="pad pt stack"><h2>${esc(item[0])}</h2><p class="small muted" style="letter-spacing:1px">MINDSET  •  5 MIN READ</p>
-    <p class="muted">Movement is not just about physical exercise; it is a way to freely express ourselves, connect with others, and find inner balance. Whether you are a beginner or an experienced mover, there is a place for you in this community.</p>
-    <p class="muted">Balance isn't about doing it all. It's about creating space for what matters most. Here are a few simple ways to bring more intention into your everyday life:</p>
-    <div class="stack-sm muted"><p>•&nbsp; Start the day with a few slow breaths.</p><p>•&nbsp; Move in a way that feels kind to your body.</p><p>•&nbsp; End the day by noting one thing you're grateful for.</p></div>
+route("/article/:i", (el, { i }) => {
+  const n = Math.min(Math.max(Number(i) || 0, 0), 4), x = content().explore[n], look = EXPLORE_LOOK[n];
+  el.innerHTML = `<div class="hero" style="height:200px;background:${look[1]}"><button class="iconbtn" data-back aria-label="Back">${ic("back")}</button><span style="filter:brightness(0) invert(1);font-size:64px">${look[0]}</span></div>
+    <div class="pad pt stack"><h2>${esc(x.title)}</h2><p class="small muted" style="letter-spacing:1px">MINDSET  •  5 MIN READ</p>
+    ${(x.body || "").split(/\n\s*\n/).filter((t) => t.trim()).map((t) => `<p class="muted" style="white-space:pre-line">${esc(t)}</p>`).join("")}
     <p class="small muted">Full articles from Rhythm &amp; Flow are coming soon.</p></div>`;
 });
 route("/shop", (el) => {
-  const products = [["Yoga Mat", "R650"], ["Stainless Steel Bottle", "R450"], ["Resistance Bands", "R320"], ["Wellness Journal", "R250"]];
-  el.innerHTML = `${topbar("Shop", { sub: "Wellness products for everyday living." })}<div class="pad"><div class="card tang"><p>The Rhythm &amp; Flow shop is coming soon to the app. For now, visit rhythmandflow.co.za to order.</p></div></div>
-    <div class="cards3 mt" style="grid-template-columns:1fr 1fr">${products.map(([n, p]) => `<div class="card"><div class="sk" style="height:90px;animation:none;display:grid;place-items:center;font-size:30px">🛍️</div><h3 style="font-size:17px;margin-top:8px">${n}</h3><p style="color:var(--teal-deep);font-weight:600">${p}</p></div>`).join("")}</div>`;
+  const shop = content().shop;
+  el.innerHTML = `${topbar("Shop", { sub: content().explore[5].blurb })}<div class="pad"><div class="card tang"><p>${esc(shop.intro)}</p></div></div>
+    <div class="cards3 mt" style="grid-template-columns:1fr 1fr">${shop.products.map((p) => `<div class="card"><div class="sk" style="height:90px;animation:none;display:grid;place-items:center;font-size:30px">🛍️</div><h3 style="font-size:17px;margin-top:8px">${esc(p.name)}</h3><p style="color:var(--teal-deep);font-weight:600">${esc(p.price)}</p></div>`).join("")}</div>`;
 });
 
 /* ---------------- Settings, profile, password, account ---------------- */

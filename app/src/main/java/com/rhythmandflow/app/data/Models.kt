@@ -231,9 +231,14 @@ data class ResolveRequestBody(val approve: Boolean, val amount: Double?)
 data class MoodItem(val label: String, val emoji: String, val color: String)
 data class RhythmCardItem(val title: String, val subtitle: String)
 data class JournalPrompts(val reflectionTitle: String, val reflectionHint: String, val gratitudeTitle: String, val gratitudeHint: String)
+data class HomeText(val classTitle: String, val classBody: String, val bannerTitle: String, val bannerBody: String)
+data class ExploreSection(val title: String, val blurb: String, val body: String)
+data class ShopProduct(val name: String, val price: String)
+data class ShopContent(val intro: String, val products: List<ShopProduct>)
 data class AppContent(
     val moods: List<MoodItem>, val affirmations: List<String>, val homeQuote: String, val rhythmQuote: String,
     val rhythmCards: List<RhythmCardItem>, val journal: JournalPrompts,
+    val home: HomeText, val explore: List<ExploreSection>, val shop: ShopContent,
 ) {
     /** Fills any gap (a field the server left out) with the built-in wording, so a screen is never empty. */
     @Suppress("USELESS_ELVIS", "SENSELESS_COMPARISON")
@@ -243,6 +248,7 @@ data class AppContent(
             if (moods == null || moods.isEmpty()) d.moods else moods, if (affirmations == null || affirmations.isEmpty()) d.affirmations else affirmations,
             if (homeQuote.isNullOrBlank()) d.homeQuote else homeQuote, if (rhythmQuote.isNullOrBlank()) d.rhythmQuote else rhythmQuote,
             if (rhythmCards == null || rhythmCards.size != 3) d.rhythmCards else rhythmCards, journal ?: d.journal,
+            home ?: d.home, if (explore == null || explore.size != 6) d.explore else explore, shop ?: d.shop,
         )
     }
 
@@ -260,7 +266,22 @@ data class AppContent(
             "A small check-in can lead to a big shift.", "Progress isn't about doing more, it's about coming back to yourself.",
             listOf(RhythmCardItem("Morning Reset", "10 mins"), RhythmCardItem("Nourish Your Body", "Recipes"), RhythmCardItem("Move & Release", "15 mins")),
             JournalPrompts("Today's Reflection", "What's on your mind?", "Gratitude", "What are you grateful for today?"),
+            HomeText("Join a class", "Move with Deni and the community. Browse upcoming classes and reserve your spot.", "Build a life that feels good.", "Unlock every programme with a monthly subscription."),
+            listOf(
+                ExploreSection("Feed Your Soul", "Mindfulness, meditation, emotional wellbeing.", ARTICLE), ExploreSection("Nourish Your Body", "Nutrition, food, self-care.", ARTICLE),
+                ExploreSection("Open Your Mind", "Personal development, mindset, coaching.", ARTICLE), ExploreSection("Discover New Journeys", "Travel, experiences, trying something new.", ARTICLE),
+                ExploreSection("Coaching & Programmes", "Guided support for your next chapter.", ARTICLE), ExploreSection("Shop", "Wellness products for everyday living.", ""),
+            ),
+            ShopContent(
+                "The Rhythm & Flow shop is coming soon to the app. For now, visit rhythmandflow.co.za to order.",
+                listOf(ShopProduct("Yoga Mat", "R650"), ShopProduct("Stainless Steel Bottle", "R450"), ShopProduct("Resistance Bands", "R320"), ShopProduct("Wellness Journal", "R250")),
+            ),
         )
+        private const val ARTICLE =
+            "Movement is not just about physical exercise; it is a way to freely express ourselves, connect with others, and find inner balance. " +
+                "Whether you are a beginner or an experienced mover, there is a place for you in this community.\n\n" +
+                "Balance isn't about doing it all. It's about creating space for what matters most. Here are a few simple ways to bring more intention into your everyday life:\n\n" +
+                "•  Start the day with a few slow breaths.\n•  Move in a way that feels kind to your body.\n•  End the day by noting one thing you're grateful for."
     }
 }
 

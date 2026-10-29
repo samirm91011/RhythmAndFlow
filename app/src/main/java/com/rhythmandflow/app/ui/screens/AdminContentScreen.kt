@@ -34,6 +34,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.rhythmandflow.app.data.AppContent
 import com.rhythmandflow.app.data.ContentCache
+import com.rhythmandflow.app.data.ExploreSection
+import com.rhythmandflow.app.data.HomeText
+import com.rhythmandflow.app.data.ShopContent
+import com.rhythmandflow.app.data.ShopProduct
 import com.rhythmandflow.app.data.JournalPrompts
 import com.rhythmandflow.app.data.MoodItem
 import com.rhythmandflow.app.data.RhythmCardItem
@@ -51,8 +55,8 @@ import com.rhythmandflow.app.ui.viewmodel.appViewModel
 import kotlinx.coroutines.launch
 
 /**
- * Administrators: edit the wording customers see (check-in moods, daily affirmations, quotes, the Your Rhythm Today cards and the
- * journal prompts). A saved change shows in the apps straight away; "original wording" goes back to what the app came with.
+ * Administrators: edit the wording customers see (check-in moods, daily affirmations, quotes, the Your Rhythm Today cards, the
+ * journal prompts, Home wording, the Explore sections with their articles, and the Shop). A saved change shows in the apps straight away; "original wording" goes back to what the app came with.
  */
 @Composable
 fun AdminContentScreen(onBack: () -> Unit, notify: (String) -> Unit) {
@@ -68,6 +72,13 @@ fun AdminContentScreen(onBack: () -> Unit, notify: (String) -> Unit) {
     var reflectionHint by remember { mutableStateOf("") }
     var gratitudeTitle by remember { mutableStateOf("") }
     var gratitudeHint by remember { mutableStateOf("") }
+    var classTitle by remember { mutableStateOf("") }
+    var classBody by remember { mutableStateOf("") }
+    var bannerTitle by remember { mutableStateOf("") }
+    var bannerBody by remember { mutableStateOf("") }
+    val sections = remember { mutableStateListOf<ExploreSection>() }
+    var shopIntro by remember { mutableStateOf("") }
+    val products = remember { mutableStateListOf<ShopProduct>() }
     var saving by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
 
@@ -76,6 +87,8 @@ fun AdminContentScreen(onBack: () -> Unit, notify: (String) -> Unit) {
         homeQuote = c.homeQuote; rhythmQuote = c.rhythmQuote; cards.clear(); cards.addAll(c.rhythmCards)
         reflectionTitle = c.journal.reflectionTitle; reflectionHint = c.journal.reflectionHint
         gratitudeTitle = c.journal.gratitudeTitle; gratitudeHint = c.journal.gratitudeHint
+        classTitle = c.home.classTitle; classBody = c.home.classBody; bannerTitle = c.home.bannerTitle; bannerBody = c.home.bannerBody
+        sections.clear(); sections.addAll(c.explore); shopIntro = c.shop.intro; products.clear(); products.addAll(c.shop.products)
     }
     LaunchedEffect(Unit) { vm.content()?.let { fill(it) }; loaded = true }
 
@@ -134,12 +147,49 @@ fun AdminContentScreen(onBack: () -> Unit, notify: (String) -> Unit) {
                     RfTextField(gratitudeHint, { gratitudeHint = it.take(80) }, "Gratitude prompt")
                 }
             }
+            SoftCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Home wording", style = MaterialTheme.typography.titleLarge)
+                    RfTextField(classTitle, { classTitle = it.take(80) }, "Class card title")
+                    RfTextField(classBody, { classBody = it.take(200) }, "Class card text", singleLine = false, minLines = 2)
+                    RfTextField(bannerTitle, { bannerTitle = it.take(80) }, "Banner title")
+                    RfTextField(bannerBody, { bannerBody = it.take(200) }, "Banner text", singleLine = false, minLines = 2)
+                }
+            }
+            SoftCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Explore sections and articles", style = MaterialTheme.typography.titleLarge)
+                    Text("The six sections in Explore. The last one opens the Shop. Leave a blank line between paragraphs in an article.", style = MaterialTheme.typography.bodySmall, color = Brand.Muted)
+                    sections.forEachIndexed { i, x ->
+                        RfTextField(x.title, { sections[i] = x.copy(title = it.take(40)) }, "Section ${i + 1} title")
+                        RfTextField(x.blurb, { sections[i] = x.copy(blurb = it.take(100)) }, "Short line")
+                        if (i < 5) RfTextField(x.body, { sections[i] = x.copy(body = it.take(6000)) }, "Article text", singleLine = false, minLines = 5)
+                    }
+                }
+            }
+            SoftCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Shop", style = MaterialTheme.typography.titleLarge)
+                    RfTextField(shopIntro, { shopIntro = it.take(300) }, "Message at the top", singleLine = false, minLines = 2)
+                    products.forEachIndexed { i, p ->
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(Modifier.weight(1f)) { RfTextField(p.name, { products[i] = p.copy(name = it.take(40)) }, "Product") }
+                            Box(Modifier.width(96.dp)) { RfTextField(p.price, { products[i] = p.copy(price = it.take(20)) }, "Price") }
+                            IconButton(onClick = { products.removeAt(i) }) { Icon(Icons.Default.Delete, "Remove product", tint = Brand.Error) }
+                        }
+                    }
+                    SecondaryButton("Add a product", enabled = products.size < 12, onClick = { products.add(ShopProduct("New product", "R0")) })
+                }
+            }
             PrimaryButton("Save changes", loading = saving, onClick = {
                 val content = AppContent(
                     moods.map { MoodItem(it.label.trim(), it.emoji.trim(), it.color.trim().uppercase()) },
                     affirmations.lines().map { it.trim() }.filter { it.isNotEmpty() }, homeQuote.trim(), rhythmQuote.trim(),
                     cards.map { RhythmCardItem(it.title.trim(), it.subtitle.trim()) },
                     JournalPrompts(reflectionTitle.trim(), reflectionHint.trim(), gratitudeTitle.trim(), gratitudeHint.trim()),
+                    HomeText(classTitle.trim(), classBody.trim(), bannerTitle.trim(), bannerBody.trim()),
+                    sections.mapIndexed { i, x -> ExploreSection(x.title.trim(), x.blurb.trim(), if (i < 5) x.body.trim() else "") },
+                    ShopContent(shopIntro.trim(), products.map { ShopProduct(it.name.trim(), it.price.trim()) }),
                 )
                 saving = true
                 scope.launch {
@@ -157,7 +207,7 @@ fun AdminContentScreen(onBack: () -> Unit, notify: (String) -> Unit) {
     if (confirmReset) AlertDialog(
         onDismissRequest = { confirmReset = false },
         title = { Text("Go back to the original wording?") },
-        text = { Text("Your moods, affirmations, quotes and journal wording are replaced by the ones the app came with.") },
+        text = { Text("All the wording on this screen is replaced by the one the app came with.") },
         confirmButton = {
             TextButton(onClick = {
                 confirmReset = false

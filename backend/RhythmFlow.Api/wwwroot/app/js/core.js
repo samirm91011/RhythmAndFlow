@@ -144,6 +144,7 @@ async function loadSubs(force) {
 }
 /* ---------- the wording the client edits herself (moods, affirmations, quotes, journal prompts) ----------
    The server holds her version. These are the built-in words, used until she saves a change or if the server cannot be reached. */
+const ARTICLE_TEXT = "Movement is not just about physical exercise; it is a way to freely express ourselves, connect with others, and find inner balance. Whether you are a beginner or an experienced mover, there is a place for you in this community.\n\nBalance isn't about doing it all. It's about creating space for what matters most. Here are a few simple ways to bring more intention into your everyday life:\n\n•  Start the day with a few slow breaths.\n•  Move in a way that feels kind to your body.\n•  End the day by noting one thing you're grateful for.";
 const DEFAULT_CONTENT = {
   moods: [
     { label: "Energised", emoji: "☀️", color: "#FFF1DC" }, { label: "Tired", emoji: "🔋", color: "#E3ECFB" }, { label: "Stressed", emoji: "☁️", color: "#F3E6EE" },
@@ -158,6 +159,13 @@ const DEFAULT_CONTENT = {
   rhythmQuote: "Progress isn't about doing more, it's about coming back to yourself.",
   rhythmCards: [{ title: "Morning Reset", subtitle: "10 mins" }, { title: "Nourish Your Body", subtitle: "Recipes" }, { title: "Move & Release", subtitle: "15 mins" }],
   journal: { reflectionTitle: "Today's Reflection", reflectionHint: "What's on your mind?", gratitudeTitle: "Gratitude", gratitudeHint: "What are you grateful for today?" },
+  home: { classTitle: "Join a class", classBody: "Move with Deni and the community. Browse upcoming classes and reserve your spot.", bannerTitle: "Build a life that feels good.", bannerBody: "Unlock every programme with a monthly subscription." },
+  explore: [
+    { title: "Feed Your Soul", blurb: "Mindfulness, meditation, emotional wellbeing.", body: ARTICLE_TEXT }, { title: "Nourish Your Body", blurb: "Nutrition, food, self-care.", body: ARTICLE_TEXT },
+    { title: "Open Your Mind", blurb: "Personal development, mindset, coaching.", body: ARTICLE_TEXT }, { title: "Discover New Journeys", blurb: "Travel, experiences, trying something new.", body: ARTICLE_TEXT },
+    { title: "Coaching & Programmes", blurb: "Guided support for your next chapter.", body: ARTICLE_TEXT }, { title: "Shop", blurb: "Wellness products for everyday living.", body: "" },
+  ],
+  shop: { intro: "The Rhythm & Flow shop is coming soon to the app. For now, visit rhythmandflow.co.za to order.", products: [{ name: "Yoga Mat", price: "R650" }, { name: "Stainless Steel Bottle", price: "R450" }, { name: "Resistance Bands", price: "R320" }, { name: "Wellness Journal", price: "R250" }] },
 };
 const content = () => RF.content || DEFAULT_CONTENT;
 async function loadContent() {

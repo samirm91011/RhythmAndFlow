@@ -71,7 +71,7 @@ fun AdminHomeScreen(name: String, onNavigate: (String) -> Unit, onCustomerView: 
                 AdminLink("Classes & events", "Schedule classes, workshops and retreats, set ticket prices, see who is booked") { onNavigate("admin/classes") }
                 AdminLink("Event requests & refunds", "Late cancellation requests and refunds to pay on PayFast") { onNavigate("admin/events") }
                 AdminLink("Lessons & videos", "Add, edit or remove lessons") { onNavigate("admin/lessons") }
-                AdminLink("App content", "Edit the check-in moods, affirmations, quotes and journal wording") { onNavigate("admin/content") }
+                AdminLink("App content", "Edit the wording in the app: moods, quotes, journal, Home, Explore articles and Shop") { onNavigate("admin/content") }
                 AdminLink("Programmes", "Add, edit or hide programmes") { onNavigate("admin/programmes") }
                 AdminLink("Subscription plans", "Add plans, change prices, hide a plan") { onNavigate("admin/plans") }
                 Text("Review", style = MaterialTheme.typography.titleMedium)

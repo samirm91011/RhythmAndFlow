@@ -32,7 +32,7 @@ route("/admin", async (el) => {
       ${aLink("Classes & events", "Schedule classes, workshops and retreats, set ticket prices, see who is booked", "#/admin/classes")}
       ${aLink("Event requests & refunds", "Late cancellation requests and refunds to pay on PayFast", "#/admin/events")}
       ${aLink("Lessons & videos", "Add, edit or remove lessons", "#/admin/lessons")}
-      ${aLink("App content", "Edit the check-in moods, affirmations, quotes and journal wording", "#/admin/content")}
+      ${aLink("App content", "Edit the wording in the app: moods, quotes, journal, Home, Explore articles and Shop", "#/admin/content")}
       ${aLink("Programmes", "Add, edit or hide programmes", "#/admin/programmes")}
       ${aLink("Subscription plans", "Add plans, change prices, hide a plan", "#/admin/plans")}
       <h3 class="mt-s">Review</h3>
@@ -178,6 +178,14 @@ route("/admin/content", async (el) => {
         ${c.rhythmCards.map((r, i) => `<div class="row">${field("r_t" + i, "Title", { value: r.title, max: 40 })}${field("r_s" + i, "Small line", { value: r.subtitle, max: 40 })}</div>`).join("")}</div>
       <div class="card stack"><h3>Journal wording</h3>${field("j_rt", "Reflection title", { value: c.journal.reflectionTitle, max: 80 })}${field("j_rh", "Reflection prompt", { value: c.journal.reflectionHint, max: 80 })}
         ${field("j_gt", "Gratitude title", { value: c.journal.gratitudeTitle, max: 80 })}${field("j_gh", "Gratitude prompt", { value: c.journal.gratitudeHint, max: 80 })}</div>
+      <div class="card stack"><h3>Home wording</h3><p class="small muted">The class card and the banner on Home.</p>${field("h_ct", "Class card title", { value: c.home.classTitle, max: 80 })}${field("h_cb", "Class card text", { value: c.home.classBody, max: 200 })}
+        ${field("h_bt", "Banner title", { value: c.home.bannerTitle, max: 80 })}${field("h_bb", "Banner text", { value: c.home.bannerBody, max: 200 })}</div>
+      <div class="card stack"><h3>Explore sections and articles</h3><p class="small muted">The six sections in Explore. The last one opens the Shop. Leave a blank line between paragraphs in an article.</p>
+        ${c.explore.map((x, i) => `<div class="stack" style="border-top:1px solid #e5e5e5;padding-top:10px">${field("x_t" + i, "Section " + (i + 1) + " title", { value: x.title, max: 40 })}${field("x_b" + i, "Short line", { value: x.blurb, max: 100 })}
+          ${i < 5 ? field("x_a" + i, "Article text", { area: true, value: x.body, max: 6000 }) : ""}</div>`).join("")}</div>
+      <div class="card stack"><h3>Shop</h3><p class="small muted">The message at the top and the products shown. Up to 12.</p>${field("s_i", "Message", { area: true, value: c.shop.intro, max: 300 })}
+        ${c.shop.products.map((p, i) => `<div class="row">${field("p_n" + i, "Product", { value: p.name, max: 40 })}${field("p_p" + i, "Price", { value: p.price, max: 20 })}<button class="iconbtn" style="margin:0 0 14px" data-rmprod="${i}" aria-label="Remove product">${ic("trash")}</button></div>`).join("")}
+        <button class="btn secondary" data-addprod ${c.shop.products.length >= 12 ? "disabled" : ""}>Add a product</button></div>
       <div class="formerr hidden" id="ferr" role="alert"></div>
       <button class="btn accent" id="csave">Save changes</button><button class="btn secondary" id="creset">Go back to the original wording</button></div>`;
   };
@@ -188,14 +196,19 @@ route("/admin/content", async (el) => {
     c.homeQuote = val("q_home").trim(); c.rhythmQuote = val("q_rhythm").trim();
     c.rhythmCards = c.rhythmCards.map((r, i) => ({ title: val("r_t" + i).trim(), subtitle: val("r_s" + i).trim() }));
     c.journal = { reflectionTitle: val("j_rt").trim(), reflectionHint: val("j_rh").trim(), gratitudeTitle: val("j_gt").trim(), gratitudeHint: val("j_gh").trim() };
+    c.home = { classTitle: val("h_ct").trim(), classBody: val("h_cb").trim(), bannerTitle: val("h_bt").trim(), bannerBody: val("h_bb").trim() };
+    c.explore = c.explore.map((x, i) => ({ title: val("x_t" + i).trim(), blurb: val("x_b" + i).trim(), body: i < 5 ? val("x_a" + i).trim() : "" }));
+    c.shop = { intro: val("s_i").trim(), products: c.shop.products.map((p, i) => ({ name: val("p_n" + i).trim(), price: val("p_p" + i).trim() })) };
   };
   el.onclick = async (e) => {
     try {
       const rm = e.target.closest("[data-rmmood]");
       if (e.target.closest("[data-addmood]")) { read(); c.moods.push({ label: "New mood", emoji: "🙂", color: "#E3F0ED" }); return draw(); }
+      if (e.target.closest("[data-addprod]")) { read(); c.shop.products.push({ name: "New product", price: "R0" }); return draw(); }
+      const rp = e.target.closest("[data-rmprod]"); if (rp) { read(); c.shop.products.splice(Number(rp.dataset.rmprod), 1); return draw(); }
       if (rm) { read(); if (c.moods.length <= 1) return toast("Keep at least one mood."); c.moods.splice(Number(rm.dataset.rmmood), 1); return draw(); }
       if (e.target.id === "creset") {
-        if (!(await dialog({ title: "Go back to the original wording?", text: "Your moods, affirmations, quotes and journal wording are replaced by the ones the app came with.", ok: "Go back", cancel: "Keep mine", danger: true }))) return;
+        if (!(await dialog({ title: "Go back to the original wording?", text: "All the wording on this page is replaced by the ones the app came with.", ok: "Go back", cancel: "Keep mine", danger: true }))) return;
         await api("POST", "/api/admin/content/reset"); RF.content = null; toast("Back to the original wording."); return navigate();
       }
       if (e.target.id === "csave") {

@@ -85,6 +85,42 @@ public class AppContentTests
     }
 
     [Fact]
+    public async Task Home_wording_explore_articles_and_shop_are_editable_and_default_when_missing()
+    {
+        using var t = new TestDb(); var svc = new AppContentService(t.Db);
+        var d = AppContentService.Defaults();
+        Assert.Equal(6, d.Explore!.Count); Assert.Equal(4, d.Shop!.Products.Count);
+
+        var ex = d.Explore.ToList(); ex[0] = new("Feed Your Spirit", "New line.", "My own article.\n\nSecond paragraph.");
+        var (ok, error) = await svc.SaveAsync(d with { Explore = ex, Shop = new("Open on Saturdays.", [new("Mat", "R700")]), Home = d.Home! with { BannerTitle = "Welcome." } });
+        var c = await svc.GetAsync();
+
+        Assert.True(ok, error);
+        Assert.Equal("Feed Your Spirit", c.Explore![0].Title); Assert.Equal("My own article.\n\nSecond paragraph.", c.Explore[0].Body);
+        Assert.Equal("Nourish Your Body", c.Explore[1].Title);
+        Assert.Equal(["Mat"], c.Shop!.Products.Select(p => p.Name)); Assert.Equal("Welcome.", c.Home!.BannerTitle);
+
+        t.Db.AppContents.RemoveRange(t.Db.AppContents); t.Db.AppContents.Add(new RhythmFlow.Api.Domain.AppContent { Key = "app", Json = "{\"homeQuote\":\"Only this\"}" }); t.Db.SaveChanges();
+        var old = await svc.GetAsync();   // content saved before these fields existed
+        Assert.Equal(6, old.Explore!.Count); Assert.Equal("Join a class", old.Home!.ClassTitle);
+    }
+
+    [Fact]
+    public void Explore_home_and_shop_mistakes_are_refused()
+    {
+        var d = AppContentService.Defaults();
+        Assert.Contains("six Explore", AppContentService.Validate(d with { Explore = d.Explore!.Take(5).ToList() }));
+        var dup = d.Explore!.ToList(); dup[1] = dup[1] with { Title = "feed your soul" };
+        Assert.Contains("same title", AppContentService.Validate(d with { Explore = dup }));
+        var long1 = d.Explore!.ToList(); long1[0] = long1[0] with { Body = new string('x', 6001) };
+        Assert.Contains("6000", AppContentService.Validate(d with { Explore = long1 }));
+        Assert.Contains("Shop message", AppContentService.Validate(d with { Shop = d.Shop! with { Intro = "" } }));
+        Assert.Contains("price", AppContentService.Validate(d with { Shop = d.Shop! with { Products = [new("Mat", "")] } }));
+        Assert.Contains("Home wording", AppContentService.Validate(d with { Home = d.Home! with { ClassTitle = "" } }));
+        Assert.Null(AppContentService.Validate(d with { Shop = d.Shop! with { Products = [] } }));
+    }
+
+    [Fact]
     public async Task A_refused_change_saves_nothing()
     {
         using var t = new TestDb();
