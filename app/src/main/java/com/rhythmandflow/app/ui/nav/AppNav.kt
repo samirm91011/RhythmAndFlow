@@ -182,14 +182,16 @@ private fun MainGraph(
     val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 840
     val prefs = container().localPrefs
 
-    // Ask once (Android 13+) for permission to show notifications.
+    // Ask once (Android 13+) for permission to show notifications, at the moment it is useful: after the first booking (the
+    // reminders are for booked classes). An administrator, who has no bookings, is asked right away because the alerts are theirs.
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    LaunchedEffect(Unit) {
+    val askForNotifications = {
         if (Build.VERSION.SDK_INT >= 33 && !prefs.getBool("asked_notification_permission")) {
             prefs.putBool("asked_notification_permission", true)
             permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
+    LaunchedEffect(adminView) { if (adminView) askForNotifications() }
 
     // A tapped notification asks us to open a screen; only known screens are opened.
     LaunchedEffect(pendingRoute, backStack != null) {
@@ -268,7 +270,7 @@ private fun MainGraph(
             val back: () -> Unit = { nav.popBackStack() }
 
             // ---- Tabs ----
-            composable("home") { HomeScreen(session, onNavigate = go, notify = notify) }
+            composable("home") { HomeScreen(session, onNavigate = go, notify = notify, onHasBooking = askForNotifications) }
             composable("move") { MoveScreen(onLesson = { nav.navigate("lesson/$it") }, onProgramme = { nav.navigate("programme/$it") }) }
             composable("programme/{id}", listOf(navArgument("id") { type = NavType.IntType })) { e ->
                 ProgrammeScreen(e.arguments!!.getInt("id"), onBack = back, onLesson = { nav.navigate("lesson/$it") }, onPlans = { nav.navigate("plans") })
@@ -278,7 +280,7 @@ private fun MainGraph(
             composable("classes") {
                 ClassesScreen(
                     onBookings = { nav.navigate("bookings") }, onPayment = { id -> nav.navigate("ticket-payment/$id") },
-                    onPolicies = { nav.navigate("policies") }, notify = notify,
+                    onPolicies = { nav.navigate("policies") }, notify = notify, onBooked = askForNotifications,
                 )
             }
             composable("ticket-payment/{id}", listOf(navArgument("id") { type = NavType.IntType })) { e ->

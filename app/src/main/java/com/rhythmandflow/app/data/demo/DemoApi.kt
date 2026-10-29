@@ -344,6 +344,13 @@ class DemoApi : Api {
     override suspend fun adminResolveRequest(id: Int, body: ResolveRequestBody): Response<Unit> { pause(); demoRequests.removeAll { it.bookingId == id }; return ok() }
     override suspend fun adminRefunds(): List<AdminRefund> { pause(); return demoRefunds.toList() }
     override suspend fun adminMarkRefunded(id: Int): Response<Unit> { pause(); demoRefunds.removeAll { it.bookingId == id }; return ok() }
+    override suspend fun suggestion(mood: String): Suggestion {
+        pause()
+        val cat = when (mood) { "Stressed" -> "Breathwork"; "Tired" -> "Stretch & Mobility"; "Overwhelmed" -> "Meditation"; "Energised", "Happy" -> "Dance"; else -> "Yoga" }
+        val l = lessons(null, null, null).firstOrNull { it.category == cat && !it.locked }
+        return Suggestion(mood, cat, l?.id, l?.title, l?.durationSeconds ?: 0, "A practice that suits how you feel right now.")
+    }
+    override suspend fun feelInsight(): FeelInsight { pause(); return FeelInsight(0, 0, null, emptyList(), null) }
     private var demoContent = AppContent.builtIn
     override suspend fun content(): AppContent { pause(); return demoContent }
     override suspend fun adminContent(): AppContent { pause(); return demoContent }

@@ -103,6 +103,8 @@ interface Api {
     @POST("api/admin/bookings/{id}/resolve") suspend fun adminResolveRequest(@Path("id") id: Int, @Body body: ResolveRequestBody): Response<Unit>
     @GET("api/admin/refunds") suspend fun adminRefunds(): List<AdminRefund>
     @POST("api/admin/bookings/{id}/refunded") suspend fun adminMarkRefunded(@Path("id") id: Int): Response<Unit>
+    @GET("api/suggestion") suspend fun suggestion(@Query("mood") mood: String): Suggestion
+    @GET("api/insights/feel") suspend fun feelInsight(): FeelInsight
     @GET("api/content") suspend fun content(): AppContent
     @GET("api/admin/content") suspend fun adminContent(): AppContent
     @PUT("api/admin/content") suspend fun adminSaveContent(@Body body: AppContent): Response<Unit>

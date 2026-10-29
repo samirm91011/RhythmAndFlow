@@ -60,6 +60,15 @@ public class ContentController(
         return ToDto(l, tier, p);
     }
 
+    /// <summary>The feel-better loop: a practice that suits how the person says they feel right now.</summary>
+    [Authorize, HttpGet("api/suggestion")]
+    public async Task<SuggestionDto> Suggestion([FromQuery] string? mood) =>
+        await FeelService.SuggestAsync(db, UserId, await entitlement.GetUserTierAsync(UserId), IsAdmin, mood);
+
+    /// <summary>A short summary of how practising has been leaving this person feeling over the last 30 days.</summary>
+    [Authorize, HttpGet("api/insights/feel")]
+    public Task<FeelInsightDto> FeelInsight() => FeelService.InsightAsync(db, UserId, DateTime.UtcNow);
+
     /// <summary>The wording the client can edit (moods, affirmations, quotes, journal prompts). Her version, or the built-in one.</summary>
     [Authorize, HttpGet("api/content")]
     public Task<AppContentDto> AppContent() => appContent.GetAsync();

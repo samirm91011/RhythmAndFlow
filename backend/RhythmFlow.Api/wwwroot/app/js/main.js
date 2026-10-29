@@ -32,13 +32,14 @@ const rhythmCards = () => `<div class="cards3">${content().rhythmCards.map((c, i
 
 /* ---------------- Home ---------------- */
 route("/home", async (el) => {
-  const [lessons, summary, subs, bell, bookings] = await Promise.all([api("GET", "/api/lessons"), api("GET", "/api/progress/summary"), loadSubs(true), bellButton(), api("GET", "/api/bookings").catch(() => [])]);
+  const [lessons, summary, subs, bell, bookings, feel] = await Promise.all([api("GET", "/api/lessons"), api("GET", "/api/progress/summary"), loadSubs(true), bellButton(), api("GET", "/api/bookings").catch(() => []), api("GET", "/api/insights/feel").catch(() => null)]);
   const first = (RF.user && RF.user.fullName || "").split(" ")[0] || "";
   const resume = lessons.filter((l) => !l.locked && l.watchTimeSeconds > 0 && l.completionPercentage < 95).sort((a, b) => b.completionPercentage - a.completionPercentage)[0];
   const next = bookings.filter((b) => b.status === "BOOKED" && new Date(b.startTime) > new Date()).sort((a, b) => new Date(a.startTime) - new Date(b.startTime))[0];
   el.innerHTML = `<div class="top"><img src="img/logo.png" alt="Rhythm &amp; Flow" style="width:52px;height:52px"><div class="grow"></div>${bell}</div>
     <div class="greet"><h1>${esc(greeting())}${first ? ", " + esc(first) : ""}</h1><p class="muted mt-s">Take a moment to check in with yourself. How are you feeling today?</p></div>
     <div class="moods mt" role="group" aria-label="Mood">${content().moods.map((m) => `<button class="mood" data-mood="${esc(m.label)}" style="background:${esc(m.color)}"><span class="em" aria-hidden="true">${esc(m.emoji)}</span>${esc(m.label)}</button>`).join("")}</div>
+    <div class="pad" id="suggest" aria-live="polite"></div>
     <div class="pad mt">${next
       ? `<a class="card tint" href="#/classes?t=mine"><span class="pill solid" style="background:var(--teal-deep)">Your next class</span><h3 style="margin-top:8px">${esc(next.className)}</h3><p class="muted small">${fmtDayTime(next.startTime)} · ${esc(next.location)}</p></a>`
       : `<a class="card tang" href="#/classes"><h3>${esc(content().home.classTitle)}</h3><p class="muted small">${esc(content().home.classBody)}</p></a>`}</div>
@@ -46,6 +47,7 @@ route("/home", async (el) => {
       <p class="muted small">${Math.round(resume.completionPercentage)}% done · about ${Math.max(0, Math.ceil((resume.durationSeconds - resume.watchTimeSeconds) / 60))} min left</p><div class="bar"><i style="width:${Math.round(resume.completionPercentage)}%"></i></div></a></div>` : ""}
     <div class="sect"><h3>Your Rhythm Today</h3><a class="linkbtn" href="#/rhythm">See All</a></div>
     ${rhythmCards()}
+    ${feel && feel.message ? `<div class="pad mt"><div class="card tint"><span class="pill solid" style="background:var(--teal-deep)">Your feel-better story</span><p style="margin-top:8px">${esc(feel.message)}</p></div></div>` : ""}
     <div class="cards3 mt"><a class="card stat" href="#/progress"><b>${summary.sessionsThisMonth}</b><span>sessions this month</span></a><a class="card stat" href="#/progress"><b>${summary.minutesWatched}</b><span>minutes moved</span></a><a class="card stat" href="#/progress"><b>${summary.completedLessons}</b><span>completed</span></a></div>
     ${hasAccess(subs) ? "" : `<div class="pad mt"><div class="banner"><h2>${esc(content().home.bannerTitle)}</h2><p>${esc(content().home.bannerBody)}</p><a class="btn accent small" style="display:inline-flex" href="#/plans">See plans</a></div></div>`}
     <div class="pad mt"><div class="card"><h3 class="muted center" style="font-weight:600">“${esc(content().homeQuote)}”</h3></div></div>
@@ -53,7 +55,13 @@ route("/home", async (el) => {
   el.onclick = async (e) => {
     const b = e.target.closest("[data-mood]"); if (!b) return;
     const mood = b.dataset.mood; $$(".mood").forEach((x) => x.classList.toggle("on", x === b));
-    try { await api("POST", "/api/journal", { kind: "CHECKIN", mood, text: "" }); toast(`Thanks for checking in. You're feeling ${mood} today.`); } catch (err) { toast(err.message); }
+    try {
+      await api("POST", "/api/journal", { kind: "CHECKIN", mood, text: "" }); toast(`Thanks for checking in. You're feeling ${mood} today.`);
+      const s = await api("GET", "/api/suggestion?mood=" + encodeURIComponent(mood)).catch(() => null), box = $("#suggest");
+      if (s && box) box.innerHTML = `<div class="card tang"><span class="pill solid" style="background:var(--teal-deep)">Suggested for how you feel</span><p class="muted small" style="margin-top:8px">${esc(s.reason)}</p>
+        ${s.lessonId ? `<h3 style="margin-top:4px">${esc(s.title)}</h3><p class="muted small">${esc(s.category)} · ${Math.max(1, Math.round(s.durationSeconds / 60))} min</p><a class="btn small" style="display:inline-flex;margin-top:8px" href="#/lesson/${s.lessonId}">Start this practice</a>`
+          : `<a class="btn small secondary" style="display:inline-flex;margin-top:8px" href="#/move">Browse ${esc(s.category)}</a>`}</div>`;
+    } catch (err) { toast(err.message); }
   };
 }, { tab: "home" });
 

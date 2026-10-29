@@ -160,6 +160,12 @@ const DEMO = (() => {
         if (!(body.amount >= 1)) fail("Enter an amount of at least R1.", 400);
         return delay(null);
       case key === "GET /api/content": case key === "GET /api/admin/content": return delay(DEFAULT_CONTENT);
+      case key === "GET /api/insights/feel": return delay({ checkIns: 0, practicesLogged: 0, topFeeling: null, journeys: [], message: null });
+      case key === "GET /api/suggestion": {
+        const cat = { Stressed: "Breathwork", Tired: "Stretch & Mobility", Overwhelmed: "Meditation", Energised: "Dance", Happy: "Dance" }[q.get("mood")] || "Yoga";
+        const l = lessons.find((x) => x.category === cat && !x.locked);
+        return delay({ mood: q.get("mood") || "", category: cat, lessonId: l ? l.id : null, title: l ? l.title : null, durationSeconds: l ? l.durationSeconds : 0, reason: "A practice that suits how you feel right now." });
+      }
       case key === "PUT /api/admin/content": case key === "POST /api/admin/content/reset": fail("Saving changes isn't available in the demo.", 400);
       case key === "GET /api/journal": return delay(state.journal);
       case key === "POST /api/journal": { const e = { id: state.nextId++, kind: body.kind, mood: body.mood || "", text: body.text || "", createdAt: new Date().toISOString() }; state.journal.unshift(e); return delay(e); }
