@@ -157,6 +157,7 @@ fun AdminProgrammesScreen(onBack: () -> Unit, notify: (String) -> Unit) {
     var description by remember { mutableStateOf("") }
     var level by remember { mutableStateOf(1) }
     var editing by remember { mutableStateOf<AdminProgramme?>(null) }
+    var deleting by remember { mutableStateOf<AdminProgramme?>(null) }
     OnResume { vm.load() }
     val data = state.data
 
@@ -197,6 +198,7 @@ fun AdminProgrammesScreen(onBack: () -> Unit, notify: (String) -> Unit) {
                                         notify(err ?: if (p.active) "Hidden from customers." else "Visible to customers again.")
                                     }
                                 }) { Text(if (p.active) "Hide" else "Show", color = if (p.active) Brand.Error else Brand.TealDeep) }
+                                TextButton(onClick = { deleting = p }) { Text("Delete", color = Brand.Error) }
                             }
                         }
                     }
@@ -204,6 +206,16 @@ fun AdminProgrammesScreen(onBack: () -> Unit, notify: (String) -> Unit) {
             }
             VSpace(16)
         }
+    }
+
+    deleting?.let { p ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text("Delete ${p.name}?") },
+            text = { Text("This removes the programme, its ${p.lessonCount} ${if (p.lessonCount == 1) "practice" else "practices"}, any uploaded video files and everyone's progress on them. It can't be undone. To just hide it from customers, use Hide instead.") },
+            confirmButton = { TextButton(onClick = { deleting = null; scope.launch { notify(vm.delete(p.id) ?: "Programme deleted.") } }) { Text("Delete for good", color = Brand.Error) } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Keep it") } },
+        )
     }
 
     editing?.let { p ->

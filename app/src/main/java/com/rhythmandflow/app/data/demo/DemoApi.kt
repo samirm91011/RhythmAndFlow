@@ -493,4 +493,11 @@ class DemoApi : Api {
     override suspend fun adminErrors(status: String): List<ErrorLogItem> { pause(); return errors.filter { status == "ALL" || it.status == status } }
     override suspend fun adminResolveError(id: Int): Response<Unit> { pause(); errors.replaceAll { if (it.id == id) it.copy(status = "RESOLVED") else it }; return ok() }
     override suspend fun adminResolveAllErrors(): Response<Unit> { pause(); errors.replaceAll { it.copy(status = "RESOLVED") }; return ok() }
+    override suspend fun adminDeleteError(id: Int): Response<Unit> { pause(); errors.removeAll { it.id == id }; return ok() }
+    override suspend fun adminClearResolvedErrors(): Response<Unit> { pause(); errors.removeAll { it.status == "RESOLVED" }; return ok() }
+    override suspend fun adminDeleteClass(id: Int): Response<Unit> { pause(); return ok() }
+    override suspend fun adminClearFinishedClasses(): RemovedCount { pause(); return RemovedCount(0) }
+    override suspend fun adminDeleteUser(id: String): Response<Unit> { pause(); demoUsers.removeAll { it.id == id }; return ok() }
+    override suspend fun adminDeleteProgramme(id: Int): Response<Unit> { pause(); demoProgrammes.removeAll { it.id == id }; return ok() }
+    override suspend fun adminDeletePlan(id: Int): Response<Unit> { pause(); return ok() }
 }

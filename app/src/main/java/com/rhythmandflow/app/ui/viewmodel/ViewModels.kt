@@ -473,6 +473,13 @@ class AdminViewModel(private val c: AppContainer) : ViewModel() {
 
     suspend fun createClass(c: ClassUpsert) = after(repo.adminCreateClass(c))
     suspend fun cancelClass(id: Int) = after(repo.adminCancelClass(id))
+    suspend fun deleteClass(id: Int) = after(repo.adminDeleteClass(id))
+    /** Deletes every cancelled or finished class nobody paid for. Returns how many went, or the server's message. */
+    suspend fun clearFinishedClasses(): Pair<Int?, String?> = when (val r = repo.adminClearFinishedClasses()) {
+        is Outcome.Ok -> { load(); r.value.removed to null }
+        is Outcome.Fail -> null to r.message
+    }
+    suspend fun deletePlan(id: Int) = after(repo.adminDeletePlan(id))
     suspend fun createLesson(l: LessonUpsert) = after(repo.adminCreateLesson(l))
 
     /** The wording the client edits: loads it, saves it, or goes back to the built-in wording. Save and reset return a message if refused. */
@@ -618,6 +625,11 @@ class AdminProgrammesViewModel(private val c: AppContainer) : ViewModel() {
         is Outcome.Ok -> { load(); null }
         is Outcome.Fail -> r.message
     }
+
+    suspend fun delete(id: Int): String? = when (val r = repo.adminDeleteProgramme(id)) {
+        is Outcome.Ok -> { load(); null }
+        is Outcome.Fail -> r.message
+    }
 }
 
 class PaymentsViewModel(private val c: AppContainer) : ViewModel() {
@@ -663,6 +675,11 @@ class AdminUsersViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     suspend fun setStatus(id: String, status: String): String? = when (val r = repo.adminSetUserStatus(id, status)) {
+        is Outcome.Ok -> { load(); null }
+        is Outcome.Fail -> r.message
+    }
+
+    suspend fun delete(id: String): String? = when (val r = repo.adminDeleteUser(id)) {
         is Outcome.Ok -> { load(); null }
         is Outcome.Fail -> r.message
     }
@@ -757,6 +774,16 @@ class AdminErrorsViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     suspend fun resolveAll(): String? = when (val r = repo.adminResolveAllErrors()) {
+        is Outcome.Ok -> { load(); null }
+        is Outcome.Fail -> r.message
+    }
+
+    suspend fun delete(id: Int): String? = when (val r = repo.adminDeleteError(id)) {
+        is Outcome.Ok -> { load(); null }
+        is Outcome.Fail -> r.message
+    }
+
+    suspend fun clearResolved(): String? = when (val r = repo.adminClearResolvedErrors()) {
         is Outcome.Ok -> { load(); null }
         is Outcome.Fail -> r.message
     }

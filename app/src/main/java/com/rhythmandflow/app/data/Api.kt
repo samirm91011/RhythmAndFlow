@@ -87,6 +87,13 @@ interface Api {
     @GET("api/admin/errors") suspend fun adminErrors(@Query("status") status: String = "NEW"): List<ErrorLogItem>
     @POST("api/admin/errors/{id}/resolve") suspend fun adminResolveError(@Path("id") id: Int): Response<Unit>
     @POST("api/admin/errors/resolve-all") suspend fun adminResolveAllErrors(): Response<Unit>
+    @DELETE("api/admin/errors/{id}") suspend fun adminDeleteError(@Path("id") id: Int): Response<Unit>
+    @POST("api/admin/errors/clear-resolved") suspend fun adminClearResolvedErrors(): Response<Unit>
+    @DELETE("api/admin/classes/{id}") suspend fun adminDeleteClass(@Path("id") id: Int): Response<Unit>
+    @POST("api/admin/classes/clear-finished") suspend fun adminClearFinishedClasses(): RemovedCount
+    @DELETE("api/admin/users/{id}") suspend fun adminDeleteUser(@Path("id") id: String): Response<Unit>
+    @DELETE("api/admin/programmes/{id}") suspend fun adminDeleteProgramme(@Path("id") id: Int): Response<Unit>
+    @DELETE("api/admin/plans/{id}") suspend fun adminDeletePlan(@Path("id") id: Int): Response<Unit>
     @GET("api/admin/summary") suspend fun adminSummary(): AdminSummary
     @GET("api/admin/lessons") suspend fun adminLessons(): List<AdminLesson>
     @PUT("api/admin/lessons/{id}") suspend fun adminUpdateLesson(@Path("id") id: Int, @Body body: LessonUpsert): Response<Unit>

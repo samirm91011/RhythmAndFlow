@@ -61,6 +61,26 @@ public class AccountService(AppDbContext db, SubscriptionService subs)
             !await db.Users.AnyAsync(u => u.Role == Roles.Admin && u.AccountStatus == "ACTIVE" && u.Id != userId))
             return (false, "You are the only administrator, so this account can't be deleted. Make someone else an administrator first.");
 
+        return await EraseAsync(user);
+    }
+
+    /// <summary>
+    /// An administrator deletes a customer's account (for example a test account, or a request received by email). It does exactly what the
+    /// customer's own delete does. An administrator account is never deleted here, and not your own.
+    /// </summary>
+    public async Task<(bool Ok, bool NotFound, string? Error)> AdminDeleteAsync(Guid actingAdminId, Guid targetId)
+    {
+        if (targetId == actingAdminId) return (false, false, "You can't delete your own account here.");
+        var user = await db.Users.FindAsync(targetId);
+        if (user is null || user.AccountStatus == "DELETED") return (false, true, null);
+        if (user.Role == Roles.Admin) return (false, false, "An administrator account can't be deleted here.");
+        var (ok, error) = await EraseAsync(user);
+        return (ok, false, error);
+    }
+
+    private async Task<(bool Ok, string? Error)> EraseAsync(User user)
+    {
+        var userId = user.Id;
         // Stop future PayFast charges before anything is removed. If PayFast refuses, nothing is deleted.
         var active = await db.Subscriptions.Where(s => s.UserId == userId && s.Status == SubscriptionStatus.Active).Select(s => s.Id).ToListAsync();
         foreach (var id in active)

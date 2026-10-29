@@ -149,6 +149,13 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     suspend fun adminErrors(status: String) = call { api.adminErrors(status) }
     suspend fun adminResolveError(id: Int) = callUnit { api.adminResolveError(id) }
     suspend fun adminResolveAllErrors() = callUnit { api.adminResolveAllErrors() }
+    suspend fun adminDeleteError(id: Int) = callUnit { api.adminDeleteError(id) }
+    suspend fun adminClearResolvedErrors() = callUnit { api.adminClearResolvedErrors() }
+    suspend fun adminDeleteClass(id: Int) = callUnit { api.adminDeleteClass(id) }
+    suspend fun adminClearFinishedClasses() = call { api.adminClearFinishedClasses() }
+    suspend fun adminDeleteUser(id: String) = callUnit { api.adminDeleteUser(id) }
+    suspend fun adminDeleteProgramme(id: Int) = callUnit { api.adminDeleteProgramme(id) }
+    suspend fun adminDeletePlan(id: Int) = callUnit { api.adminDeletePlan(id) }
     suspend fun adminClasses() = call { api.adminClasses() }
     suspend fun adminBookings() = call { api.adminBookings() }
     suspend fun adminSubscriptions() = call { api.adminSubscriptions() }

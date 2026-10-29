@@ -9,8 +9,31 @@ namespace RhythmFlow.Api.Services;
 /// Lets administrators manage fitness programmes (FR-22): add one, rename it, change which plan level unlocks it, or hide it.
 /// Hiding keeps the lessons and customers' progress; the programme and its lessons simply stop appearing to customers.
 /// </summary>
-public class ProgrammeAdminService(AppDbContext db)
+public class ProgrammeAdminService(AppDbContext db, ScheduleAdminService? schedule = null)
 {
+    /// <summary>
+    /// Deletes a programme with all its lessons, the progress people made on them, and any uploaded video files. Unlike hiding, this cannot be undone.
+    /// </summary>
+    public async Task<(bool Ok, bool NotFound)> DeleteAsync(int id)
+    {
+        var p = await db.Programmes.FindAsync(id);
+        if (p is null) return (false, true);
+        var lessonIds = await db.Lessons.Where(l => l.ProgrammeId == id).Select(l => l.Id).ToListAsync();
+        foreach (var lid in lessonIds)
+        {
+            if (schedule is not null) await schedule.DeleteLessonAsync(lid);
+            else
+            {
+                db.Progress.RemoveRange(db.Progress.Where(x => x.LessonId == lid));
+                db.Lessons.Remove((await db.Lessons.FindAsync(lid))!);
+                await db.SaveChangesAsync();
+            }
+        }
+        db.Programmes.Remove(p);
+        await db.SaveChangesAsync();
+        return (true, false);
+    }
+
     public async Task<List<AdminProgrammeDto>> ListAsync()
     {
         var rows = await db.Programmes.AsNoTracking().Include(p => p.Lessons).OrderBy(p => p.Id).ToListAsync();

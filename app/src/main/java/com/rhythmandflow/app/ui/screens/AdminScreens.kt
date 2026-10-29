@@ -278,6 +278,8 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
     var minutes by remember { mutableStateOf("60") }
     var capacity by remember { mutableStateOf("20") }
     var cancel by remember { mutableStateOf<Int?>(null) }
+    var deleteClass by remember { mutableStateOf<com.rhythmandflow.app.data.ClassItem?>(null) }
+    var clearFinished by remember { mutableStateOf(false) }
     var editingId by remember { mutableStateOf<Int?>(null) }
     var description by remember { mutableStateOf("All levels welcome.") }
     // Event details: what it is, what a ticket costs, how people join it
@@ -404,7 +406,12 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
             })
             if (editingId != null) SecondaryButton("Cancel editing", onClick = { clearForm() })
             VSpace(8)
-            Text("Scheduled classes", style = MaterialTheme.typography.titleLarge)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Scheduled classes", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                if (state.classes.any { it.status != "SCHEDULED" || (parseInstant(it.endTime)?.toInstant()?.isBefore(java.time.Instant.now()) == true) }) {
+                    TextButton(onClick = { clearFinished = true }) { Text("Delete finished", color = Brand.Error) }
+                }
+            }
             state.classes.forEach { c ->
                 SoftCard(Modifier.fillMaxWidth(), onClick = { onAttendees(c.id) }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -433,12 +440,39 @@ fun AdminClassesScreen(onBack: () -> Unit, notify: (String) -> Unit, onAttendees
                                 }) { Text("Edit", color = Brand.TealDeep) }
                                 if (c.format == "ONLINE" && c.price > 0) TextButton(onClick = { scope.launch { notify(vm.sendLinks(c.id) ?: "Joining links sent to everyone who has not had one.") } }) { Text("Send links", color = Brand.TealDeep) }
                                 TextButton(onClick = { cancel = c.id }) { Text("Cancel", color = Brand.Error) }
+                                TextButton(onClick = { deleteClass = c }) { Text("Delete", color = Brand.Error) }
                             }
-                        } else InfoPill("Cancelled", color = Brand.LightGrey, textColor = Brand.Muted)
+                        } else Column(horizontalAlignment = Alignment.End) {
+                            InfoPill("Cancelled", color = Brand.LightGrey, textColor = Brand.Muted)
+                            TextButton(onClick = { deleteClass = c }) { Text("Delete", color = Brand.Error) }
+                        }
                     }
                 }
             }
         }
+    }
+    deleteClass?.let { c ->
+        AlertDialog(
+            onDismissRequest = { deleteClass = null },
+            title = { Text("Delete ${c.name}?") },
+            text = { Text("It is removed for good, along with its free bookings. A class that people paid for, or an upcoming class with people booked, can't be deleted: cancel it instead.") },
+            confirmButton = { TextButton(onClick = { deleteClass = null; scope.launch { notify(vm.deleteClass(c.id) ?: "Class deleted.") } }) { Text("Delete", color = Brand.Error) } },
+            dismissButton = { TextButton(onClick = { deleteClass = null }) { Text("Keep it") } },
+        )
+    }
+    if (clearFinished) {
+        AlertDialog(
+            onDismissRequest = { clearFinished = false },
+            title = { Text("Delete all finished and cancelled classes?") },
+            text = { Text("Every cancelled class, and every class that has already taken place, is removed for good. Any that people paid for are kept for your records.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    clearFinished = false
+                    scope.launch { val (n, err) = vm.clearFinishedClasses(); notify(err ?: "$n ${if (n == 1) "class" else "classes"} deleted.") }
+                }) { Text("Delete them", color = Brand.Error) }
+            },
+            dismissButton = { TextButton(onClick = { clearFinished = false }) { Text("Keep them") } },
+        )
     }
     cancel?.let { id ->
         AlertDialog(
@@ -456,6 +490,8 @@ fun AdminPlansScreen(onBack: () -> Unit, notify: (String) -> Unit) {
     val state by vm.state.collectAsState()
     var editing by remember { mutableStateOf<AdminPlan?>(null) }
     var adding by remember { mutableStateOf(false) }
+    var deletePlan by remember { mutableStateOf<AdminPlan?>(null) }
+    val planScope = rememberCoroutineScope()
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Subscription plans", onBack = onBack)
@@ -475,11 +511,23 @@ fun AdminPlansScreen(onBack: () -> Unit, notify: (String) -> Unit) {
                                 InfoPill("Hidden from customers", color = Brand.LightGrey, textColor = Brand.Muted)
                             }
                         }
-                        Text("Edit", color = Brand.TealDeep)
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Edit", color = Brand.TealDeep)
+                            TextButton(onClick = { deletePlan = p }) { Text("Delete", color = Brand.Error) }
+                        }
                     }
                 }
             }
         }
+    }
+    deletePlan?.let { p ->
+        AlertDialog(
+            onDismissRequest = { deletePlan = null },
+            title = { Text("Delete ${p.name}?") },
+            text = { Text("Only a plan nobody has ever held can be deleted. If customers have held it, hide it instead (Edit, then untick Visible to customers).") },
+            confirmButton = { TextButton(onClick = { deletePlan = null; planScope.launch { notify(vm.deletePlan(p.id) ?: "Plan deleted.") } }) { Text("Delete", color = Brand.Error) } },
+            dismissButton = { TextButton(onClick = { deletePlan = null }) { Text("Keep it") } },
+        )
     }
     if (adding) PlanFormDialog(
         initial = null, onDismiss = { adding = false },
