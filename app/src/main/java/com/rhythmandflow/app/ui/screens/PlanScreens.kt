@@ -331,8 +331,12 @@ fun SubscriptionScreen(
         Column(Modifier.vScroll().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val visible = subs.filter { it.status != "PENDING" && it.status != "FAILED" }
             if (visible.isEmpty()) {
-                EmptyState("No subscription yet", "Choose a plan to unlock every programme.")
-                PrimaryButton("View plans", onClick = onPlans)
+                if (com.rhythmandflow.app.BuildConfig.IN_APP_SUBSCRIPTIONS) {
+                    EmptyState("No subscription yet", "Choose a plan to unlock every programme.")
+                    PrimaryButton("View plans", onClick = onPlans)
+                } else {
+                    EmptyState("No subscription", "You don't have a membership on this account.")
+                }
             }
             visible.forEach { s ->
                 val startsLater = s.status == "ACTIVE" && isFuture(s.startDate)
@@ -359,7 +363,9 @@ fun SubscriptionScreen(
                 }
             }
             val renewing = visible.firstOrNull { it.status == "ACTIVE" && it.grantsAccess }
-            if (renewing != null) {
+            if (!com.rhythmandflow.app.BuildConfig.IN_APP_SUBSCRIPTIONS) {
+                // Google Play build: an existing member can still see and cancel the plan, but no purchase or plan-change is offered here.
+            } else if (renewing != null) {
                 SecondaryButton("Change plan", onClick = onPlans)
                 Text(
                     "Changing plan shows you the price difference and the start day before anything is confirmed. You keep your current plan until the end of the period you've paid for.",

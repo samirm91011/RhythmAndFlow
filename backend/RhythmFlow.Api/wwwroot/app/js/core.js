@@ -3,7 +3,7 @@
 
 const RF = {
   token: null, user: null, subs: null, demo: false,
-  legal: { terms: "https://rhythmandflow.co.za/terms-of-use/", privacy: "https://rhythmandflow.co.za/privacy-policy/" },
+  legal: { terms: "https://rhythmandflow.co.za/terms-of-use/", privacy: "/privacy.html" },
 };
 try { RF.token = localStorage.getItem("rf_token"); } catch (e) { /* private mode: stay signed out after a reload */ }
 RF.demo = new URLSearchParams(location.search).has("demo");

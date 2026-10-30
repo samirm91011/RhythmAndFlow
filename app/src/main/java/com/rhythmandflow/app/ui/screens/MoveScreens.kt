@@ -289,12 +289,18 @@ fun LessonDetailScreen(lessonId: Int, onBack: () -> Unit, onBegin: () -> Unit, o
                 if (lesson.locked) {
                     SoftCard(Modifier.fillMaxWidth(), background = Brand.TangerineSoft) {
                         Column {
-                            Text("Included with a subscription", style = MaterialTheme.typography.titleMedium)
-                            Text("Subscribe to ${lesson.programmeName} and everything in your plan.", color = Brand.Muted, style = MaterialTheme.typography.bodyMedium)
+                            Text(if (com.rhythmandflow.app.BuildConfig.IN_APP_SUBSCRIPTIONS) "Included with a subscription" else "Part of a Rhythm & Flow membership", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                if (com.rhythmandflow.app.BuildConfig.IN_APP_SUBSCRIPTIONS) "Subscribe to ${lesson.programmeName} and everything in your plan."
+                                else "This practice is in ${lesson.programmeName}, which is for members.",
+                                color = Brand.Muted, style = MaterialTheme.typography.bodyMedium,
+                            )
                         }
                     }
-                    VSpace(12)
-                    AccentButton("View plans", onClick = onPlans)
+                    if (com.rhythmandflow.app.BuildConfig.IN_APP_SUBSCRIPTIONS) {
+                        VSpace(12)
+                        AccentButton("View plans", onClick = onPlans)
+                    }
                 } else {
                     Text("What you'll need", style = MaterialTheme.typography.titleLarge)
                     VSpace(8)
@@ -400,7 +406,7 @@ fun PlayerScreen(lessonId: Int, onBack: () -> Unit, onFinished: () -> Unit, onPl
             state.error != null -> Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(state.error!!, color = Color.White, textAlign = TextAlign.Center)
                 VSpace(16)
-                if (state.locked) AccentButton("View plans", onClick = onPlans) else SecondaryButton("Try again", onClick = { vm.load() })
+                if (state.locked) { if (com.rhythmandflow.app.BuildConfig.IN_APP_SUBSCRIPTIONS) AccentButton("View plans", onClick = onPlans) } else SecondaryButton("Try again", onClick = { vm.load() })
             }
             state.youtubeId != null -> key(retries) {
                 // A free preview from the client's YouTube channel: YouTube's own player plays it.

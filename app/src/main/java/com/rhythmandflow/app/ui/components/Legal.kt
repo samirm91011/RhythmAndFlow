@@ -17,7 +17,8 @@ import com.rhythmandflow.app.ui.theme.Brand
 /** The client's own legal pages. They live on the Rhythm & Flow website, so there is one version to keep up to date. */
 object LegalLinks {
     const val TERMS = "https://rhythmandflow.co.za/terms-of-use/"
-    const val PRIVACY = "https://rhythmandflow.co.za/privacy-policy/"
+    /** The app's own privacy policy, which covers what the app collects (the website's policy covers the website). It is served by the same server the app uses. */
+    val PRIVACY: String get() = com.rhythmandflow.app.BuildConfig.API_BASE_URL.trimEnd('/') + "/privacy.html"
 }
 
 /** Says where the Terms of Use and Privacy Policy can be read, with tappable links to the website. */
