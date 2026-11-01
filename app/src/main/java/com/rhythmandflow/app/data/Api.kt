@@ -93,7 +93,8 @@ interface Api {
     @POST("api/admin/classes/clear-finished") suspend fun adminClearFinishedClasses(): RemovedCount
     @DELETE("api/admin/users/{id}") suspend fun adminDeleteUser(@Path("id") id: String): Response<Unit>
     @DELETE("api/admin/programmes/{id}") suspend fun adminDeleteProgramme(@Path("id") id: Int): Response<Unit>
-    @DELETE("api/admin/plans/{id}") suspend fun adminDeletePlan(@Path("id") id: Int): Response<Unit>
+    @DELETE("api/admin/plans/{id}") suspend fun adminDeletePlan(@Path("id") id: Int, @Query("force") force: Boolean = false): Response<Unit>
+    @GET("api/admin/plans/{id}/history") suspend fun adminPlanHistory(@Path("id") id: Int): PlanHistory
     @GET("api/admin/summary") suspend fun adminSummary(): AdminSummary
     @GET("api/admin/lessons") suspend fun adminLessons(): List<AdminLesson>
     @PUT("api/admin/lessons/{id}") suspend fun adminUpdateLesson(@Path("id") id: Int, @Body body: LessonUpsert): Response<Unit>

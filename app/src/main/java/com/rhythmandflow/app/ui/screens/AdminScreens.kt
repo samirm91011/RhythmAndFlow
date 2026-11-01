@@ -521,12 +521,32 @@ fun AdminPlansScreen(onBack: () -> Unit, notify: (String) -> Unit) {
         }
     }
     deletePlan?.let { p ->
+        var history by remember(p.id) { mutableStateOf<com.rhythmandflow.app.data.PlanHistory?>(null) }
+        var loaded by remember(p.id) { mutableStateOf(false) }
+        LaunchedEffect(p.id) { history = vm.planHistory(p.id); loaded = true }
+        val h = history
+        val held = h != null && h.subscriptions > 0
         AlertDialog(
             onDismissRequest = { deletePlan = null },
             title = { Text("Delete ${p.name}?") },
-            text = { Text("Only a plan nobody has ever held can be deleted. If customers have held it, hide it instead (Edit, then untick Visible to customers).") },
-            confirmButton = { TextButton(onClick = { deletePlan = null; planScope.launch { notify(vm.deletePlan(p.id) ?: "Plan deleted.") } }) { Text("Delete", color = Brand.Error) } },
-            dismissButton = { TextButton(onClick = { deletePlan = null }) { Text("Keep it") } },
+            text = {
+                Text(
+                    when {
+                        !loaded -> "Checking the plan's history…"
+                        h == null -> "It is removed for good."
+                        h.liveSubscriptions > 0 -> "${h.liveSubscriptions} ${if (h.liveSubscriptions == 1) "customer holds" else "customers hold"} this plan right now. Cancel their plan, or wait until it runs out, then delete it."
+                        held -> "This plan was held ${h.subscriptions} ${if (h.subscriptions == 1) "time" else "times"}, with ${h.payments} ${if (h.payments == 1) "payment" else "payments"} recorded (${formatRand(h.paidTotal)} in total). Deleting it removes those records too, for good. To keep the history, hide the plan instead (Edit, then untick Visible to customers)."
+                        else -> "It is removed for good. Nobody has ever held it."
+                    },
+                )
+            },
+            confirmButton = {
+                if (loaded && (h == null || h.liveSubscriptions == 0)) TextButton(onClick = {
+                    deletePlan = null
+                    planScope.launch { notify(vm.deletePlan(p.id, force = held) ?: "Plan deleted.") }
+                }) { Text(if (held) "Delete it and its history" else "Delete", color = Brand.Error) }
+            },
+            dismissButton = { TextButton(onClick = { deletePlan = null }) { Text(if (loaded && h != null && h.liveSubscriptions > 0) "OK" else "Keep it") } },
         )
     }
     if (adding) PlanFormDialog(

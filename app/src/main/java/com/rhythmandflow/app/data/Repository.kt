@@ -155,7 +155,8 @@ class Repository(private val api: Api, private val tokens: TokenStore, private v
     suspend fun adminClearFinishedClasses() = call { api.adminClearFinishedClasses() }
     suspend fun adminDeleteUser(id: String) = callUnit { api.adminDeleteUser(id) }
     suspend fun adminDeleteProgramme(id: Int) = callUnit { api.adminDeleteProgramme(id) }
-    suspend fun adminDeletePlan(id: Int) = callUnit { api.adminDeletePlan(id) }
+    suspend fun adminDeletePlan(id: Int, force: Boolean = false) = callUnit { api.adminDeletePlan(id, force) }
+    suspend fun adminPlanHistory(id: Int) = call { api.adminPlanHistory(id) }
     suspend fun adminClasses() = call { api.adminClasses() }
     suspend fun adminBookings() = call { api.adminBookings() }
     suspend fun adminSubscriptions() = call { api.adminSubscriptions() }

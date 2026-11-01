@@ -108,6 +108,51 @@ public class AdminDeleteTests
     }
 
     [Fact]
+    public async Task A_plan_with_history_can_be_deleted_when_confirmed_and_takes_its_subscriptions_and_payments_with_it()
+    {
+        using var t = new TestDb(); var svc = new PlanAdminService(t.Db); var u = t.AddUser();
+        var plan = t.AddPlan(1, 299); var other = t.AddPlan(2, 149);
+        var old = t.AddSubscription(u, plan, SubscriptionStatus.Cancelled, DateTime.UtcNow.AddDays(-10));
+        t.Db.Payments.Add(new Payment { SubscriptionId = old.Id, Amount = 299, Status = "COMPLETE", TransactionReference = "x" });
+        var keep = t.AddSubscription(u, other, SubscriptionStatus.Cancelled, DateTime.UtcNow.AddDays(-10));
+        t.Db.Payments.Add(new Payment { SubscriptionId = keep.Id, Amount = 149, Status = "COMPLETE", TransactionReference = "y" }); t.Db.SaveChanges();
+
+        var h = await svc.HistoryAsync(plan.Id);
+        Assert.Equal((1, 1, 299m, 0), (h!.Subscriptions, h.Payments, h.PaidTotal, h.LiveSubscriptions));
+        Assert.False((await svc.DeleteAsync(plan.Id)).Ok);                     // not without confirming
+        var (ok, _, error) = await svc.DeleteAsync(plan.Id, force: true);
+
+        Assert.True(ok, error);
+        Assert.Equal([other.Id], t.Db.Plans.Select(p => p.Id).ToList());
+        Assert.Equal([keep.Id], t.Db.Subscriptions.Select(s => s.Id).ToList());   // another plan's history is untouched
+        Assert.Equal(["y"], t.Db.Payments.Select(p => p.TransactionReference!).ToList());
+    }
+
+    [Fact]
+    public async Task Subscriptions_left_by_deleted_accounts_and_old_abandoned_checkouts_do_not_block_deleting_a_plan()
+    {
+        using var t = new TestDb(); var svc = new PlanAdminService(t.Db);
+        var plan = t.AddPlan(1, 299); var gone = t.AddUser("Gone"); var drifter = t.AddUser("Drifter");
+        t.AddSubscription(gone, plan, SubscriptionStatus.Cancelled, DateTime.UtcNow.AddDays(20));     // paid up, but the account was deleted
+        var stale = t.AddSubscription(drifter, plan, SubscriptionStatus.Pending); stale.CreatedAt = DateTime.UtcNow.AddDays(-3);
+        gone.AccountStatus = "DELETED"; t.Db.SaveChanges();
+
+        Assert.Equal(0, (await svc.HistoryAsync(plan.Id))!.LiveSubscriptions);
+        Assert.True((await svc.DeleteAsync(plan.Id, force: true)).Ok);
+        Assert.Empty(t.Db.Plans); Assert.Empty(t.Db.Subscriptions);
+    }
+    [Fact]
+    public async Task A_plan_somebody_is_still_on_cannot_be_deleted_even_when_confirmed()
+    {
+        using var t = new TestDb(); var svc = new PlanAdminService(t.Db);
+        var plan = t.AddPlan(1, 149); t.AddSubscription(t.AddUser(), plan, SubscriptionStatus.Active, DateTime.UtcNow.AddDays(20));
+
+        var (ok, _, error) = await svc.DeleteAsync(plan.Id, force: true);
+
+        Assert.False(ok); Assert.Contains("holds this plan right now", error); Assert.Single(t.Db.Plans); Assert.Single(t.Db.Subscriptions);
+        Assert.Null(await svc.HistoryAsync(999));
+    }
+    [Fact]
     public async Task Deleting_a_programme_removes_its_lessons_and_the_progress_on_them_but_not_other_programmes()
     {
         using var t = new TestDb(); var u = t.AddUser();

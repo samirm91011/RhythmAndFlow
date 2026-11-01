@@ -388,8 +388,18 @@ route("/admin/plans", async (el) => {
     const dl = e.target.closest("[data-delplan]");
     if (dl) {
       const p = el._rows.find((x) => String(x.id) === dl.dataset.delplan);
-      return dialog({ title: `Delete ${p.name}?`, text: "Only a plan nobody has ever held can be deleted. If customers have held it, hide it instead (Edit, then untick Visible to customers).", ok: "Delete", cancel: "Keep it", danger: true })
-        .then(async (yes) => { if (!yes) return; try { await api("DELETE", `/api/admin/plans/${p.id}`); toast("Plan deleted."); await draw(); } catch (err) { toast(err.message); } });
+      return (async () => {
+        try {
+          const h = await api("GET", `/api/admin/plans/${p.id}/history`);
+          if (h.liveSubscriptions > 0) return toast(`${h.liveSubscriptions} ${h.liveSubscriptions === 1 ? "customer holds" : "customers hold"} this plan right now. Cancel their plan, or wait until it runs out, then delete it.`);
+          const history = h.subscriptions > 0;
+          const text = history
+            ? `This plan was held ${h.subscriptions} ${h.subscriptions === 1 ? "time" : "times"}, with ${h.payments} ${h.payments === 1 ? "payment" : "payments"} recorded (${fmtRand(h.paidTotal)} in total). Deleting it removes those records too, for good. To keep the history, hide the plan instead (Edit, then untick Visible to customers).`
+            : "It is removed for good. Nobody has ever held it.";
+          if (!(await dialog({ title: `Delete ${p.name}?`, text, ok: history ? "Delete it and its history" : "Delete", cancel: "Keep it", danger: true }))) return;
+          await api("DELETE", `/api/admin/plans/${p.id}${history ? "?force=true" : ""}`); toast("Plan deleted."); await draw();
+        } catch (err) { toast(err.message); }
+      })();
     }
     const ed = e.target.closest("[data-edit]"); if (ed) form(el._rows.find((x) => String(x.id) === ed.dataset.edit));
   };
