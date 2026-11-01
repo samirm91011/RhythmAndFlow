@@ -479,7 +479,8 @@ class AdminViewModel(private val c: AppContainer) : ViewModel() {
         is Outcome.Ok -> { load(); r.value.removed to null }
         is Outcome.Fail -> null to r.message
     }
-    suspend fun deletePlan(id: Int) = after(repo.adminDeletePlan(id))
+    suspend fun planHistory(id: Int): com.rhythmandflow.app.data.PlanHistory? = (repo.adminPlanHistory(id) as? Outcome.Ok)?.value
+    suspend fun deletePlan(id: Int, force: Boolean = false) = after(repo.adminDeletePlan(id, force))
     suspend fun createLesson(l: LessonUpsert) = after(repo.adminCreateLesson(l))
 
     /** The wording the client edits: loads it, saves it, or goes back to the built-in wording. Save and reset return a message if refused. */

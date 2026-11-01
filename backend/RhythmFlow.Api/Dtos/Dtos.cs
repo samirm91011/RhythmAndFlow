@@ -138,6 +138,7 @@ public record AdminLessonDto(
     int Id, int ProgrammeId, string ProgrammeName, string Title, string Description, string Category, string Level,
     int DurationSeconds, string VideoProvider, string VideoReference, bool IsPreview);
 
+public record PlanHistoryDto(int Subscriptions, int Payments, decimal PaidTotal, int LiveSubscriptions);
 public record AdminPlanDto(
     int Id, string Name, string Description, decimal Price, string BillingFrequency, int Tier, List<string> Features, string Status,
     decimal? AnnualPrice = null, decimal? LaunchPrice = null, DateTime? LaunchEndsAt = null, int TrialDays = 0);

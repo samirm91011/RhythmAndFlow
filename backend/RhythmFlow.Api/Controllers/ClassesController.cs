@@ -362,10 +362,14 @@ public class AdminController(AppContentService appContent, IVideoStorage videoSt
         return ok ? id : BadRequest(new { error });
     }
 
+    /// <summary>What deleting a plan would also remove (customers who held it and their payments).</summary>
+    [HttpGet("plans/{id:int}/history")]
+    public async Task<ActionResult<PlanHistoryDto>> PlanHistory(int id) => await plansAdmin.HistoryAsync(id) is { } h ? h : NotFound();
+
     [HttpDelete("plans/{id:int}")]
-    public async Task<IActionResult> DeletePlan(int id)
+    public async Task<IActionResult> DeletePlan(int id, [FromQuery] bool force = false)
     {
-        var (ok, notFound, error) = await plansAdmin.DeleteAsync(id);
+        var (ok, notFound, error) = await plansAdmin.DeleteAsync(id, force);
         if (notFound) return NotFound();
         return ok ? NoContent() : BadRequest(new { error });
     }

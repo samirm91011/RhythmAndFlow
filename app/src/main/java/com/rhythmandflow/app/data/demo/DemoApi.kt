@@ -499,5 +499,6 @@ class DemoApi : Api {
     override suspend fun adminClearFinishedClasses(): RemovedCount { pause(); return RemovedCount(0) }
     override suspend fun adminDeleteUser(id: String): Response<Unit> { pause(); demoUsers.removeAll { it.id == id }; return ok() }
     override suspend fun adminDeleteProgramme(id: Int): Response<Unit> { pause(); demoProgrammes.removeAll { it.id == id }; return ok() }
-    override suspend fun adminDeletePlan(id: Int): Response<Unit> { pause(); return ok() }
+    override suspend fun adminDeletePlan(id: Int, force: Boolean): Response<Unit> { pause(); return ok() }
+    override suspend fun adminPlanHistory(id: Int): PlanHistory { pause(); return PlanHistory(0, 0, 0.0, 0) }
 }

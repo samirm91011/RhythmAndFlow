@@ -43,15 +43,46 @@ public class PlanAdminService(AppDbContext db)
     /// Deletes a plan nobody has ever held. A plan that has any subscription or payment history cannot be deleted, because those records refer to it:
     /// hide it instead, so no new customer can choose it.
     /// </summary>
-    public async Task<(bool Ok, bool NotFound, string? Error)> DeleteAsync(int id)
+    public async Task<(bool Ok, bool NotFound, string? Error)> DeleteAsync(int id, bool force = false)
     {
         var plan = await db.Plans.FindAsync(id);
         if (plan is null) return (false, true, null);
-        if (await db.Subscriptions.AnyAsync(s => s.PlanId == id))
-            return (false, false, "Customers have held this plan, so it has to stay on record. Hide it instead.");
+        var subs = await db.Subscriptions.Where(s => s.PlanId == id).ToListAsync();
+        if (subs.Count > 0)
+        {
+            if (!force) return (false, false, "Customers have held this plan, so it has to stay on record. Hide it instead, or confirm that you want its history removed too.");
+            // Someone is still paying for it (or is inside a plan they paid for): that has to run out or be cancelled first.
+            var live = await LiveAsync(subs);
+            if (live > 0) return (false, false, $"{live} {(live == 1 ? "customer holds" : "customers hold")} this plan right now. Cancel their plan, or wait until it runs out, then delete it.");
+            var ids = subs.Select(s => s.Id).ToList();
+            db.Payments.RemoveRange(db.Payments.Where(p => ids.Contains(p.SubscriptionId)));
+            db.Subscriptions.RemoveRange(subs);
+        }
         db.Plans.Remove(plan);
         await db.SaveChangesAsync();
         return (true, false, null);
+    }
+
+    /// <summary>What deleting this plan would remove besides the plan itself, so the administrator can decide knowing the facts.</summary>
+    public async Task<PlanHistoryDto?> HistoryAsync(int id)
+    {
+        if (!await db.Plans.AnyAsync(p => p.Id == id)) return null;
+        var subs = await db.Subscriptions.AsNoTracking().Where(s => s.PlanId == id).ToListAsync();
+        var ids = subs.Select(s => s.Id).ToList();
+        var pays = await db.Payments.AsNoTracking().Where(p => ids.Contains(p.SubscriptionId)).ToListAsync();
+        return new PlanHistoryDto(subs.Count, pays.Count(p => p.Status == "COMPLETE"), pays.Where(p => p.Status == "COMPLETE").Sum(p => p.Amount), await LiveAsync(subs));
+    }
+
+    /// <summary>
+    /// How many of these subscriptions still matter to a real, current customer: access that has not run out, or a checkout started in the last day.
+    /// Subscriptions left behind by deleted accounts, and old abandoned checkouts, do not count.
+    /// </summary>
+    private async Task<int> LiveAsync(List<Subscription> subs)
+    {
+        var ids = subs.Select(s => s.UserId).Distinct().ToList();
+        var gone = (await db.Users.AsNoTracking().Where(u => ids.Contains(u.Id) && u.AccountStatus == "DELETED").Select(u => u.Id).ToListAsync()).ToHashSet();
+        var recent = DateTime.UtcNow.AddDays(-1);
+        return subs.Count(s => !gone.Contains(s.UserId) && (EntitlementService.GrantsAccess(s) || (s.Status == SubscriptionStatus.Pending && s.CreatedAt > recent)));
     }
 
     private async Task<bool> NameTakenAsync(string name, int? exceptId)
