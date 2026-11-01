@@ -184,7 +184,7 @@ public class AdminController(AppContentService appContent, IVideoStorage videoSt
         var active = await db.Subscriptions.Include(s => s.Plan)
             .Where(s => s.Status == SubscriptionStatus.Active && (s.EndDate == null || s.EndDate > now)).ToListAsync();
         return new AdminSummaryDto(
-            await db.Users.CountAsync(u => u.Role == Roles.Customer),
+            await db.Users.CountAsync(u => u.Role == Roles.Customer && u.AccountStatus != "DELETED"),
             active.Count,
             await db.Classes.CountAsync(c => c.Status == "SCHEDULED" && c.StartTime > now),
             await db.Bookings.CountAsync(b => b.Status == BookingStatus.Booked && b.Class!.StartTime > now),
