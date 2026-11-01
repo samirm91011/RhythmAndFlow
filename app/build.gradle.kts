@@ -13,7 +13,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.rhythmandflow.app"
+        applicationId = "za.co.rhythmandflow.app"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

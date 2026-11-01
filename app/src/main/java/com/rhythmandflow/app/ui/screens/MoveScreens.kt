@@ -491,7 +491,7 @@ private fun YouTubePlayer(videoId: String, startSeconds: Int, onError: (Int) -> 
     }
 }
 
-private const val YOUTUBE_EMBED_ORIGIN = "https://com.rhythmandflow.app"
+private val YOUTUBE_EMBED_ORIGIN = "https://${com.rhythmandflow.app.BuildConfig.APPLICATION_ID}"
 
 private fun youTubeEmbedUrl(videoId: String, startSeconds: Int): String =
     "https://www.youtube.com/embed/$videoId?playsinline=1&rel=0&modestbranding=1&start=$startSeconds&origin=$YOUTUBE_EMBED_ORIGIN"
